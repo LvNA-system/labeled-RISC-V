@@ -11,7 +11,7 @@ if {[llength $argv] > 0} {
 # these variables point to the root directory location
 # of various source types - change this to point to 
 # any directory location accessible to the machine
-set projectRoot ./project
+set projectRoot $thisDir/../project
 set rtlRoot $thisDir/srcs/rtl
 set ipRoot $thisDir/srcs/ip
 set bdRoot $thisDir/srcs/bd
