@@ -2,7 +2,7 @@
 set thisDir [file dirname [info script]]
 
 if {[llength $argv] > 0} {
-	set projectName $argv
+	set projectName [lindex $argv 0]
 } else {
 	set projectName rocket
 }
@@ -11,11 +11,11 @@ if {[llength $argv] > 0} {
 # these variables point to the root directory location
 # of various source types - change this to point to 
 # any directory location accessible to the machine
-set projectRoot $thisDir/../project
-set rtlRoot $thisDir/srcs/rtl
-set ipRoot $thisDir/srcs/ip
-set bdRoot $thisDir/srcs/bd
-set xdcRoot $thisDir/constrs
+set projectRoot $thisDir/../../project
+set rtlRoot $thisDir/../srcs/rtl
+set ipRoot $thisDir/../srcs/ip
+set bdRoot $thisDir/../srcs/bd
+set xdcRoot $thisDir/../constrs
 
 puts "INFO:  projectRoot is $projectRoot"
 puts "INFO:  rtlRoot is $rtlRoot"
