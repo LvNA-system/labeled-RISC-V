@@ -3,4 +3,4 @@ project/target
 *.swp
 *~
 .addons-dont-touch
-srcs/rtl/rocketchip.v
+srcs/rtl/rocket/rocketchip.v
