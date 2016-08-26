@@ -40,7 +40,7 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 
 # The design that will be created by this Tcl script contains the following 
 # module references:
-# cdma_addr, uart_inverter, rocketchip_top, vc709_sfp
+# CoreControlPlane, cdma_addr, i2c_switch_top, uart_inverter, rocketchip_top, vc709_sfp
 
 # Please add the sources of those modules before sourcing this Tcl script.
 
@@ -757,75 +757,6 @@ CONFIG.NUM_PORTS {3} \
   connect_bd_net -net signal_detect_1 [get_bd_pins signal_detect] [get_bd_pins axi_ethernet/signal_detect]
   connect_bd_net -net xlconcat_interrupts_dout [get_bd_pins interrupts] [get_bd_pins xlconcat_interrupts/dout]
 
-  # Perform GUI Layout
-  regenerate_bd_layout -hierarchy [get_bd_cells /PRMSYS/PRM_CORE/ethernet_block] -layout_string {
-   guistr: "# # String gsaved with Nlview 6.5.12  2016-01-29 bk=1.3547 VDI=39 GEI=35 GUI=JA:1.6
-#  -string -flagsOSRD
-preplace port ref_clk -pg 1 -y 660 -defaultsOSRD
-preplace port S_AXI_LITE -pg 1 -y 390 -defaultsOSRD
-preplace port gt0_qplloutclk_out -pg 1 -y 620 -defaultsOSRD
-preplace port M_AXI_MM2S -pg 1 -y 240 -defaultsOSRD
-preplace port userclk_out -pg 1 -y 560 -defaultsOSRD
-preplace port userclk2_out -pg 1 -y 580 -defaultsOSRD
-preplace port gt0_qplloutrefclk_out -pg 1 -y 640 -defaultsOSRD
-preplace port M_AXI_S2MM -pg 1 -y 260 -defaultsOSRD
-preplace port m_axi_mem_aclk -pg 1 -y 320 -defaultsOSRD
-preplace port sfp -pg 1 -y 480 -defaultsOSRD
-preplace port mmcm_locked_out -pg 1 -y 500 -defaultsOSRD
-preplace port gtref_clk_out -pg 1 -y 660 -defaultsOSRD
-preplace port gtref_clk_buf_out -pg 1 -y 680 -defaultsOSRD
-preplace port s_axi_lite_aclk -pg 1 -y 410 -defaultsOSRD
-preplace port rxuserclk_out -pg 1 -y 520 -defaultsOSRD
-preplace port rxuserclk2_out -pg 1 -y 540 -defaultsOSRD
-preplace port mgt_clk -pg 1 -y 480 -defaultsOSRD
-preplace port M_AXI_SG -pg 1 -y 220 -defaultsOSRD
-preplace port pma_reset_out -pg 1 -y 600 -defaultsOSRD
-preplace portBus s_axi_lite_aresetn -pg 1 -y 430 -defaultsOSRD
-preplace portBus interrupts -pg 1 -y 80 -defaultsOSRD
-preplace portBus signal_detect -pg 1 -y 640 -defaultsOSRD
-preplace inst xlconcat_interrupts -pg 1 -lvl 3 -y 80 -defaultsOSRD
-preplace inst axi_lite_xbar -pg 1 -lvl 1 -y 410 -defaultsOSRD
-preplace inst axi_ethernet_dma -pg 1 -lvl 3 -y 320 -defaultsOSRD
-preplace inst axi_ethernet -pg 1 -lvl 2 -y 540 -defaultsOSRD
-preplace netloc Conn1 1 2 2 NJ 480 NJ
-preplace netloc S_AXI_LITE_1 1 0 1 NJ
-preplace netloc axi_ethernet_0_dma_M_AXIS_MM2S 1 1 3 330 10 NJ 10 1110
-preplace netloc s_axi_lite_aresetn_1 1 0 3 -60 500 260 750 NJ
-preplace netloc axi_ethernet_gtref_clk_out 1 2 2 NJ 660 NJ
-preplace netloc Conn2 1 0 2 NJ 480 NJ
-preplace netloc axi_ethernet_userclk_out 1 2 2 NJ 560 NJ
-preplace netloc axi_ethernet_dma_mm2s_introut 1 2 2 690 470 1110
-preplace netloc ref_clk_1 1 0 2 NJ 660 NJ
-preplace netloc axi_ethernet_gtref_clk_buf_out 1 2 2 NJ 680 NJ
-preplace netloc axi_ethernet_rxuserclk_out 1 2 2 NJ 520 NJ
-preplace netloc xlconcat_interrupts_dout 1 3 1 NJ
-preplace netloc signal_detect_1 1 0 2 NJ 640 NJ
-preplace netloc axi_ethernet_gt0_qplloutclk_out 1 2 2 NJ 620 NJ
-preplace netloc axi_ethernet_0_dma_mm2s_prmry_reset_out_n 1 1 3 340 160 NJ 160 1100
-preplace netloc axi_ethernet_0_dma_M_AXIS_CNTRL 1 1 3 300 0 NJ 0 1140
-preplace netloc axi_ethernet_pma_reset_out 1 2 2 NJ 600 NJ
-preplace netloc axi_ethernet_0_dma_mm2s_cntrl_reset_out_n 1 1 3 310 150 NJ 150 1130
-preplace netloc axi_ethernet_dma_M_AXI_MM2S 1 3 1 NJ
-preplace netloc axi_lite_xbar_M00_AXI 1 1 1 280
-preplace netloc axi_lite_xbar_M01_AXI 1 1 2 250 740 NJ
-preplace netloc axi_ethernet_interrupt 1 2 1 640
-preplace netloc axi_ethernet_gt0_qplloutrefclk_out 1 2 2 NJ 640 NJ
-preplace netloc axi_ethernet_0_dma_s2mm_prmry_reset_out_n 1 1 3 320 170 NJ 170 1120
-preplace netloc axi_ethernet_dma_M_AXI_S2MM 1 3 1 NJ
-preplace netloc axi_ethernet_0_m_axis_rxd 1 2 1 650
-preplace netloc axi_ethernet_userclk2_out 1 2 2 NJ 580 NJ
-preplace netloc axi_ethernet_mmcm_locked_out 1 2 2 NJ 500 NJ
-preplace netloc axi_ethernet_dma_s2mm_introut 1 2 2 700 490 1100
-preplace netloc m_axi_mem_aclk_1 1 0 3 NJ 320 270 330 680
-preplace netloc axi_ethernet_0_m_axis_rxs 1 2 1 670
-preplace netloc s_axi_lite_aclk_1 1 0 3 -50 490 290 310 NJ
-preplace netloc axi_ethernet_dma_M_AXI_SG 1 3 1 NJ
-preplace netloc axi_ethernet_rxuserclk2_out 1 2 2 NJ 540 NJ
-preplace netloc axi_ethernet_0_dma_s2mm_sts_reset_out_n 1 1 3 340 760 NJ 760 1120
-levelinfo -pg 1 -80 120 490 930 1160 -top -10 -bot 770
-",
-}
-
   # Restore current instance
   current_bd_instance $oldCurInst
 }
@@ -1168,145 +1099,6 @@ CONFIG.NUM_PORTS {10} \
   connect_bd_net -net signal_detect_1 [get_bd_pins signal_detect] [get_bd_pins ethernet_block/signal_detect]
   connect_bd_net -net timer_interrupt [get_bd_pins prm_timer/interrupt] [get_bd_pins prmcore_xlconcat/In0]
 
-  # Perform GUI Layout
-  regenerate_bd_layout -hierarchy [get_bd_cells /PRMSYS/PRM_CORE] -layout_string {
-   DisplayTieOff: "1",
-   guistr: "# # String gsaved with Nlview 6.5.12  2016-01-29 bk=1.3547 VDI=39 GEI=35 GUI=JA:1.6
-#  -string -flagsOSRD
-preplace port M_AXI_CDMA_SG -pg 1 -y 1360 -defaultsOSRD
-preplace port EMC_INTF -pg 1 -y 190 -defaultsOSRD
-preplace port io_clk -pg 1 -y 1760 -defaultsOSRD
-preplace port M_AXI_DC -pg 1 -y 1810 -defaultsOSRD
-preplace port processor_clk -pg 1 -y 1630 -defaultsOSRD
-preplace port UART -pg 1 -y 900 -defaultsOSRD
-preplace port M_AXI_ETHERNET_MM2S -pg 1 -y 1900 -defaultsOSRD
-preplace port mem_clk -pg 1 -y 2020 -defaultsOSRD
-preplace port gt0_qplloutclk_out -pg 1 -y 1980 -defaultsOSRD
-preplace port M_AXI_IC -pg 1 -y 1830 -defaultsOSRD
-preplace port M_AXI_CDMA -pg 1 -y 1340 -defaultsOSRD
-preplace port userclk_out -pg 1 -y 2180 -defaultsOSRD
-preplace port M_AXI_ETHERNET_SG -pg 1 -y 1940 -defaultsOSRD
-preplace port userclk2_out -pg 1 -y 2160 -defaultsOSRD
-preplace port gt0_qplloutrefclk_out -pg 1 -y 2000 -defaultsOSRD
-preplace port M_AXI_ETHERNET_S2MM -pg 1 -y 1920 -defaultsOSRD
-preplace port sfp -pg 1 -y 1960 -defaultsOSRD
-preplace port SYS_UART_0 -pg 1 -y 310 -defaultsOSRD
-preplace port IIC -pg 1 -y 730 -defaultsOSRD
-preplace port mmcm_locked_out -pg 1 -y 2080 -defaultsOSRD
-preplace port SYS_UART_1 -pg 1 -y 450 -defaultsOSRD
-preplace port gtref_clk_out -pg 1 -y 2040 -defaultsOSRD
-preplace port gtref_clk_buf_out -pg 1 -y 2020 -defaultsOSRD
-preplace port SYS_UART_2 -pg 1 -y 590 -defaultsOSRD
-preplace port M_AXI_APM -pg 1 -y 1280 -defaultsOSRD
-preplace port m_axi_aclk -pg 1 -y 1430 -defaultsOSRD
-preplace port dcm_locked -pg 1 -y 1670 -defaultsOSRD
-preplace port SYS_UART_3 -pg 1 -y 1200 -defaultsOSRD
-preplace port rxuserclk_out -pg 1 -y 2140 -defaultsOSRD
-preplace port rxuserclk2_out -pg 1 -y 2120 -defaultsOSRD
-preplace port mgt_clk -pg 1 -y 2000 -defaultsOSRD
-preplace port pma_reset_out -pg 1 -y 2100 -defaultsOSRD
-preplace portBus apm_interrupt -pg 1 -y 890 -defaultsOSRD
-preplace portBus peripheral_aresetn -pg 1 -y 1850 -defaultsOSRD
-preplace portBus signal_detect -pg 1 -y 2100 -defaultsOSRD
-preplace portBus DMA_DS_ID -pg 1 -y 60 -defaultsOSRD
-preplace portBus processor_aresetn -pg 1 -y 1790 -defaultsOSRD
-preplace portBus ext_reset_in -pg 1 -y 1650 -defaultsOSRD
-preplace portBus prm_softreset -pg 1 -y 1530 -defaultsOSRD
-preplace inst rst_io_clk -pg 1 -lvl 4 -y 1560 -defaultsOSRD
-preplace inst prmcore -pg 1 -lvl 3 -y 1800 -defaultsOSRD
-preplace inst axi_iic_0 -pg 1 -lvl 5 -y 750 -defaultsOSRD
-preplace inst prm_timer -pg 1 -lvl 5 -y 1060 -defaultsOSRD
-preplace inst prmcore_local_memory -pg 1 -lvl 4 -y 1720 -defaultsOSRD
-preplace inst prm_uartlite -pg 1 -lvl 5 -y 910 -defaultsOSRD
-preplace inst axi_gpio_softreset -pg 1 -lvl 5 -y 1520 -defaultsOSRD
-preplace inst axi_cdma_0 -pg 1 -lvl 5 -y 1360 -defaultsOSRD
-preplace inst rst_processor_clk -pg 1 -lvl 1 -y 1670 -defaultsOSRD
-preplace inst mdm_1 -pg 1 -lvl 2 -y 1590 -defaultsOSRD
-preplace inst axi_gpio_dma_dsid -pg 1 -lvl 5 -y 60 -defaultsOSRD
-preplace inst prmcore_xlconcat -pg 1 -lvl 1 -y 800 -defaultsOSRD
-preplace inst axi_emc_flash -pg 1 -lvl 5 -y 190 -defaultsOSRD
-preplace inst prmcore_axi_intc -pg 1 -lvl 2 -y 1770 -defaultsOSRD
-preplace inst axi_uartlite_0 -pg 1 -lvl 5 -y 320 -defaultsOSRD
-preplace inst axi_uartlite_1 -pg 1 -lvl 5 -y 460 -defaultsOSRD
-preplace inst axi_uartlite_2 -pg 1 -lvl 5 -y 600 -defaultsOSRD
-preplace inst prmcore_axi_periph -pg 1 -lvl 4 -y 1050 -defaultsOSRD
-preplace inst ethernet_block -pg 1 -lvl 5 -y 2040 -defaultsOSRD
-preplace inst axi_uartlite_3 -pg 1 -lvl 5 -y 1210 -defaultsOSRD
-preplace netloc prmcore_intr 1 1 1 460
-preplace netloc prmcore_axi_periph_M07_AXI 1 4 1 1700
-preplace netloc timer_interrupt 1 0 6 70 660 NJ 660 NJ 660 NJ 660 NJ 840 2130
-preplace netloc Conn10 1 5 1 NJ
-preplace netloc prmcore_ilmb_1 1 3 1 1190
-preplace netloc Conn11 1 5 1 NJ
-preplace netloc axi_uartlite_0_interrupt1 1 0 6 20 390 NJ 390 NJ 390 NJ 390 NJ 390 2130
-preplace netloc Conn12 1 0 5 NJ 2000 NJ 2000 NJ 2000 NJ 2000 NJ
-preplace netloc memclk_1 1 0 5 NJ 2020 NJ 2020 NJ 2020 NJ 2020 1620
-preplace netloc ethernet_block_rxuserclk2_out 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M02_AXI 1 4 1 1710
-preplace netloc Conn13 1 4 2 NJ 1280 NJ
-preplace netloc ethernet_block_pma_reset_out 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M06_AXI 1 4 1 1720
-preplace netloc In9_1 1 0 1 NJ
-preplace netloc dcm_locked_1 1 0 4 60 1580 NJ 1650 NJ 1600 NJ
-preplace netloc rst_processor_clk_bus_struct_reset 1 1 3 NJ 1660 NJ 1660 1170
-preplace netloc ethernet_block_gt0_qplloutclk_out 1 5 1 NJ
-preplace netloc ethernet_block_gt0_qplloutrefclk_out 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M05_AXI 1 4 1 1690
-preplace netloc prmcore_intc_axi 1 1 4 480 1420 NJ 1420 NJ 1430 1590
-preplace netloc ethernet_block_rxuserclk_out 1 5 1 NJ
-preplace netloc rst_Clk_100M_interconnect_aresetn 1 3 2 1220 670 1600
-preplace netloc processor_clk_1 1 0 4 40 1560 430 1870 710 1700 1220
-preplace netloc rst_processor_clk_peripheral_aresetn 1 1 5 NJ 1670 NJ 1670 1200 1800 NJ 1790 NJ
-preplace netloc ethernet_block_mmcm_locked_out 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M10_AXI 1 4 1 1640
-preplace netloc mdm_1_debug_sys_rst 1 2 2 NJ 1580 N
-preplace netloc axi_iic_0_iic2intc_irpt 1 0 6 50 610 NJ 610 NJ 610 NJ 610 NJ 820 2130
-preplace netloc prmcore_dlmb_1 1 3 1 1160
-preplace netloc s_axi_aclk_1 1 0 5 NJ 1760 440 1510 NJ 1510 1210 650 1740
-preplace netloc prmcore_interrupt 1 2 1 N
-preplace netloc axi_uartlite_0_UART 1 5 1 NJ
-preplace netloc reset_rtl_1 1 0 4 20 1530 NJ 1530 NJ 1530 1190
-preplace netloc rst_Clk_100M_peripheral_aresetn 1 1 5 470 1370 NJ 1370 1170 600 1610 1840 NJ
-preplace netloc ethernet_block_M_AXI_S2MM 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M11_AXI 1 4 1 1620
-preplace netloc ethernet_block_gtref_clk_out 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M09_AXI 1 4 1 1680
-preplace netloc ethernet_block_interrupts 1 0 6 10 590 NJ 590 NJ 590 NJ 590 NJ 830 2150
-preplace netloc axi_uartlite_3_interrupt 1 0 6 60 1440 NJ 1440 NJ 1440 NJ 1440 NJ 1440 2140
-preplace netloc prmcore_axi_dp 1 3 1 1180
-preplace netloc rst_processor_clk_mb_reset 1 1 2 410 1880 NJ
-preplace netloc signal_detect_1 1 0 5 NJ 2100 NJ 2100 NJ 2100 NJ 2100 NJ
-preplace netloc ethernet_block_M_AXI_MM2S 1 5 1 NJ
-preplace netloc ethernet_block_gtref_clk_buf_out 1 5 1 NJ
-preplace netloc prmcore_debug 1 2 1 700
-preplace netloc axi_uartlite_2_interrupt 1 0 6 40 640 NJ 640 NJ 640 NJ 640 NJ 670 2130
-preplace netloc prmcore_axi_periph_M13_AXI 1 4 1 1660
-preplace netloc m_axi_aclk_1 1 0 5 NJ 1450 NJ 1450 NJ 1450 NJ 1450 NJ
-preplace netloc axi_uartlite_1_interrupt 1 0 6 30 530 NJ 530 NJ 530 NJ 530 NJ 530 2130
-preplace netloc ethernet_block_userclk_out 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M04_AXI 1 4 1 1670
-preplace netloc Conn1 1 5 1 NJ
-preplace netloc axi_uartlite_0_interrupt 1 0 6 60 630 NJ 630 NJ 630 NJ 630 NJ 680 2140
-preplace netloc Conn2 1 5 1 NJ
-preplace netloc Conn3 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M08_AXI 1 4 1 1650
-preplace netloc Conn4 1 5 1 NJ
-preplace netloc ethernet_block_M_AXI_SG 1 5 1 NJ
-preplace netloc axi_gpio_softreset_gpio_io_o 1 5 1 NJ
-preplace netloc prmcore_axi_periph_M01_AXI 1 4 1 1730
-preplace netloc Conn5 1 5 1 NJ
-preplace netloc ethernet_block_userclk2_out 1 5 1 NJ
-preplace netloc axi_gpio_0_gpio_io_o 1 5 1 2130
-preplace netloc Conn6 1 5 1 NJ
-preplace netloc Conn7 1 5 1 NJ
-preplace netloc axi_cdma_0_cdma_introut 1 0 6 70 1460 NJ 1460 NJ 1460 NJ 1460 NJ 1450 2130
-preplace netloc Conn8 1 3 3 NJ 1810 NJ 1810 NJ
-preplace netloc prmcore_axi_periph_M03_AXI 1 4 1 1700
-preplace netloc Conn9 1 3 3 NJ 1820 NJ 1820 NJ
-levelinfo -pg 1 -10 240 590 940 1420 1960 2180 -top 0 -bot 2230
-",
-}
-
   # Restore current instance
   current_bd_instance $oldCurInst
 }
@@ -1426,46 +1218,6 @@ CONFIG.DIN_WIDTH {4} \
   connect_bd_net -net vc709_sfp_0_signal_detect [get_bd_pins vc709_sfp_0/signal_detect] [get_bd_pins xlslice_0/Din]
   connect_bd_net -net xlconstant_0_dout [get_bd_pins proc_sys_reset_0/aux_reset_in] [get_bd_pins xlconstant_0/dout]
 
-  # Perform GUI Layout
-  regenerate_bd_layout -hierarchy [get_bd_cells /vc709_sfp] -layout_string {
-   guistr: "# # String gsaved with Nlview 6.5.12  2016-01-29 bk=1.3547 VDI=39 GEI=35 GUI=JA:1.6
-#  -string -flagsOSRD
-preplace port clk_in1 -pg 1 -y 80 -defaultsOSRD
-preplace port si5324_rst_n -pg 1 -y 190 -defaultsOSRD
-preplace port i2c_mux_rst_n -pg 1 -y 170 -defaultsOSRD
-preplace port i2c_data -pg 1 -y 150 -defaultsOSRD
-preplace port ext_reset_in -pg 1 -y 20 -defaultsOSRD
-preplace port i2c_clk -pg 1 -y 130 -defaultsOSRD
-preplace portBus SFP_TX_DISABLE -pg 1 -y 290 -defaultsOSRD
-preplace portBus SFP_RS0 -pg 1 -y 270 -defaultsOSRD
-preplace portBus SFP_MOD_DETECT -pg 1 -y 230 -defaultsOSRD
-preplace portBus Dout -pg 1 -y 230 -defaultsOSRD
-preplace portBus SFP_LOS -pg 1 -y 210 -defaultsOSRD
-preplace inst xlslice_0 -pg 1 -lvl 4 -y 230 -defaultsOSRD
-preplace inst xlconstant_0 -pg 1 -lvl 1 -y 160 -defaultsOSRD
-preplace inst proc_sys_reset_0 -pg 1 -lvl 2 -y 80 -defaultsOSRD
-preplace inst vc709_sfp_0 -pg 1 -lvl 3 -y 200 -defaultsOSRD
-preplace inst clk_wiz_0 -pg 1 -lvl 1 -y 70 -defaultsOSRD
-preplace netloc clk_wiz_0_locked 1 1 1 180
-preplace netloc SFP_LOS_1 1 0 3 NJ 210 NJ 210 NJ
-preplace netloc signal_detect_1 1 4 1 NJ
-preplace netloc proc_sys_reset_0_mb_reset 1 2 1 540
-preplace netloc vc709_sfp_0_signal_detect 1 3 1 NJ
-preplace netloc xlconstant_0_dout 1 1 1 NJ
-preplace netloc vc709_sfp_0_SFP_TX_DISABLE 1 3 2 NJ 290 NJ
-preplace netloc clk_wiz_0_clk_out1 1 1 2 190 170 N
-preplace netloc mig_7series_0_c1_ui_clk_sync_rst 1 0 2 20 10 NJ
-preplace netloc SFP_MOD_DETECT_1 1 0 3 NJ 230 NJ 230 NJ
-preplace netloc vc709_sfp_0_si5324_rst_n 1 3 2 NJ 180 NJ
-preplace netloc vc709_sfp_0_i2c_mux_rst_n 1 3 2 NJ 160 NJ
-preplace netloc Net1 1 3 2 NJ 150 NJ
-preplace netloc Net 1 3 2 NJ 130 NJ
-preplace netloc mig_7series_0_c1_ui_clk 1 0 1 NJ
-preplace netloc vc709_sfp_0_SFP_RS0 1 3 2 NJ 280 NJ
-levelinfo -pg 1 0 100 370 720 1000 1110 -top 0 -bot 320
-",
-}
-
   # Restore current instance
   current_bd_instance $oldCurInst
 }
@@ -1568,38 +1320,6 @@ CONFIG.CONST_VAL {0} \
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins s_axi_aresetn1] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_dwidth_converter_1/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn]
   connect_bd_net -net s_axi_aresetn_1 [get_bd_pins s_axi_aresetn] [get_bd_pins axi_uartlite_0/s_axi_aresetn]
   connect_bd_net -net xlconstant_0_dout [get_bd_pins rocketchip_top_0/io_debug_req_bits_addr] [get_bd_pins rocketchip_top_0/io_debug_req_bits_data] [get_bd_pins rocketchip_top_0/io_debug_req_bits_op] [get_bd_pins rocketchip_top_0/io_debug_req_valid] [get_bd_pins rocketchip_top_0/io_debug_resp_ready] [get_bd_pins rocketchip_top_0/io_interrupts_1] [get_bd_pins xlconstant_0/dout]
-
-  # Perform GUI Layout
-  regenerate_bd_layout -hierarchy [get_bd_cells /rocketchip] -layout_string {
-   guistr: "# # String gsaved with Nlview 6.5.12  2016-01-29 bk=1.3547 VDI=39 GEI=35 GUI=JA:1.6
-#  -string -flagsOSRD
-preplace port UART -pg 1 -y 210 -defaultsOSRD
-preplace port M_AXI_MEM -pg 1 -y 100 -defaultsOSRD
-preplace port clk -pg 1 -y 40 -defaultsOSRD
-preplace port reset -pg 1 -y 90 -defaultsOSRD
-preplace portBus s_axi_aresetn1 -pg 1 -y 20 -defaultsOSRD
-preplace portBus s_axi_aresetn -pg 1 -y 280 -defaultsOSRD
-preplace inst xlconstant_0 -pg 1 -lvl 1 -y 230 -defaultsOSRD
-preplace inst axi_protocol_converter_0 -pg 1 -lvl 4 -y 170 -defaultsOSRD
-preplace inst axi_dwidth_converter_0 -pg 1 -lvl 3 -y 150 -defaultsOSRD
-preplace inst axi_dwidth_converter_1 -pg 1 -lvl 5 -y 100 -defaultsOSRD
-preplace inst rocketchip_top_0 -pg 1 -lvl 2 -y 150 -defaultsOSRD
-preplace inst axi_uartlite_0 -pg 1 -lvl 5 -y 220 -defaultsOSRD
-preplace netloc s_axi_aresetn1_1 1 0 5 NJ 20 NJ 20 670 60 970 100 1250
-preplace netloc s_axi_aresetn_1 1 0 5 NJ 290 NJ 290 NJ 250 NJ 250 NJ
-preplace netloc axi_uartlite_0_interrupt 1 1 5 170 0 NJ 0 NJ 0 NJ 0 1560
-preplace netloc axi_dwidth_converter_1_M_AXI 1 5 1 NJ
-preplace netloc rocketchip_top_0_M_AXI_MEM 1 2 3 660 80 NJ 80 NJ
-preplace netloc axi_protocol_converter_0_M_AXI 1 4 1 1250
-preplace netloc clk_1 1 0 5 NJ 40 160 280 680 220 980 240 1260
-preplace netloc xlconstant_0_dout 1 1 1 170
-preplace netloc axi_uartlite_0_UART 1 5 1 NJ
-preplace netloc rocketchip_top_0_M_AXI_MMIO 1 2 1 660
-preplace netloc axi_dwidth_converter_0_M_AXI 1 3 1 N
-preplace netloc reset_1 1 0 2 NJ 90 NJ
-levelinfo -pg 1 -30 90 430 830 1120 1420 1580 -top -30 -bot 300
-",
-}
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -1884,8 +1604,8 @@ CONFIG.C_AUX_RESET_HIGH {1} \
  ] $rst_Clk_200M
 
   # Create interface connections
+  connect_bd_intf_net -intf_net Conn1 [get_bd_intf_pins IIC] [get_bd_intf_pins PRM_CORE/IIC]
   connect_bd_intf_net -intf_net PRM_CORE_EMC_INTF [get_bd_intf_pins EMC_INTF] [get_bd_intf_pins PRM_CORE/EMC_INTF]
-  connect_bd_intf_net -intf_net PRM_CORE_IIC [get_bd_intf_pins IIC] [get_bd_intf_pins PRM_CORE/IIC]
   connect_bd_intf_net -intf_net PRM_CORE_M_AXI_APM [get_bd_intf_pins M_AXI_APM] [get_bd_intf_pins PRM_CORE/M_AXI_APM]
   connect_bd_intf_net -intf_net PRM_CORE_M_AXI_CDMA [get_bd_intf_pins PRM_CORE/M_AXI_CDMA] [get_bd_intf_pins axi_cdma_xbar/S00_AXI]
   connect_bd_intf_net -intf_net PRM_CORE_M_AXI_CDMA_SG [get_bd_intf_pins PRM_CORE/M_AXI_CDMA_SG] [get_bd_intf_pins axi_cdma_xbar/S01_AXI]
@@ -1933,100 +1653,6 @@ CONFIG.C_AUX_RESET_HIGH {1} \
   connect_bd_net -net rst_Clk_200M_peripheral_reset [get_bd_pins PRM_CORE/ext_reset_in] [get_bd_pins rst_Clk_200M/peripheral_reset]
   connect_bd_net -net signal_detect_1 [get_bd_pins signal_detect] [get_bd_pins PRM_CORE/signal_detect]
   connect_bd_net -net sysclk_1 [get_bd_pins aclk] [get_bd_pins PRM_CORE/mem_clk] [get_bd_pins axi_ethdma_xbar/aclk] [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins axi_interconnect_0/M00_ACLK] [get_bd_pins axi_interconnect_0/S03_ACLK] [get_bd_pins clk_wiz_0/clk_in1] [get_bd_pins rst_Clk_200M/slowest_sync_clk]
-
-  # Perform GUI Layout
-  regenerate_bd_layout -hierarchy [get_bd_cells /PRMSYS] -layout_string {
-   guistr: "# # String gsaved with Nlview 6.5.12  2016-01-29 bk=1.3547 VDI=39 GEI=35 GUI=JA:1.6
-#  -string -flagsOSRD
-preplace port EMC_INTF -pg 1 -y 20 -defaultsOSRD
-preplace port io_clk -pg 1 -y 1160 -defaultsOSRD
-preplace port UART -pg 1 -y 550 -defaultsOSRD
-preplace port gt0_qplloutclk_out -pg 1 -y 610 -defaultsOSRD
-preplace port M_AXI_CDMA -pg 1 -y 1070 -defaultsOSRD
-preplace port userclk_out -pg 1 -y 850 -defaultsOSRD
-preplace port MEM_AXI -pg 1 -y 230 -defaultsOSRD
-preplace port userclk2_out -pg 1 -y 830 -defaultsOSRD
-preplace port gt0_qplloutrefclk_out -pg 1 -y 630 -defaultsOSRD
-preplace port sfp -pg 1 -y 570 -defaultsOSRD
-preplace port SYS_UART_0 -pg 1 -y 470 -defaultsOSRD
-preplace port IIC -pg 1 -y 430 -defaultsOSRD
-preplace port mmcm_locked_out -pg 1 -y 690 -defaultsOSRD
-preplace port SYS_UART_1 -pg 1 -y 490 -defaultsOSRD
-preplace port gtref_clk_out -pg 1 -y 670 -defaultsOSRD
-preplace port gtref_clk_buf_out -pg 1 -y 650 -defaultsOSRD
-preplace port aclk -pg 1 -y 960 -defaultsOSRD
-preplace port SYS_UART_2 -pg 1 -y 510 -defaultsOSRD
-preplace port M_AXI_APM -pg 1 -y 450 -defaultsOSRD
-preplace port m_axi_aclk -pg 1 -y 1100 -defaultsOSRD
-preplace port dcm_locked -pg 1 -y 1040 -defaultsOSRD
-preplace port SYS_UART_3 -pg 1 -y 530 -defaultsOSRD
-preplace port rxuserclk_out -pg 1 -y 810 -defaultsOSRD
-preplace port rxuserclk2_out -pg 1 -y 790 -defaultsOSRD
-preplace port ext_reset_in -pg 1 -y 980 -defaultsOSRD
-preplace port mgt_clk -pg 1 -y 480 -defaultsOSRD
-preplace port pma_reset_out -pg 1 -y 730 -defaultsOSRD
-preplace portBus apm_interrupt -pg 1 -y 500 -defaultsOSRD
-preplace portBus ARESETN -pg 1 -y 710 -defaultsOSRD
-preplace portBus peripheral_aresetn -pg 1 -y 1140 -defaultsOSRD
-preplace portBus signal_detect -pg 1 -y 620 -defaultsOSRD
-preplace portBus DMA_DS_ID -pg 1 -y 590 -defaultsOSRD
-preplace portBus aresetn1 -pg 1 -y 1120 -defaultsOSRD
-preplace inst axi_cdma_xbar -pg 1 -lvl 2 -y 1060 -defaultsOSRD
-preplace inst PRM_CORE -pg 1 -lvl 2 -y 560 -defaultsOSRD
-preplace inst axi_ethdma_xbar -pg 1 -lvl 2 -y 100 -defaultsOSRD
-preplace inst axi_interconnect_0 -pg 1 -lvl 3 -y 230 -defaultsOSRD
-preplace inst rst_Clk_200M -pg 1 -lvl 1 -y 1000 -defaultsOSRD
-preplace inst clk_wiz_0 -pg 1 -lvl 2 -y 1220 -defaultsOSRD
-preplace netloc PRM_CORE_SYS_UART_0 1 2 2 NJ 470 NJ
-preplace netloc PRM_CORE_M_AXI_DC 1 2 1 850
-preplace netloc PRM_CORE_rxuserclk_out 1 2 2 NJ 810 NJ
-preplace netloc apm_interrupt_1 1 0 2 NJ 500 NJ
-preplace netloc clk_wiz_0_locked 1 1 2 430 940 790
-preplace netloc rst_Clk_200M_interconnect_aresetn 1 1 2 380 920 900
-preplace netloc PRM_CORE_sfp 1 2 2 NJ 570 NJ
-preplace netloc PRM_CORE_gpio2_io_o 1 2 2 NJ 590 NJ
-preplace netloc PRM_CORE_M_AXI_ETHERNET_SG 1 1 2 430 190 820
-preplace netloc PRM_CORE_prm_softreset 1 0 3 30 890 NJ 900 790
-preplace netloc PRM_CORE_UART 1 2 2 NJ 550 NJ
-preplace netloc PRM_CORE_M_AXI_IC 1 2 1 860
-preplace netloc signal_detect_1 1 0 2 NJ 620 NJ
-preplace netloc dcm_locked_1 1 0 1 NJ
-preplace netloc rst_Clk_200M_peripheral_reset 1 1 1 390
-preplace netloc PRM_CORE_gtref_clk_buf_out 1 2 2 NJ 650 NJ
-preplace netloc PRM_CORE_gt0_qplloutclk_out 1 2 2 NJ 610 NJ
-preplace netloc rst_Clk_200M_peripheral_aresetn 1 1 3 NJ 1140 NJ 1140 NJ
-preplace netloc sfp_mgt_clk_1 1 0 2 NJ 480 NJ
-preplace netloc PRM_CORE_userclk_out 1 2 2 NJ 850 NJ
-preplace netloc sysclk_1 1 0 3 20 910 400 930 890
-preplace netloc PRM_CORE_UART1 1 2 2 NJ 490 NJ
-preplace netloc PRM_CORE_M_AXI_APM 1 2 2 NJ 450 NJ
-preplace netloc PRM_CORE_M_AXI_ETHERNET_S2MM 1 1 2 440 200 790
-preplace netloc PRM_CORE_rxuserclk2_out 1 2 2 NJ 790 NJ
-preplace netloc PRM_CORE_peripheral_aresetn 1 2 2 NJ 710 NJ
-preplace netloc PRM_CORE_gtref_clk_out 1 2 2 NJ 670 NJ
-preplace netloc PRM_CORE_gt0_qplloutrefclk_out 1 2 2 NJ 630 NJ
-preplace netloc axi_interconnect_0_M00_AXI 1 3 1 NJ
-preplace netloc PRM_CORE_UART2 1 2 2 NJ 510 NJ
-preplace netloc PRM_CORE_EMC_INTF 1 2 2 NJ 10 NJ
-preplace netloc axi_cdma_xbar_M00_AXI 1 2 1 910
-preplace netloc m_axi_aclk_1 1 0 3 NJ 1100 410 210 880
-preplace netloc PRM_CORE_mmcm_locked_out 1 2 2 NJ 690 NJ
-preplace netloc clk_wiz_0_clk_out2 1 1 3 440 910 930 1160 NJ
-preplace netloc PRM_CORE_UART3 1 2 2 NJ 530 NJ
-preplace netloc PRM_CORE_M_AXI_ETHERNET_MM2S 1 1 2 380 10 810
-preplace netloc axi_ethdma_xbar_M00_AXI 1 2 1 790
-preplace netloc PRM_CORE_M_AXI_CDMA_SG 1 1 2 430 950 800
-preplace netloc PRM_CORE_IIC 1 2 2 NJ 20 NJ
-preplace netloc axi_crossbar_0_M01_AXI 1 2 2 NJ 1070 NJ
-preplace netloc PRM_CORE_pma_reset_out 1 2 2 NJ 730 NJ
-preplace netloc reset_1 1 0 2 20 1110 NJ
-preplace netloc PRM_CORE_M_AXI_CDMA 1 1 2 440 970 830
-preplace netloc aresetn1_1 1 0 3 NJ 1090 420 980 940
-preplace netloc PRM_CORE_userclk2_out 1 2 2 NJ 830 NJ
-preplace netloc PRM_CORE_processor_aresetn 1 2 1 920
-levelinfo -pg 1 0 210 620 1100 1280 -top 0 -bot 1300
-",
-}
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -2081,7 +1707,6 @@ CONFIG.FREQ_HZ {125000000} \
   set SFP_MOD_DETECT [ create_bd_port -dir I -from 3 -to 0 SFP_MOD_DETECT ]
   set SFP_RS0 [ create_bd_port -dir O -from 3 -to 0 SFP_RS0 ]
   set SFP_TX_DISABLE [ create_bd_port -dir O -from 3 -to 0 SFP_TX_DISABLE ]
-  set gpio_sw_n [ create_bd_port -dir I -type rst gpio_sw_n ]
   set i2c_clk [ create_bd_port -dir IO -type clk i2c_clk ]
   set i2c_data [ create_bd_port -dir IO i2c_data ]
   set i2c_mux_rst_n [ create_bd_port -dir O i2c_mux_rst_n ]
@@ -2091,6 +1716,17 @@ CONFIG.FREQ_HZ {125000000} \
 CONFIG.POLARITY {ACTIVE_HIGH} \
  ] $sys_rst
 
+  # Create instance: CoreControlPlane_0, and set properties
+  set block_name CoreControlPlane
+  set block_cell_name CoreControlPlane_0
+  if { [catch {set CoreControlPlane_0 [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
+     catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   } elseif { $CoreControlPlane_0 eq "" } {
+     catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   }
+  
   # Create instance: PRMSYS
   create_hier_cell_PRMSYS [current_bd_instance .] PRMSYS
 
@@ -2116,6 +1752,17 @@ CONFIG.C_REG_ALL_MONITOR_SIGNALS {1} \
      catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    } elseif { $cdma_addr_0 eq "" } {
+     catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   }
+  
+  # Create instance: i2c_switch_top_0, and set properties
+  set block_name i2c_switch_top
+  set block_cell_name i2c_switch_top_0
+  if { [catch {set i2c_switch_top_0 [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
+     catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   } elseif { $i2c_switch_top_0 eq "" } {
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
@@ -2159,8 +1806,24 @@ CONFIG.XML_INPUT_FILE {mig_a.prj} \
   # Create instance: vc709_sfp
   create_hier_cell_vc709_sfp [current_bd_instance .] vc709_sfp
 
+  # Create instance: xlconstant_0, and set properties
+  set xlconstant_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0 ]
+  set_property -dict [ list \
+CONFIG.CONST_VAL {120} \
+CONFIG.CONST_WIDTH {7} \
+ ] $xlconstant_0
+
+  # Create instance: xlconstant_1, and set properties
+  set xlconstant_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_1 ]
+  set_property -dict [ list \
+CONFIG.CONST_VAL {0} \
+CONFIG.CONST_WIDTH {3} \
+ ] $xlconstant_1
+
   # Create interface connections
   connect_bd_intf_net -intf_net C0_SYS_CLK_1 [get_bd_intf_ports C0_SYS_CLK] [get_bd_intf_pins mig_7series_0/C0_SYS_CLK]
+  connect_bd_intf_net -intf_net CoreControlPlane_0_I2C [get_bd_intf_pins CoreControlPlane_0/I2C] [get_bd_intf_pins i2c_switch_top_0/S0]
+  connect_bd_intf_net -intf_net PRMSYS_IIC [get_bd_intf_pins PRMSYS/IIC] [get_bd_intf_pins i2c_switch_top_0/M]
   connect_bd_intf_net -intf_net PRMSYS_MEM_AXI [get_bd_intf_pins PRMSYS/MEM_AXI] [get_bd_intf_pins mig_7series_0/S0_AXI]
   connect_bd_intf_net -intf_net PRMSYS_M_AXI_APM [get_bd_intf_pins PRMSYS/M_AXI_APM] [get_bd_intf_pins axi_perf_mon_0/S_AXI]
   connect_bd_intf_net -intf_net PRMSYS_M_AXI_CDMA [get_bd_intf_pins PRMSYS/M_AXI_CDMA] [get_bd_intf_pins cdma_addr_0/S_AXI]
@@ -2176,24 +1839,25 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
   connect_bd_intf_net -intf_net sfp_mgt_clk_1 [get_bd_intf_ports sfp_mgt_clk] [get_bd_intf_pins PRMSYS/mgt_clk]
 
   # Create port connections
+  connect_bd_net -net CoreControlPlane_0_EXT_RESET_IN_CORE0 [get_bd_pins CoreControlPlane_0/EXT_RESET_IN_CORE0] [get_bd_pins pardcore_reset1/ext_reset_in]
   connect_bd_net -net Net [get_bd_ports i2c_clk] [get_bd_pins vc709_sfp/i2c_clk]
   connect_bd_net -net Net1 [get_bd_ports i2c_data] [get_bd_pins vc709_sfp/i2c_data]
-  connect_bd_net -net PRMSYS_ARESETN [get_bd_pins PRMSYS/ARESETN] [get_bd_pins axi_perf_mon_0/s_axi_aresetn]
+  connect_bd_net -net PRMSYS_ARESETN [get_bd_pins PRMSYS/ARESETN] [get_bd_pins axi_perf_mon_0/s_axi_aresetn] [get_bd_pins i2c_switch_top_0/aresetn]
   connect_bd_net -net PRMSYS_SYS_UART_0_txd [get_bd_pins PRMSYS/SYS_UART_0_txd] [get_bd_pins uart_inverter_0/tx_dest]
   connect_bd_net -net PRMSYS_peripheral_aresetn [get_bd_pins PRMSYS/peripheral_aresetn] [get_bd_pins mig_7series_0/c0_aresetn]
   connect_bd_net -net SFP_LOS_1 [get_bd_ports SFP_LOS] [get_bd_pins vc709_sfp/SFP_LOS]
   connect_bd_net -net SFP_MOD_DETECT_1 [get_bd_ports SFP_MOD_DETECT] [get_bd_pins vc709_sfp/SFP_MOD_DETECT]
   connect_bd_net -net aclk_1 [get_bd_pins PRMSYS/aclk] [get_bd_pins mig_7series_0/c0_ui_clk]
   connect_bd_net -net axi_perf_mon_0_interrupt [get_bd_pins PRMSYS/apm_interrupt] [get_bd_pins axi_perf_mon_0/interrupt]
-  connect_bd_net -net clk_wiz_0_clk_out2 [get_bd_pins PRMSYS/io_clk] [get_bd_pins axi_perf_mon_0/s_axi_aclk]
+  connect_bd_net -net clk_wiz_0_clk_out2 [get_bd_pins PRMSYS/io_clk] [get_bd_pins axi_perf_mon_0/s_axi_aclk] [get_bd_pins i2c_switch_top_0/aclk]
   connect_bd_net -net dcm_locked_1 [get_bd_pins PRMSYS/dcm_locked] [get_bd_pins mig_7series_0/c0_mmcm_locked]
   connect_bd_net -net ext_reset_in_1 [get_bd_pins PRMSYS/ext_reset_in] [get_bd_pins mig_7series_0/c0_ui_clk_sync_rst]
-  connect_bd_net -net gpio_sw_n_1 [get_bd_ports gpio_sw_n] [get_bd_pins pardcore_reset1/ext_reset_in]
   connect_bd_net -net mig_7series_0_c1_mmcm_locked [get_bd_pins mig_7series_0/c1_mmcm_locked] [get_bd_pins pardcore_reset1/dcm_locked] [get_bd_pins pardio_reset/dcm_locked]
-  connect_bd_net -net mig_7series_0_c1_ui_clk [get_bd_pins PRMSYS/m_axi_aclk] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_perf_mon_0/core_aclk] [get_bd_pins axi_perf_mon_0/slot_0_axi_aclk] [get_bd_pins mig_7series_0/c1_ui_clk] [get_bd_pins pardcore_reset1/slowest_sync_clk] [get_bd_pins pardio_reset/slowest_sync_clk] [get_bd_pins rocketchip/clk] [get_bd_pins vc709_sfp/clk_in1]
+  connect_bd_net -net mig_7series_0_c1_ui_clk [get_bd_pins CoreControlPlane_0/SYS_CLK] [get_bd_pins PRMSYS/m_axi_aclk] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_perf_mon_0/core_aclk] [get_bd_pins axi_perf_mon_0/slot_0_axi_aclk] [get_bd_pins mig_7series_0/c1_ui_clk] [get_bd_pins pardcore_reset1/slowest_sync_clk] [get_bd_pins pardio_reset/slowest_sync_clk] [get_bd_pins rocketchip/clk] [get_bd_pins vc709_sfp/clk_in1]
   connect_bd_net -net mig_7series_0_c1_ui_clk_sync_rst [get_bd_pins mig_7series_0/c1_ui_clk_sync_rst] [get_bd_pins pardio_reset/ext_reset_in] [get_bd_pins vc709_sfp/ext_reset_in]
   connect_bd_net -net pardcore_reset_interconnect_aresetn [get_bd_pins PRMSYS/aresetn1] [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins pardio_reset/interconnect_aresetn] [get_bd_pins rocketchip/s_axi_aresetn1]
   connect_bd_net -net pardcore_reset_peripheral_aresetn [get_bd_pins axi_perf_mon_0/core_aresetn] [get_bd_pins axi_perf_mon_0/slot_0_axi_aresetn] [get_bd_pins mig_7series_0/c1_aresetn] [get_bd_pins pardio_reset/peripheral_aresetn] [get_bd_pins rocketchip/s_axi_aresetn]
+  connect_bd_net -net pardio_reset_mb_reset [get_bd_pins CoreControlPlane_0/RST] [get_bd_pins pardio_reset/mb_reset]
   connect_bd_net -net reset_1 [get_bd_pins pardcore_reset1/mb_reset] [get_bd_pins rocketchip/reset]
   connect_bd_net -net rocketchip_UART_txd [get_bd_pins rocketchip/UART_txd] [get_bd_pins uart_inverter_0/tx_src]
   connect_bd_net -net signal_detect_1 [get_bd_pins PRMSYS/signal_detect] [get_bd_pins vc709_sfp/Dout]
@@ -2204,6 +1868,8 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
   connect_bd_net -net vc709_sfp_0_SFP_TX_DISABLE [get_bd_ports SFP_TX_DISABLE] [get_bd_pins vc709_sfp/SFP_TX_DISABLE]
   connect_bd_net -net vc709_sfp_0_i2c_mux_rst_n [get_bd_ports i2c_mux_rst_n] [get_bd_pins vc709_sfp/i2c_mux_rst_n]
   connect_bd_net -net vc709_sfp_0_si5324_rst_n [get_bd_ports si5324_rst_n] [get_bd_pins vc709_sfp/si5324_rst_n]
+  connect_bd_net -net xlconstant_0_dout [get_bd_pins CoreControlPlane_0/ADDR] [get_bd_pins xlconstant_0/dout]
+  connect_bd_net -net xlconstant_1_dout [get_bd_pins i2c_switch_top_0/addr] [get_bd_pins xlconstant_1/dout]
 
   # Create address segments
   create_bd_addr_seg -range 0x80000000 -offset 0x80000000 [get_bd_addr_spaces cdma_addr_0/M_AXI] [get_bd_addr_segs mig_7series_0/c1_memmap/c1_memaddr] SEG_mig_7series_0_c1_memaddr
@@ -2247,75 +1913,83 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
    commentid: "",
    guistr: "# # String gsaved with Nlview 6.5.12  2016-01-29 bk=1.3547 VDI=39 GEI=35 GUI=JA:1.6
 #  -string -flagsOSRD
-preplace port sfp_mgt_clk -pg 1 -y 240 -defaultsOSRD
-preplace port UART -pg 1 -y 250 -defaultsOSRD
-preplace port sys_rst -pg 1 -y 880 -defaultsOSRD
-preplace port linear_flash -pg 1 -y 100 -defaultsOSRD
-preplace port C0_DDR3 -pg 1 -y 770 -defaultsOSRD
-preplace port si5324_rst_n -pg 1 -y 1170 -defaultsOSRD
-preplace port C0_SYS_CLK -pg 1 -y 860 -defaultsOSRD
-preplace port sfp -pg 1 -y 270 -defaultsOSRD
-preplace port C1_DDR3 -pg 1 -y 790 -defaultsOSRD
-preplace port i2c_mux_rst_n -pg 1 -y 1150 -defaultsOSRD
-preplace port i2c_data -pg 1 -y 1130 -defaultsOSRD
-preplace port gpio_sw_n -pg 1 -y 670 -defaultsOSRD
-preplace port i2c_clk -pg 1 -y 1110 -defaultsOSRD
-preplace portBus SFP_TX_DISABLE -pg 1 -y 1210 -defaultsOSRD
-preplace portBus SFP_RS0 -pg 1 -y 1190 -defaultsOSRD
-preplace portBus SFP_MOD_DETECT -pg 1 -y 1140 -defaultsOSRD
-preplace portBus SFP_LOS -pg 1 -y 1120 -defaultsOSRD
-preplace inst pardcore_reset1 -pg 1 -lvl 2 -y 760 -defaultsOSRD
-preplace inst cdma_addr_0 -pg 1 -lvl 3 -y 50 -defaultsOSRD
-preplace inst rocketchip -pg 1 -lvl 3 -y 660 -defaultsOSRD
-preplace inst mig_7series_0 -pg 1 -lvl 5 -y 860 -defaultsOSRD
-preplace inst axi_crossbar_0 -pg 1 -lvl 4 -y 630 -defaultsOSRD
-preplace inst PRMSYS -pg 1 -lvl 2 -y 310 -defaultsOSRD
-preplace inst uart_inverter_0 -pg 1 -lvl 4 -y 790 -defaultsOSRD
-preplace inst pardio_reset -pg 1 -lvl 1 -y 760 -defaultsOSRD
-preplace inst vc709_sfp -pg 1 -lvl 5 -y 1150 -defaultsOSRD
-preplace inst axi_perf_mon_0 -pg 1 -lvl 5 -y 410 -defaultsOSRD
-preplace netloc rocketchip_M_AXI_MEM 1 3 1 1130
-preplace netloc PRMSYS_ARESETN 1 2 3 NJ 380 NJ 380 N
-preplace netloc sys_rst_1 1 0 5 NJ 880 NJ 890 NJ 890 NJ 890 NJ
-preplace netloc C0_SYS_CLK_1 1 0 5 NJ 860 NJ 860 NJ 860 NJ 860 NJ
+preplace port sfp_mgt_clk -pg 1 -y 280 -defaultsOSRD
+preplace port UART -pg 1 -y 80 -defaultsOSRD
+preplace port sys_rst -pg 1 -y 1010 -defaultsOSRD
+preplace port linear_flash -pg 1 -y 40 -defaultsOSRD
+preplace port C0_DDR3 -pg 1 -y 430 -defaultsOSRD
+preplace port si5324_rst_n -pg 1 -y 880 -defaultsOSRD
+preplace port sfp -pg 1 -y 60 -defaultsOSRD
+preplace port C0_SYS_CLK -pg 1 -y 30 -defaultsOSRD
+preplace port C1_DDR3 -pg 1 -y 450 -defaultsOSRD
+preplace port i2c_mux_rst_n -pg 1 -y 860 -defaultsOSRD
+preplace port i2c_data -pg 1 -y 840 -defaultsOSRD
+preplace port i2c_clk -pg 1 -y 820 -defaultsOSRD
+preplace portBus SFP_TX_DISABLE -pg 1 -y 800 -defaultsOSRD
+preplace portBus SFP_RS0 -pg 1 -y 780 -defaultsOSRD
+preplace portBus SFP_MOD_DETECT -pg 1 -y 770 -defaultsOSRD
+preplace portBus SFP_LOS -pg 1 -y 750 -defaultsOSRD
+preplace inst pardcore_reset1 -pg 1 -lvl 2 -y 1120 -defaultsOSRD
+preplace inst cdma_addr_0 -pg 1 -lvl 3 -y 180 -defaultsOSRD
+preplace inst xlconstant_0 -pg 1 -lvl 1 -y 810 -defaultsOSRD
+preplace inst rocketchip -pg 1 -lvl 3 -y 700 -defaultsOSRD
+preplace inst mig_7series_0 -pg 1 -lvl 5 -y 520 -defaultsOSRD
+preplace inst xlconstant_1 -pg 1 -lvl 3 -y 910 -defaultsOSRD
+preplace inst axi_crossbar_0 -pg 1 -lvl 4 -y 700 -defaultsOSRD
+preplace inst PRMSYS -pg 1 -lvl 2 -y 350 -defaultsOSRD
+preplace inst CoreControlPlane_0 -pg 1 -lvl 2 -y 870 -defaultsOSRD
+preplace inst i2c_switch_top_0 -pg 1 -lvl 3 -y 410 -defaultsOSRD
+preplace inst uart_inverter_0 -pg 1 -lvl 4 -y 550 -defaultsOSRD
+preplace inst pardio_reset -pg 1 -lvl 1 -y 660 -defaultsOSRD
+preplace inst vc709_sfp -pg 1 -lvl 5 -y 820 -defaultsOSRD
+preplace inst axi_perf_mon_0 -pg 1 -lvl 5 -y 220 -defaultsOSRD
+preplace netloc rocketchip_M_AXI_MEM 1 3 1 N
+preplace netloc xlconstant_1_dout 1 2 2 950 230 1230
+preplace netloc sys_rst_1 1 0 5 NJ -10 NJ -10 NJ -10 NJ -10 NJ
+preplace netloc PRMSYS_ARESETN 1 2 3 930 90 NJ 90 1660
+preplace netloc CoreControlPlane_0_I2C 1 2 1 900
+preplace netloc PRMSYS_IIC 1 2 1 890
+preplace netloc C0_SYS_CLK_1 1 0 5 NJ 10 NJ 10 NJ 10 NJ 10 NJ
+preplace netloc axi_crossbar_0_M00_AXI 1 4 1 1600
 preplace netloc PRMSYS_M_AXI_CDMA 1 2 1 NJ
-preplace netloc axi_crossbar_0_M00_AXI 1 4 1 1570
-preplace netloc PRM_CORE_sfp 1 2 4 NJ 270 NJ 270 NJ 270 NJ
+preplace netloc PRM_CORE_sfp 1 2 4 NJ 60 NJ 60 NJ 60 NJ
 preplace netloc mig_7series_0_C0_DDR3 1 5 1 NJ
-preplace netloc uart_inverter_0_rx_src 1 3 2 1150 850 1470
-preplace netloc rocketchip_UART_txd 1 3 1 1140
-preplace netloc PRM_CORE_UART 1 2 4 NJ 250 NJ 250 NJ 250 NJ
-preplace netloc SFP_LOS_1 1 0 5 NJ 1120 NJ 1120 NJ 1120 NJ 1120 NJ
-preplace netloc signal_detect_1 1 1 5 440 880 NJ 880 NJ 880 NJ 700 1940
-preplace netloc dcm_locked_1 1 1 5 430 640 NJ 750 NJ 710 NJ 710 1920
-preplace netloc mig_7series_0_c1_mmcm_locked 1 0 6 30 850 420 870 NJ 870 NJ 870 NJ 670 1950
-preplace netloc PRMSYS_MEM_AXI 1 2 3 NJ 290 NJ 290 1520
-preplace netloc uart_inverter_0_rx_dest 1 2 3 N 150 NJ 150 1490
+preplace netloc uart_inverter_0_rx_src 1 3 2 1260 620 1570
+preplace netloc rocketchip_UART_txd 1 3 1 1240
+preplace netloc PRM_CORE_UART 1 2 4 NJ 70 NJ 70 NJ 70 NJ
+preplace netloc CoreControlPlane_0_EXT_RESET_IN_CORE0 1 1 2 440 710 820
+preplace netloc signal_detect_1 1 1 5 440 30 NJ 40 NJ 40 NJ 40 2050
+preplace netloc mig_7series_0_c1_mmcm_locked 1 0 6 40 860 430 690 NJ 570 NJ 610 NJ 660 2010
+preplace netloc dcm_locked_1 1 1 5 400 -20 NJ -20 NJ -20 NJ -20 2030
+preplace netloc SFP_LOS_1 1 0 5 NJ 750 NJ 730 NJ 790 NJ 790 NJ
+preplace netloc PRMSYS_MEM_AXI 1 2 3 NJ 100 NJ 100 1610
+preplace netloc uart_inverter_0_rx_dest 1 2 3 NJ 110 NJ 110 1580
 preplace netloc mig_7series_0_C1_DDR3 1 5 1 NJ
-preplace netloc axi_perf_mon_0_interrupt 1 1 5 450 620 NJ 550 NJ 550 NJ 550 1960
-preplace netloc pardcore_reset_interconnect_aresetn 1 1 3 390 670 790 770 NJ
-preplace netloc pardcore_reset_peripheral_aresetn 1 1 4 NJ 850 850 850 NJ 910 1540
-preplace netloc sfp_mgt_clk_1 1 0 2 NJ 240 NJ
-preplace netloc PRMSYS_M_AXI_APM 1 2 3 NJ 110 NJ 110 1570
-preplace netloc PRMSYS_peripheral_aresetn 1 2 3 NJ 330 NJ 330 1500
-preplace netloc gpio_sw_n_1 1 0 2 NJ 670 NJ
+preplace netloc pardcore_reset_peripheral_aresetn 1 1 4 N 700 950 590 NJ 780 1620
+preplace netloc pardcore_reset_interconnect_aresetn 1 1 3 380 680 910 780 NJ
+preplace netloc axi_perf_mon_0_interrupt 1 1 5 390 -30 NJ -30 NJ -30 NJ -30 2020
+preplace netloc sfp_mgt_clk_1 1 0 2 NJ 280 NJ
+preplace netloc PRMSYS_M_AXI_APM 1 2 3 NJ 130 NJ 130 N
+preplace netloc xlconstant_0_dout 1 1 1 380
+preplace netloc PRMSYS_peripheral_aresetn 1 2 3 NJ 250 NJ 250 1590
 preplace netloc vc709_sfp_0_SFP_TX_DISABLE 1 5 1 NJ
-preplace netloc ext_reset_in_1 1 1 5 410 650 NJ 760 NJ 730 NJ 680 1930
-preplace netloc PRM_CORE_EMC_INTF 1 2 4 NJ 100 NJ 100 NJ 100 NJ
-preplace netloc PRMSYS_SYS_UART_0_txd 1 2 2 NJ 170 1200
-preplace netloc mig_7series_0_c1_ui_clk_sync_rst 1 0 6 20 1000 NJ 1000 NJ 1000 NJ 1000 1490 1000 1910
-preplace netloc clk_wiz_0_clk_out2 1 2 3 NJ 310 NJ 310 1510
+preplace netloc ext_reset_in_1 1 1 5 420 20 NJ 30 NJ 30 NJ 30 2010
+preplace netloc PRM_CORE_EMC_INTF 1 2 4 NJ 20 NJ 20 NJ 10 NJ
+preplace netloc mig_7series_0_c1_ui_clk_sync_rst 1 0 6 40 570 NJ 660 NJ 610 NJ 820 1670 680 2030
+preplace netloc clk_wiz_0_clk_out2 1 2 3 940 120 NJ 170 N
+preplace netloc PRMSYS_SYS_UART_0_txd 1 2 2 NJ 50 1310
 preplace netloc vc709_sfp_0_si5324_rst_n 1 5 1 NJ
 preplace netloc vc709_sfp_0_i2c_mux_rst_n 1 5 1 NJ
+preplace netloc SFP_MOD_DETECT_1 1 0 5 NJ 760 NJ 720 NJ 810 NJ 810 NJ
 preplace netloc Net1 1 5 1 NJ
 preplace netloc Net 1 5 1 NJ
-preplace netloc SFP_MOD_DETECT_1 1 0 5 NJ 1140 NJ 1140 NJ 1140 NJ 1140 NJ
-preplace netloc reset_1 1 2 1 830
+preplace netloc pardio_reset_mb_reset 1 1 1 390
 preplace netloc vc709_sfp_0_SFP_RS0 1 5 1 NJ
-preplace netloc aclk_1 1 1 5 420 630 NJ 740 NJ 720 NJ 720 1910
-preplace netloc mig_7series_0_c1_ui_clk 1 0 6 20 660 400 660 840 780 1160 900 1530 660 1960
-preplace netloc cdma_addr_0_M_AXI 1 3 1 1210
-levelinfo -pg 1 0 210 620 990 1340 1740 1980 -top 0 -bot 1260
+preplace netloc reset_1 1 2 1 940
+preplace netloc mig_7series_0_c1_ui_clk 1 0 6 30 870 420 670 940 580 1280 800 1660 670 2020
+preplace netloc aclk_1 1 1 5 380 -50 NJ -50 NJ -50 NJ -50 2040
+preplace netloc cdma_addr_0_M_AXI 1 3 1 1300
+levelinfo -pg 1 -20 210 640 1090 1440 1840 2080 -top -80 -bot 1220
 ",
 }
 

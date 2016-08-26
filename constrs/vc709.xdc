@@ -22,8 +22,8 @@ set_property DRIVE 16 [get_ports si5324_rst_n]
 set_property PACKAGE_PIN AT36 [get_ports si5324_rst_n]
 
 # For GPIO_SW
-set_property PACKAGE_PIN AR40 [get_ports gpio_sw_n]
-set_property IOSTANDARD LVCMOS18 [get_ports gpio_sw_n]
+#set_property PACKAGE_PIN AR40 [get_ports gpio_sw_n]
+#set_property IOSTANDARD LVCMOS18 [get_ports gpio_sw_n]
 
 # For SFP & LED
 set_property PACKAGE_PIN AB41 [get_ports {SFP_TX_DISABLE[0]}]

@@ -55,6 +55,28 @@ set files [list \
 ]
 add_files -norecurse -fileset $fileset $files
 
+# Add files for cpn
+set files [list \
+ "[file normalize "$rtlRoot/control_plane/cpn/i2c_slave.v"]"\
+ "[file normalize "$rtlRoot/control_plane/cpn/i2c_switch_top.v"]"\
+ "[file normalize "$rtlRoot/control_plane/cpn/i2c_switch.v"]"\
+ "[file normalize "$rtlRoot/control_plane/cpn/i2c_wire.v"]"\
+ "[file normalize "$rtlRoot/control_plane/cpn/mux8.v"]"\
+]
+add_files -norecurse -fileset $fileset $files
+
+# Add files for control planes
+set files [list \
+ "[file normalize "$rtlRoot/control_plane/common/detec_logic_common.v"]"\
+ "[file normalize "$rtlRoot/control_plane/common/i2cintf.v"]"\
+ "[file normalize "$rtlRoot/control_plane/common/regintf.v"]"\
+ "[file normalize "$rtlRoot/control_plane/common/ttab.v"]"\
+ "[file normalize "$rtlRoot/control_plane/core/control_plane.v"]"\
+ "[file normalize "$rtlRoot/control_plane/core/detec_logic.v"]"\
+ "[file normalize "$rtlRoot/control_plane/core/ptab.v"]"\
+]
+add_files -norecurse -fileset $fileset $files
+
 # Add files for Si5324/SFP Module
 set files [list \
  "[file normalize "$rtlRoot/vc709_sfp/kcpsm6.vhd"]"\
