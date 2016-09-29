@@ -21,12 +21,14 @@
 
 
 module rocketchip_top(
-	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 clk CLK" *)
-	(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI_MEM:M_AXI_MMIO, ASSOCIATED_RESET reset, FREQ_HZ 100000000" *)
-  input   clk,
-  (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 reset RST" *)
+  input coreclk,
+  input corerst,
+	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 uncoreclk CLK" *)
+	(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI_MEM:M_AXI_MMIO, ASSOCIATED_RESET reset, FREQ_HZ 80000000" *)
+  input   uncoreclk,
+  (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 uncorerst RST" *)
   (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_HIGH" *)
-  input   reset,
+  input   uncorerst,
   (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWREADY" *)
   input   io_mem_axi_0_aw_ready,
   (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWVALID" *)
@@ -222,9 +224,11 @@ module rocketchip_top(
   output [33:0] io_debug_resp_bits_data
 );
 
-Top top(
-   .clk(clk),
-   .reset(reset),
+ExampleMultiClockTop top(
+   .clock(uncoreclk),
+   .reset(uncorerst),
+   .io_coreclk(coreclk),
+   .io_corerst(corerst),
    .io_mem_axi_0_aw_ready(io_mem_axi_0_aw_ready),
    .io_mem_axi_0_aw_valid(io_mem_axi_0_aw_valid),
    .io_mem_axi_0_aw_bits_addr(io_mem_axi_0_aw_bits_addr),
