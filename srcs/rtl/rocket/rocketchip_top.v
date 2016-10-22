@@ -130,7 +130,7 @@ module rocketchip_top(
   input coreclk,
   input corerst,
 	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 uncoreclk CLK" *)
-	(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI_MEM:M_AXI_MMIO, ASSOCIATED_RESET reset, FREQ_HZ 80000000" *)
+	(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI_MEM:M_AXI_MMIO, ASSOCIATED_RESET uncorerst, FREQ_HZ 80000000" *)
   input   uncoreclk,
   (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 uncorerst RST" *)
   (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_HIGH" *)
