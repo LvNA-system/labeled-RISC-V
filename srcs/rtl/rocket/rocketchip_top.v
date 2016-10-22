@@ -151,7 +151,7 @@ module rocketchip_top(
   output [33:0] io_debug_resp_bits_data
 );
 
-ExampleMultiClockTop top(
+ExampleTop top(
    .clock(uncoreclk),
    .reset(uncorerst),
    .io_coreclk(coreclk),
