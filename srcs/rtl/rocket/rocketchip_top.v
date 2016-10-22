@@ -19,6 +19,112 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+`define axi_single_signal(interface_name, regular_name, in_out, width, prefix, signal_name) \
+  (* X_INTERFACE_INFO = `"xilinx.com:interface:aximm:1.0 interface_name regular_name`" *) \
+  in_out [width - 1: 0] prefix``signal_name
+
+`define axi_interface(interface_name, dir1, dir2, prefix) \
+	`axi_single_signal(interface_name, AWREADY, dir1, 1, prefix, aw_ready), \
+	`axi_single_signal(interface_name, AWVALID, dir2, 1, prefix, aw_valid), \
+	`axi_single_signal(interface_name, AWADDR, dir2, 32, prefix, aw_bits_addr), \
+	`axi_single_signal(interface_name, AWLEN, dir2, 8, prefix, aw_bits_len), \
+	`axi_single_signal(interface_name, AWSIZE, dir2, 3, prefix, aw_bits_size), \
+	`axi_single_signal(interface_name, AWBURST, dir2, 2, prefix, aw_bits_burst), \
+	`axi_single_signal(interface_name, AWLOCK, dir2, 1, prefix, aw_bits_lock), \
+	`axi_single_signal(interface_name, AWCACHE, dir2, 4, prefix, aw_bits_cache), \
+	`axi_single_signal(interface_name, AWPROT, dir2, 3, prefix, aw_bits_prot), \
+	`axi_single_signal(interface_name, AWQOS, dir2, 4, prefix, aw_bits_qos), \
+	`axi_single_signal(interface_name, AWREGION, dir2, 4, prefix, aw_bits_region), \
+	`axi_single_signal(interface_name, AWID, dir2, 5, prefix, aw_bits_id), \
+	`axi_single_signal(interface_name, AWUSER, dir2, 1, prefix, aw_bits_user), \
+	`axi_single_signal(interface_name, WREADY, dir1, 1, prefix, w_ready), \
+	`axi_single_signal(interface_name, WVALID, dir2, 1, prefix, w_valid), \
+	`axi_single_signal(interface_name, WDATA, dir2, 64, prefix, w_bits_data), \
+	`axi_single_signal(interface_name, WLAST, dir2, 1, prefix, w_bits_last), \
+	`axi_single_signal(interface_name, WID, dir2, 5, prefix, w_bits_id), \
+	`axi_single_signal(interface_name, WSTRB, dir2, 8, prefix, w_bits_strb), \
+	`axi_single_signal(interface_name, WUSER, dir2, 1, prefix, w_bits_user), \
+	`axi_single_signal(interface_name, BREADY, dir2, 1, prefix, b_ready), \
+	`axi_single_signal(interface_name, BVALID, dir1, 1, prefix, b_valid), \
+	`axi_single_signal(interface_name, BRESP, dir1, 2, prefix, b_bits_resp), \
+	`axi_single_signal(interface_name, BID, dir1, 5, prefix, b_bits_id), \
+	`axi_single_signal(interface_name, BUSER, dir1, 1, prefix, b_bits_user), \
+	`axi_single_signal(interface_name, ARREADY, dir1, 1, prefix, ar_ready), \
+	`axi_single_signal(interface_name, ARVALID, dir2, 1, prefix, ar_valid), \
+	`axi_single_signal(interface_name, ARADDR, dir2, 32, prefix, ar_bits_addr), \
+	`axi_single_signal(interface_name, ARLEN, dir2, 8, prefix, ar_bits_len), \
+	`axi_single_signal(interface_name, ARSIZE, dir2, 3, prefix, ar_bits_size), \
+	`axi_single_signal(interface_name, ARBURST, dir2, 2, prefix, ar_bits_burst), \
+	`axi_single_signal(interface_name, ARLOCK, dir2, 1, prefix, ar_bits_lock), \
+	`axi_single_signal(interface_name, ARCACHE, dir2, 4, prefix, ar_bits_cache), \
+	`axi_single_signal(interface_name, ARPROT, dir2, 3, prefix, ar_bits_prot), \
+	`axi_single_signal(interface_name, ARQOS, dir2, 4, prefix, ar_bits_qos), \
+	`axi_single_signal(interface_name, ARREGION, dir2, 4, prefix, ar_bits_region), \
+	`axi_single_signal(interface_name, ARID, dir2, 5, prefix, ar_bits_id), \
+	`axi_single_signal(interface_name, ARUSER, dir2, 1, prefix, ar_bits_user), \
+	`axi_single_signal(interface_name, RREADY, dir2, 1, prefix, r_ready), \
+	`axi_single_signal(interface_name, RVALID, dir1, 1, prefix, r_valid), \
+	`axi_single_signal(interface_name, RRESP, dir1, 2, prefix, r_bits_resp), \
+	`axi_single_signal(interface_name, RDATA, dir1, 64, prefix, r_bits_data), \
+	`axi_single_signal(interface_name, RLAST, dir1, 1, prefix, r_bits_last), \
+	`axi_single_signal(interface_name, RID, dir1, 5, prefix, r_bits_id), \
+	`axi_single_signal(interface_name, RUSER, dir1, 1, prefix, r_bits_user)
+
+`define axi_out_interface(interface_name, prefix) \
+	`axi_interface(interface_name, input, output, prefix)
+
+`define axi_in_interface(interface_name, prefix) \
+	`axi_interface(interface_name, output, input, prefix)
+
+`define axi_connect_single_signal(io_prefix, wire_prefix, signal_name) \
+	.io_prefix``signal_name(wire_prefix``signal_name)
+
+`define axi_connect_interface(io_prefix, wire_prefix) \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_ready), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_valid), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_addr), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_len), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_size), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_burst), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_lock), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_cache), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_prot), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_qos), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_region), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_id), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, aw_bits_user), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, w_ready), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, w_valid), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, w_bits_data), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, w_bits_last), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, w_bits_id), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, w_bits_strb), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, w_bits_user), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, b_ready), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, b_valid), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, b_bits_resp), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, b_bits_id), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, b_bits_user), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_ready), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_valid), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_addr), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_len), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_size), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_burst), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_lock), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_cache), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_prot), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_qos), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_region), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_id), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, ar_bits_user), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, r_ready), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, r_valid), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, r_bits_resp), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, r_bits_data), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, r_bits_last), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, r_bits_id), \
+	`axi_connect_single_signal(io_prefix, wire_prefix, r_bits_user)
 
 module rocketchip_top(
   input coreclk,
@@ -29,188 +135,9 @@ module rocketchip_top(
   (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 uncorerst RST" *)
   (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_HIGH" *)
   input   uncorerst,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWREADY" *)
-  input   io_mem_axi_0_aw_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWVALID" *)
-  output  io_mem_axi_0_aw_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWADDR" *)
-  output [31:0] io_mem_axi_0_aw_bits_addr,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWLEN" *)
-  output [7:0] io_mem_axi_0_aw_bits_len,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWSIZE" *)
-  output [2:0] io_mem_axi_0_aw_bits_size,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWBURST" *)
-  output [1:0] io_mem_axi_0_aw_bits_burst,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWLOCK" *)
-  output  io_mem_axi_0_aw_bits_lock,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWCACHE" *)
-  output [3:0] io_mem_axi_0_aw_bits_cache,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWPROT" *)
-  output [2:0] io_mem_axi_0_aw_bits_prot,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWQOS" *)
-  output [3:0] io_mem_axi_0_aw_bits_qos,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWREGION" *)
-  output [3:0] io_mem_axi_0_aw_bits_region,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWID" *)
-  output [4:0] io_mem_axi_0_aw_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM AWUSER" *)
-  output  io_mem_axi_0_aw_bits_user,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM WREADY" *)
-  input   io_mem_axi_0_w_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM WVALID" *)
-  output  io_mem_axi_0_w_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM WDATA" *)
-  output [63:0] io_mem_axi_0_w_bits_data,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM WLAST" *)
-  output  io_mem_axi_0_w_bits_last,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM WID" *)
-  output [4:0] io_mem_axi_0_w_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM WSTRB" *)
-  output [7:0] io_mem_axi_0_w_bits_strb,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM WUSER" *)
-  output  io_mem_axi_0_w_bits_user,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM BREADY" *)
-  output  io_mem_axi_0_b_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM BVALID" *)
-  input   io_mem_axi_0_b_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM BRESP" *)
-  input  [1:0] io_mem_axi_0_b_bits_resp,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM BID" *)
-  input  [4:0] io_mem_axi_0_b_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM BUSER" *)
-  input   io_mem_axi_0_b_bits_user,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARREADY" *)
-  input   io_mem_axi_0_ar_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARVALID" *)
-  output  io_mem_axi_0_ar_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARADDR" *)
-  output [31:0] io_mem_axi_0_ar_bits_addr,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARLEN" *)
-  output [7:0] io_mem_axi_0_ar_bits_len,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARSIZE" *)
-  output [2:0] io_mem_axi_0_ar_bits_size,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARBURST" *)
-  output [1:0] io_mem_axi_0_ar_bits_burst,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARLOCK" *)
-  output  io_mem_axi_0_ar_bits_lock,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARCACHE" *)
-  output [3:0] io_mem_axi_0_ar_bits_cache,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARPROT" *)
-  output [2:0] io_mem_axi_0_ar_bits_prot,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARQOS" *)
-  output [3:0] io_mem_axi_0_ar_bits_qos,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARREGION" *)
-  output [3:0] io_mem_axi_0_ar_bits_region,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARID" *)
-  output [4:0] io_mem_axi_0_ar_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM ARUSER" *)
-  output  io_mem_axi_0_ar_bits_user,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM RREADY" *)
-  output  io_mem_axi_0_r_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM RVALID" *)
-  input   io_mem_axi_0_r_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM RRESP" *)
-  input  [1:0] io_mem_axi_0_r_bits_resp,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM RDATA" *)
-  input  [63:0] io_mem_axi_0_r_bits_data,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM RLAST" *)
-  input   io_mem_axi_0_r_bits_last,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM RID" *)
-  input  [4:0] io_mem_axi_0_r_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MEM RUSER" *)
-  input   io_mem_axi_0_r_bits_user,
 
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWREADY" *)
-  input   io_mmio_axi_0_aw_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWVALID" *)
-  output  io_mmio_axi_0_aw_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWADDR" *)
-  output [31:0] io_mmio_axi_0_aw_bits_addr,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWLEN" *)
-  output [7:0] io_mmio_axi_0_aw_bits_len,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWSIZE" *)
-  output [2:0] io_mmio_axi_0_aw_bits_size,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWBURST" *)
-  output [1:0] io_mmio_axi_0_aw_bits_burst,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWLOCK" *)
-  output  io_mmio_axi_0_aw_bits_lock,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWCACHE" *)
-  output [3:0] io_mmio_axi_0_aw_bits_cache,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWPROT" *)
-  output [2:0] io_mmio_axi_0_aw_bits_prot,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWQOS" *)
-  output [3:0] io_mmio_axi_0_aw_bits_qos,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWREGION" *)
-  output [3:0] io_mmio_axi_0_aw_bits_region,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWID" *)
-  output [4:0] io_mmio_axi_0_aw_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO AWUSER" *)
-  output  io_mmio_axi_0_aw_bits_user,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO WREADY" *)
-  input   io_mmio_axi_0_w_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO WVALID" *)
-  output  io_mmio_axi_0_w_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO WDATA" *)
-  output [63:0] io_mmio_axi_0_w_bits_data,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO WLAST" *)
-  output  io_mmio_axi_0_w_bits_last,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO WID" *)
-  output [4:0] io_mmio_axi_0_w_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO WSTRB" *)
-  output [7:0] io_mmio_axi_0_w_bits_strb,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO WUSER" *)
-  output  io_mmio_axi_0_w_bits_user,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO BREADY" *)
-  output  io_mmio_axi_0_b_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO BVALID" *)
-  input   io_mmio_axi_0_b_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO BRESP" *)
-  input  [1:0] io_mmio_axi_0_b_bits_resp,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO BID" *)
-  input  [4:0] io_mmio_axi_0_b_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO BUSER" *)
-  input   io_mmio_axi_0_b_bits_user,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARREADY" *)
-  input   io_mmio_axi_0_ar_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARVALID" *)
-  output  io_mmio_axi_0_ar_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARADDR" *)
-  output [31:0] io_mmio_axi_0_ar_bits_addr,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARLEN" *)
-  output [7:0] io_mmio_axi_0_ar_bits_len,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARSIZE" *)
-  output [2:0] io_mmio_axi_0_ar_bits_size,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARBURST" *)
-  output [1:0] io_mmio_axi_0_ar_bits_burst,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARLOCK" *)
-  output  io_mmio_axi_0_ar_bits_lock,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARCACHE" *)
-  output [3:0] io_mmio_axi_0_ar_bits_cache,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARPROT" *)
-  output [2:0] io_mmio_axi_0_ar_bits_prot,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARQOS" *)
-  output [3:0] io_mmio_axi_0_ar_bits_qos,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARREGION" *)
-  output [3:0] io_mmio_axi_0_ar_bits_region,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARID" *)
-  output [4:0] io_mmio_axi_0_ar_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO ARUSER" *)
-  output  io_mmio_axi_0_ar_bits_user,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO RREADY" *)
-  output  io_mmio_axi_0_r_ready,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO RVALID" *)
-  input   io_mmio_axi_0_r_valid,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO RRESP" *)
-  input  [1:0] io_mmio_axi_0_r_bits_resp,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO RDATA" *)
-  input  [63:0] io_mmio_axi_0_r_bits_data,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO RLAST" *)
-  input   io_mmio_axi_0_r_bits_last,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO RID" *)
-  input  [4:0] io_mmio_axi_0_r_bits_id,
-  (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI_MMIO RUSER" *)
-  input   io_mmio_axi_0_r_bits_user,
-
+  `axi_out_interface(M_AXI_MEM, io_mem_axi_0_),
+  `axi_out_interface(M_AXI_MMIO, axi_uart_),
   input   io_interrupts_0,
   input   io_interrupts_1,
   output  io_debug_req_ready,
@@ -229,99 +156,11 @@ ExampleMultiClockTop top(
    .reset(uncorerst),
    .io_coreclk(coreclk),
    .io_corerst(corerst),
-   .io_mem_axi_0_aw_ready(io_mem_axi_0_aw_ready),
-   .io_mem_axi_0_aw_valid(io_mem_axi_0_aw_valid),
-   .io_mem_axi_0_aw_bits_addr(io_mem_axi_0_aw_bits_addr),
-   .io_mem_axi_0_aw_bits_len(io_mem_axi_0_aw_bits_len),
-   .io_mem_axi_0_aw_bits_size(io_mem_axi_0_aw_bits_size),
-   .io_mem_axi_0_aw_bits_burst(io_mem_axi_0_aw_bits_burst),
-   .io_mem_axi_0_aw_bits_lock(io_mem_axi_0_aw_bits_lock),
-   .io_mem_axi_0_aw_bits_cache(io_mem_axi_0_aw_bits_cache),
-   .io_mem_axi_0_aw_bits_prot(io_mem_axi_0_aw_bits_prot),
-   .io_mem_axi_0_aw_bits_qos(io_mem_axi_0_aw_bits_qos),
-   .io_mem_axi_0_aw_bits_region(io_mem_axi_0_aw_bits_region),
-   .io_mem_axi_0_aw_bits_id(io_mem_axi_0_aw_bits_id),
-   .io_mem_axi_0_aw_bits_user(io_mem_axi_0_aw_bits_user),
-   .io_mem_axi_0_w_ready(io_mem_axi_0_w_ready),
-   .io_mem_axi_0_w_valid(io_mem_axi_0_w_valid),
-   .io_mem_axi_0_w_bits_data(io_mem_axi_0_w_bits_data),
-   .io_mem_axi_0_w_bits_last(io_mem_axi_0_w_bits_last),
-   .io_mem_axi_0_w_bits_id(io_mem_axi_0_w_bits_id),
-   .io_mem_axi_0_w_bits_strb(io_mem_axi_0_w_bits_strb),
-   .io_mem_axi_0_w_bits_user(io_mem_axi_0_w_bits_user),
-   .io_mem_axi_0_b_ready(io_mem_axi_0_b_ready),
-   .io_mem_axi_0_b_valid(io_mem_axi_0_b_valid),
-   .io_mem_axi_0_b_bits_resp(io_mem_axi_0_b_bits_resp),
-   .io_mem_axi_0_b_bits_id(io_mem_axi_0_b_bits_id),
-   .io_mem_axi_0_b_bits_user(io_mem_axi_0_b_bits_user),
-   .io_mem_axi_0_ar_ready(io_mem_axi_0_ar_ready),
-   .io_mem_axi_0_ar_valid(io_mem_axi_0_ar_valid),
-   .io_mem_axi_0_ar_bits_addr(io_mem_axi_0_ar_bits_addr),
-   .io_mem_axi_0_ar_bits_len(io_mem_axi_0_ar_bits_len),
-   .io_mem_axi_0_ar_bits_size(io_mem_axi_0_ar_bits_size),
-   .io_mem_axi_0_ar_bits_burst(io_mem_axi_0_ar_bits_burst),
-   .io_mem_axi_0_ar_bits_lock(io_mem_axi_0_ar_bits_lock),
-   .io_mem_axi_0_ar_bits_cache(io_mem_axi_0_ar_bits_cache),
-   .io_mem_axi_0_ar_bits_prot(io_mem_axi_0_ar_bits_prot),
-   .io_mem_axi_0_ar_bits_qos(io_mem_axi_0_ar_bits_qos),
-   .io_mem_axi_0_ar_bits_region(io_mem_axi_0_ar_bits_region),
-   .io_mem_axi_0_ar_bits_id(io_mem_axi_0_ar_bits_id),
-   .io_mem_axi_0_ar_bits_user(io_mem_axi_0_ar_bits_user),
-   .io_mem_axi_0_r_ready(io_mem_axi_0_r_ready),
-   .io_mem_axi_0_r_valid(io_mem_axi_0_r_valid),
-   .io_mem_axi_0_r_bits_resp(io_mem_axi_0_r_bits_resp),
-   .io_mem_axi_0_r_bits_data(io_mem_axi_0_r_bits_data),
-   .io_mem_axi_0_r_bits_last(io_mem_axi_0_r_bits_last),
-   .io_mem_axi_0_r_bits_id(io_mem_axi_0_r_bits_id),
-   .io_mem_axi_0_r_bits_user(io_mem_axi_0_r_bits_user),
    .io_interrupts_0(io_interrupts_0),
    .io_interrupts_1(io_interrupts_1),
 
-   .io_mmio_axi_0_aw_ready(io_mmio_axi_0_aw_ready),
-   .io_mmio_axi_0_aw_valid(io_mmio_axi_0_aw_valid),
-   .io_mmio_axi_0_aw_bits_addr(io_mmio_axi_0_aw_bits_addr),
-   .io_mmio_axi_0_aw_bits_len(io_mmio_axi_0_aw_bits_len),
-   .io_mmio_axi_0_aw_bits_size(io_mmio_axi_0_aw_bits_size),
-   .io_mmio_axi_0_aw_bits_burst(io_mmio_axi_0_aw_bits_burst),
-   .io_mmio_axi_0_aw_bits_lock(io_mmio_axi_0_aw_bits_lock),
-   .io_mmio_axi_0_aw_bits_cache(io_mmio_axi_0_aw_bits_cache),
-   .io_mmio_axi_0_aw_bits_prot(io_mmio_axi_0_aw_bits_prot),
-   .io_mmio_axi_0_aw_bits_qos(io_mmio_axi_0_aw_bits_qos),
-   .io_mmio_axi_0_aw_bits_region(io_mmio_axi_0_aw_bits_region),
-   .io_mmio_axi_0_aw_bits_id(io_mmio_axi_0_aw_bits_id),
-   .io_mmio_axi_0_aw_bits_user(io_mmio_axi_0_aw_bits_user),
-   .io_mmio_axi_0_w_ready(io_mmio_axi_0_w_ready),
-   .io_mmio_axi_0_w_valid(io_mmio_axi_0_w_valid),
-   .io_mmio_axi_0_w_bits_data(io_mmio_axi_0_w_bits_data),
-   .io_mmio_axi_0_w_bits_last(io_mmio_axi_0_w_bits_last),
-   .io_mmio_axi_0_w_bits_id(io_mmio_axi_0_w_bits_id),
-   .io_mmio_axi_0_w_bits_strb(io_mmio_axi_0_w_bits_strb),
-   .io_mmio_axi_0_w_bits_user(io_mmio_axi_0_w_bits_user),
-   .io_mmio_axi_0_b_ready(io_mmio_axi_0_b_ready),
-   .io_mmio_axi_0_b_valid(io_mmio_axi_0_b_valid),
-   .io_mmio_axi_0_b_bits_resp(io_mmio_axi_0_b_bits_resp),
-   .io_mmio_axi_0_b_bits_id(io_mmio_axi_0_b_bits_id),
-   .io_mmio_axi_0_b_bits_user(io_mmio_axi_0_b_bits_user),
-   .io_mmio_axi_0_ar_ready(io_mmio_axi_0_ar_ready),
-   .io_mmio_axi_0_ar_valid(io_mmio_axi_0_ar_valid),
-   .io_mmio_axi_0_ar_bits_addr(io_mmio_axi_0_ar_bits_addr),
-   .io_mmio_axi_0_ar_bits_len(io_mmio_axi_0_ar_bits_len),
-   .io_mmio_axi_0_ar_bits_size(io_mmio_axi_0_ar_bits_size),
-   .io_mmio_axi_0_ar_bits_burst(io_mmio_axi_0_ar_bits_burst),
-   .io_mmio_axi_0_ar_bits_lock(io_mmio_axi_0_ar_bits_lock),
-   .io_mmio_axi_0_ar_bits_cache(io_mmio_axi_0_ar_bits_cache),
-   .io_mmio_axi_0_ar_bits_prot(io_mmio_axi_0_ar_bits_prot),
-   .io_mmio_axi_0_ar_bits_qos(io_mmio_axi_0_ar_bits_qos),
-   .io_mmio_axi_0_ar_bits_region(io_mmio_axi_0_ar_bits_region),
-   .io_mmio_axi_0_ar_bits_id(io_mmio_axi_0_ar_bits_id),
-   .io_mmio_axi_0_ar_bits_user(io_mmio_axi_0_ar_bits_user),
-   .io_mmio_axi_0_r_ready(io_mmio_axi_0_r_ready),
-   .io_mmio_axi_0_r_valid(io_mmio_axi_0_r_valid),
-   .io_mmio_axi_0_r_bits_resp(io_mmio_axi_0_r_bits_resp),
-   .io_mmio_axi_0_r_bits_data(io_mmio_axi_0_r_bits_data),
-   .io_mmio_axi_0_r_bits_last(io_mmio_axi_0_r_bits_last),
-   .io_mmio_axi_0_r_bits_id(io_mmio_axi_0_r_bits_id),
-   .io_mmio_axi_0_r_bits_user(io_mmio_axi_0_r_bits_user),
+   `axi_connect_interface(io_mem_axi_0_, io_mem_axi_0_),
+   `axi_connect_interface(io_mmio_axi_0_, axi_uart_),
 
    .io_debug_req_ready(io_debug_req_ready),
    .io_debug_req_valid(io_debug_req_valid),
