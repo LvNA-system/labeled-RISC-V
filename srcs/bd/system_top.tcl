@@ -1859,7 +1859,7 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
   connect_bd_intf_net -intf_net sfp_mgt_clk_1 [get_bd_intf_ports sfp_mgt_clk] [get_bd_intf_pins PRMSYS/mgt_clk]
 
   # Create port connections
-  connect_bd_net -net CoreControlPlane_0_EXT_RESET_IN_CORE0 [get_bd_pins CoreControlPlane_0/EXT_RESET_IN_CORE0] [get_bd_pins pardcore_reset1/ext_reset_in] [get_bd_pins pardio_reset/ext_reset_in]
+  connect_bd_net -net CoreControlPlane_0_EXT_RESET_IN_CORE0 [get_bd_pins CoreControlPlane_0/EXT_RESET_IN_CORE0] [get_bd_pins pardcore_reset1/ext_reset_in]
   connect_bd_net -net Net [get_bd_ports i2c_clk] [get_bd_pins vc709_sfp/i2c_clk]
   connect_bd_net -net Net1 [get_bd_ports i2c_data] [get_bd_pins vc709_sfp/i2c_data]
   connect_bd_net -net PRMSYS_ARESETN [get_bd_pins PRMSYS/ARESETN] [get_bd_pins axi_perf_mon_0/s_axi_aresetn] [get_bd_pins i2c_switch_top_0/aresetn]
@@ -1878,7 +1878,7 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
   connect_bd_net -net ext_reset_in_1 [get_bd_pins PRMSYS/ext_reset_in] [get_bd_pins mig_7series_0/c0_ui_clk_sync_rst]
   connect_bd_net -net mig_7series_0_c1_mmcm_locked [get_bd_pins mig_7series_0/c1_mmcm_locked] [get_bd_pins reset_100M/dcm_locked]
   connect_bd_net -net mig_7series_0_c1_ui_clk [get_bd_pins CoreControlPlane_0/SYS_CLK] [get_bd_pins PRMSYS/m_axi_aclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_perf_mon_0/core_aclk] [get_bd_pins axi_perf_mon_0/slot_0_axi_aclk] [get_bd_pins clk_wiz_0/clk_in1] [get_bd_pins mig_7series_0/c1_ui_clk] [get_bd_pins reset_100M/slowest_sync_clk]
-  connect_bd_net -net mig_7series_0_c1_ui_clk_sync_rst [get_bd_pins clk_wiz_0/reset] [get_bd_pins mig_7series_0/c1_ui_clk_sync_rst] [get_bd_pins reset_100M/ext_reset_in] [get_bd_pins vc709_sfp/ext_reset_in]
+  connect_bd_net -net mig_7series_0_c1_ui_clk_sync_rst [get_bd_pins clk_wiz_0/reset] [get_bd_pins mig_7series_0/c1_ui_clk_sync_rst] [get_bd_pins reset_100M/ext_reset_in] [get_bd_pins pardio_reset/ext_reset_in] [get_bd_pins vc709_sfp/ext_reset_in]
   connect_bd_net -net pardcore_reset_interconnect_aresetn [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins pardio_reset/interconnect_aresetn] [get_bd_pins rocketchip/s_axi_aresetn1]
   connect_bd_net -net pardcore_reset_peripheral_aresetn [get_bd_pins PRMSYS/aresetn1] [get_bd_pins axi_perf_mon_0/core_aresetn] [get_bd_pins axi_perf_mon_0/slot_0_axi_aresetn] [get_bd_pins mig_7series_0/c1_aresetn] [get_bd_pins reset_100M/peripheral_aresetn]
   connect_bd_net -net pardio_reset_mb_reset [get_bd_pins pardio_reset/mb_reset] [get_bd_pins rocketchip/uncorerst]
