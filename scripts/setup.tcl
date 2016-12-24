@@ -74,6 +74,10 @@ set files [list \
  "[file normalize "$rtlRoot/control_plane/core/control_plane.v"]"\
  "[file normalize "$rtlRoot/control_plane/core/detec_logic.v"]"\
  "[file normalize "$rtlRoot/control_plane/core/ptab.v"]"\
+ "[file normalize "$rtlRoot/control_plane/mig/control_plane.v"]"\
+ "[file normalize "$rtlRoot/control_plane/mig/detec_logic.v"]"\
+ "[file normalize "$rtlRoot/control_plane/mig/ptab.v"]"\
+ "[file normalize "$rtlRoot/control_plane/mig/stab.v"]"\
 ]
 add_files -norecurse -fileset $fileset $files
 
