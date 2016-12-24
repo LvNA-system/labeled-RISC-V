@@ -53,54 +53,10 @@ module   core_cp_ptab(
 		endcase
 	end
 
-	// FIXED: counters should be large enough to let the EXT_RESET_IN_COREx
-	// signal active for more than 4 cycles, only after which the reset
-	// signal will be sampled by the Processor System Reset IP core
-	reg [3:0] reset_counter [3:0];
-
-	reg last_state [3:0];
-	always@(posedge SYS_CLK) begin
-		last_state[0] <= state[0];
-		last_state[1] <= state[1];
-		last_state[2] <= state[2];
-		last_state[3] <= state[3];
-	end
-
-	wire [3:0] state_posedge;
-	wire [3:0] state_negedge;
-
-	assign state_posedge[0] = (~last_state[0] & state[0]);
-	assign state_negedge[0] = (last_state[0] & ~state[0]);
-	assign state_posedge[1] = (~last_state[1] & state[1]);
-	assign state_negedge[1] = (last_state[1] & ~state[1]);
-	assign state_posedge[2] = (~last_state[2] & state[2]);
-	assign state_negedge[2] = (last_state[2] & ~state[2]);
-	assign state_posedge[3] = (~last_state[3] & state[3]);
-	assign state_negedge[3] = (last_state[3] & ~state[3]);
-
-	integer i;
-
-	always@(posedge SYS_CLK or posedge DETECT_RST) begin
-		for(i = 0; i < 4; i = i + 1) begin
-			if(DETECT_RST) begin
-				reset_counter[i] <= 4'b0000;
-			end
-			else begin
-				if(state_posedge[i]) begin
-					reset_counter[i] <= 4'b0001;
-				end
-				else if(reset_counter[i] != 4'b0000) begin
-					// the counter will wrap around to 4'b0000
-					reset_counter[i] = reset_counter[i] + 4'b0001;
-				end
-			end
-		end
-	end
-
 	// active low
-	assign EXT_RESET_IN_CORE0 = (reset_counter[0] == 2'b00);
-	assign EXT_RESET_IN_CORE1 = (reset_counter[1] == 2'b00);
-	assign EXT_RESET_IN_CORE2 = (reset_counter[2] == 2'b00);
-	assign EXT_RESET_IN_CORE3 = (reset_counter[3] == 2'b00);
+	assign EXT_RESET_IN_CORE0 = state[0];
+	assign EXT_RESET_IN_CORE1 = state[1];
+	assign EXT_RESET_IN_CORE2 = state[2];
+	assign EXT_RESET_IN_CORE3 = state[3];
 
 endmodule
