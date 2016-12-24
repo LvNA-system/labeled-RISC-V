@@ -90,6 +90,7 @@ add_files -norecurse -fileset $fileset $files
 set files [list \
  "[file normalize "$rtlRoot/misc/uart_inverter.v"]"\
  "[file normalize "$rtlRoot/misc/cdma_addr.v"]"\
+ "[file normalize "$rtlRoot/include/axi.vh"]"\
 ]
 add_files -norecurse -fileset $fileset $files
 
