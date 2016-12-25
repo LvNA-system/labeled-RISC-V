@@ -31,9 +31,9 @@ module rocketchip_top(
   (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_HIGH" *)
   input   uncorerst,
 
-  `axi_out_interface(M_AXI_MEM, io_mem_axi_0_),
-  `axi_out_interface(M_AXI_MMIO, axi_uart_),
-  `axi_in_interface(M_AXI_CDMA, axi_cdma_),
+  `axi_out_interface(M_AXI_MEM, io_mem_axi_0, 4),
+  `axi_out_interface(M_AXI_MMIO, axi_uart, 4),
+  `axi_in_interface(M_AXI_CDMA, axi_cdma, 4),
   input   io_interrupts_0,
   input   io_interrupts_1,
   output  io_debug_req_ready,
@@ -55,9 +55,9 @@ ExampleRocketTop top(
    .io_interrupts_0_0(io_interrupts_0),
    .io_interrupts_0_1(io_interrupts_1),
 
-   `axi_connect_interface(io_mem_axi4_0_, io_mem_axi_0_),
-   `axi_connect_interface(io_mmio_axi4_0_, axi_uart_),
-   `axi_connect_interface(io_l2_axi4_0_, axi_cdma_),
+   `axi_connect_interface(io_mem_axi4_0, io_mem_axi_0),
+   `axi_connect_interface(io_mmio_axi4_0, axi_uart),
+   `axi_connect_interface(io_l2_axi4_0, axi_cdma),
 
    .io_debug_req_ready(io_debug_req_ready),
    .io_debug_req_valid(io_debug_req_valid),
