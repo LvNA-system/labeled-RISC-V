@@ -67,6 +67,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
     in.ar.ready := Mux(r_ok, r_out.ready, r_err_in.ready && r_last) && !r_block
     r_out.valid := in.ar.valid && !r_block && r_ok
     r_out.bits := edgeOut.Get(in.ar.bits.id << 1 | UInt(1), r_addr, r_size)._2
+    r_out.bits.dsid := in.ar.bits.user
     r_err_in.valid := in.ar.valid && !r_block && !r_ok
     r_err_in.bits.last := r_last
     r_err_in.bits.id := in.ar.bits.id
@@ -89,6 +90,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
     in.w.ready  := Mux(w_ok, w_out.ready, w_err_in.ready || !in.w.bits.last) && in.aw.valid && !w_block
     w_out.valid := in.aw.valid && in.w.valid && !w_block && w_ok
     w_out.bits := edgeOut.Put(in.aw.bits.id << 1, w_addr, w_size, in.w.bits.data, in.w.bits.strb)._2
+    w_out.bits.dsid := in.aw.bits.user
     w_err_in.valid := in.aw.valid && in.w.valid && !w_block && !w_ok && in.w.bits.last
     w_err_in.bits := in.aw.bits.id
 
