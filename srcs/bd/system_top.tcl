@@ -510,7 +510,7 @@ proc write_mig_file_system_top_mig_7series_0_0 { str_mig_prj_filepath } {
    puts $mig_prj_file {            <C1_C_RD_WR_ARB_ALGORITHM>RD_PRI_REG</C1_C_RD_WR_ARB_ALGORITHM>}
    puts $mig_prj_file {            <C1_S_AXI_ADDR_WIDTH>32</C1_S_AXI_ADDR_WIDTH>}
    puts $mig_prj_file {            <C1_S_AXI_DATA_WIDTH>64</C1_S_AXI_DATA_WIDTH>}
-   puts $mig_prj_file {            <C1_S_AXI_ID_WIDTH>6</C1_S_AXI_ID_WIDTH>}
+   puts $mig_prj_file {            <C1_S_AXI_ID_WIDTH>5</C1_S_AXI_ID_WIDTH>}
    puts $mig_prj_file {            <C1_S_AXI_SUPPORTS_NARROW_BURST>1</C1_S_AXI_SUPPORTS_NARROW_BURST>}
    puts $mig_prj_file {        </AXIParameters>}
    puts $mig_prj_file {    </Controller>}
@@ -1234,6 +1234,7 @@ proc create_hier_cell_rocketchip { parentCell nameHier } {
   current_bd_instance $hier_obj
 
   # Create interface pins
+  create_bd_intf_pin -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_CDMA
   create_bd_intf_pin -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_MEM
   create_bd_intf_pin -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 UART
 
@@ -1255,7 +1256,7 @@ proc create_hier_cell_rocketchip { parentCell nameHier } {
   set axi_uartlite_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_0 ]
   set_property -dict [ list \
 CONFIG.C_BAUDRATE {115200} \
-CONFIG.C_S_AXI_ACLK_FREQ_HZ {80000000} \
+CONFIG.C_S_AXI_ACLK_FREQ_HZ {50000000} \
 CONFIG.UARTLITE_BOARD_INTERFACE {Custom} \
  ] $axi_uartlite_0
 
@@ -1282,6 +1283,7 @@ CONFIG.CONST_VAL {0} \
  ] $xlconstant_0
 
   # Create interface connections
+  connect_bd_intf_net -intf_net Conn1 [get_bd_intf_pins M_AXI_CDMA] [get_bd_intf_pins rocketchip_top_0/M_AXI_CDMA]
   connect_bd_intf_net -intf_net axi_dwidth_converter_0_M_AXI [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins axi_protocol_converter_0/S_AXI]
   connect_bd_intf_net -intf_net axi_protocol_converter_0_M_AXI [get_bd_intf_pins axi_protocol_converter_0/M_AXI] [get_bd_intf_pins axi_uartlite_0/S_AXI]
   connect_bd_intf_net -intf_net axi_uartlite_0_UART [get_bd_intf_pins UART] [get_bd_intf_pins axi_uartlite_0/UART]
@@ -1657,12 +1659,8 @@ CONFIG.POLARITY {ACTIVE_HIGH} \
   # Create instance: axi_clock_converter_0, and set properties
   set axi_clock_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0 ]
 
-  # Create instance: axi_crossbar_0, and set properties
-  set axi_crossbar_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_crossbar:2.1 axi_crossbar_0 ]
-  set_property -dict [ list \
-CONFIG.NUM_MI {1} \
-CONFIG.NUM_SI {2} \
- ] $axi_crossbar_0
+  # Create instance: axi_clock_converter_1, and set properties
+  set axi_clock_converter_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_1 ]
 
   # Create instance: axi_perf_mon_0, and set properties
   set axi_perf_mon_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_perf_mon:5.0 axi_perf_mon_0 ]
@@ -1685,23 +1683,23 @@ CONFIG.C_REG_ALL_MONITOR_SIGNALS {1} \
   # Create instance: clk_wiz_0, and set properties
   set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:5.3 clk_wiz_0 ]
   set_property -dict [ list \
-CONFIG.CLKOUT1_JITTER {167.017} \
-CONFIG.CLKOUT1_PHASE_ERROR {114.212} \
+CONFIG.CLKOUT1_JITTER {151.636} \
+CONFIG.CLKOUT1_PHASE_ERROR {98.575} \
 CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {50.000} \
-CONFIG.CLKOUT2_JITTER {151.652} \
-CONFIG.CLKOUT2_PHASE_ERROR {114.212} \
-CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {80.000} \
+CONFIG.CLKOUT2_JITTER {151.636} \
+CONFIG.CLKOUT2_PHASE_ERROR {98.575} \
+CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {50.000} \
 CONFIG.CLKOUT2_USED {true} \
-CONFIG.CLKOUT3_JITTER {144.719} \
-CONFIG.CLKOUT3_PHASE_ERROR {114.212} \
+CONFIG.CLKOUT3_JITTER {130.958} \
+CONFIG.CLKOUT3_PHASE_ERROR {98.575} \
 CONFIG.CLKOUT3_REQUESTED_OUT_FREQ {100.000} \
 CONFIG.CLKOUT3_USED {true} \
-CONFIG.MMCM_CLKFBOUT_MULT_F {8.000} \
+CONFIG.MMCM_CLKFBOUT_MULT_F {10.000} \
 CONFIG.MMCM_CLKIN1_PERIOD {10.0} \
 CONFIG.MMCM_CLKIN2_PERIOD {10.0} \
-CONFIG.MMCM_CLKOUT0_DIVIDE_F {16.000} \
-CONFIG.MMCM_CLKOUT1_DIVIDE {10} \
-CONFIG.MMCM_CLKOUT2_DIVIDE {8} \
+CONFIG.MMCM_CLKOUT0_DIVIDE_F {20.000} \
+CONFIG.MMCM_CLKOUT1_DIVIDE {20} \
+CONFIG.MMCM_CLKOUT2_DIVIDE {10} \
 CONFIG.MMCM_COMPENSATION {ZHOLD} \
 CONFIG.MMCM_DIVCLK_DIVIDE {1} \
 CONFIG.NUM_OUT_CLKS {3} \
@@ -1809,15 +1807,15 @@ CONFIG.CONST_WIDTH {7} \
   connect_bd_intf_net -intf_net PRM_CORE_EMC_INTF [get_bd_intf_ports linear_flash] [get_bd_intf_pins PRMSYS/EMC_INTF]
   connect_bd_intf_net -intf_net PRM_CORE_UART [get_bd_intf_ports UART] [get_bd_intf_pins PRMSYS/UART]
   connect_bd_intf_net -intf_net PRM_CORE_sfp [get_bd_intf_ports sfp] [get_bd_intf_pins PRMSYS/sfp]
-  connect_bd_intf_net -intf_net axi_clock_converter_0_M_AXI [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins axi_crossbar_0/S00_AXI]
-  connect_bd_intf_net -intf_net axi_crossbar_0_M00_AXI [get_bd_intf_pins axi_crossbar_0/M00_AXI] [get_bd_intf_pins mig_7series_0/S1_AXI]
-connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_intf_pins axi_crossbar_0/M00_AXI] [get_bd_intf_pins axi_perf_mon_0/SLOT_0_AXI]
-  connect_bd_intf_net -intf_net cdma_addr_0_M_AXI [get_bd_intf_pins axi_crossbar_0/S01_AXI] [get_bd_intf_pins cdma_addr_0/M_AXI]
+  connect_bd_intf_net -intf_net axi_clock_converter_1_M_AXI [get_bd_intf_pins axi_clock_converter_1/M_AXI] [get_bd_intf_pins rocketchip/M_AXI_CDMA]
+  connect_bd_intf_net -intf_net axi_crossbar_0_M00_AXI [get_bd_intf_pins mig_7series_0/S1_AXI] [get_bd_intf_pins mig_control_plane_0/M_AXI]
+connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_intf_pins axi_perf_mon_0/SLOT_0_AXI] [get_bd_intf_pins mig_control_plane_0/M_AXI]
+  connect_bd_intf_net -intf_net axi_crossbar_0_M00_AXI1 [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins mig_control_plane_0/S_AXI]
+  connect_bd_intf_net -intf_net cdma_addr_0_M_AXI [get_bd_intf_pins axi_clock_converter_1/S_AXI] [get_bd_intf_pins cdma_addr_0/M_AXI]
   connect_bd_intf_net -intf_net mig_7series_0_C0_DDR3 [get_bd_intf_ports C0_DDR3] [get_bd_intf_pins mig_7series_0/C0_DDR3]
   connect_bd_intf_net -intf_net mig_7series_0_C1_DDR3 [get_bd_intf_ports C1_DDR3] [get_bd_intf_pins mig_7series_0/C1_DDR3]
   connect_bd_intf_net -intf_net mig_control_plane_0_I2C [get_bd_intf_pins i2c_switch_top_0/S2] [get_bd_intf_pins mig_control_plane_0/I2C]
-  connect_bd_intf_net -intf_net mig_control_plane_0_m_axi [get_bd_intf_pins axi_clock_converter_0/S_AXI] [get_bd_intf_pins mig_control_plane_0/M_AXI]
-  connect_bd_intf_net -intf_net rocketchip_M_AXI_MEM [get_bd_intf_pins mig_control_plane_0/S_AXI] [get_bd_intf_pins rocketchip/M_AXI_MEM]
+  connect_bd_intf_net -intf_net rocketchip_M_AXI_MEM [get_bd_intf_pins axi_clock_converter_0/S_AXI] [get_bd_intf_pins rocketchip/M_AXI_MEM]
   connect_bd_intf_net -intf_net sfp_mgt_clk_1 [get_bd_intf_ports sfp_mgt_clk] [get_bd_intf_pins PRMSYS/mgt_clk]
 
   # Create port connections
@@ -1825,6 +1823,7 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
   connect_bd_net -net Net [get_bd_ports i2c_clk] [get_bd_pins vc709_sfp/i2c_clk]
   connect_bd_net -net Net1 [get_bd_ports i2c_data] [get_bd_pins vc709_sfp/i2c_data]
   connect_bd_net -net PRMSYS_ARESETN [get_bd_pins PRMSYS/ARESETN] [get_bd_pins axi_perf_mon_0/s_axi_aresetn] [get_bd_pins i2c_switch_top_0/aresetn]
+  connect_bd_net -net PRMSYS_DMA_DS_ID [get_bd_pins PRMSYS/DMA_DS_ID] [get_bd_pins cdma_addr_0/s_axi_ar_bits_user] [get_bd_pins cdma_addr_0/s_axi_aw_bits_user]
   connect_bd_net -net PRMSYS_SYS_UART_0_txd [get_bd_pins PRMSYS/SYS_UART_0_txd] [get_bd_pins uart_inverter_0/tx_dest]
   connect_bd_net -net PRMSYS_peripheral_aresetn [get_bd_pins PRMSYS/peripheral_aresetn] [get_bd_pins mig_7series_0/c0_aresetn]
   connect_bd_net -net SFP_LOS_1 [get_bd_ports SFP_LOS] [get_bd_pins vc709_sfp/SFP_LOS]
@@ -1834,18 +1833,18 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
   connect_bd_net -net clk_wiz_0_clk_out1 [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins vc709_sfp/slowest_sync_clk]
   connect_bd_net -net clk_wiz_0_clk_out2 [get_bd_pins PRMSYS/io_clk] [get_bd_pins axi_perf_mon_0/s_axi_aclk] [get_bd_pins i2c_switch_top_0/aclk]
   connect_bd_net -net clk_wiz_0_clk_out3 [get_bd_pins clk_wiz_0/clk_out3] [get_bd_pins pardcore_reset1/slowest_sync_clk] [get_bd_pins rocketchip/coreclk]
-  connect_bd_net -net clk_wiz_0_clk_out4 [get_bd_pins axi_clock_converter_0/s_axi_aclk] [get_bd_pins clk_wiz_0/clk_out2] [get_bd_pins mig_control_plane_0/aclk] [get_bd_pins pardio_reset/slowest_sync_clk] [get_bd_pins rocketchip/uncoreclk]
+  connect_bd_net -net clk_wiz_0_clk_out4 [get_bd_pins axi_clock_converter_0/s_axi_aclk] [get_bd_pins axi_clock_converter_1/m_axi_aclk] [get_bd_pins clk_wiz_0/clk_out2] [get_bd_pins pardio_reset/slowest_sync_clk] [get_bd_pins rocketchip/uncoreclk]
   connect_bd_net -net clk_wiz_0_locked [get_bd_pins clk_wiz_0/locked] [get_bd_pins pardcore_reset1/dcm_locked] [get_bd_pins pardio_reset/dcm_locked] [get_bd_pins vc709_sfp/dcm_locked]
   connect_bd_net -net dcm_locked_1 [get_bd_pins PRMSYS/dcm_locked] [get_bd_pins mig_7series_0/c0_mmcm_locked]
   connect_bd_net -net ext_reset_in_1 [get_bd_pins PRMSYS/ext_reset_in] [get_bd_pins mig_7series_0/c0_ui_clk_sync_rst]
   connect_bd_net -net mig_7series_0_c1_mmcm_locked [get_bd_pins mig_7series_0/c1_mmcm_locked] [get_bd_pins reset_100M/dcm_locked]
-  connect_bd_net -net mig_7series_0_c1_ui_clk [get_bd_pins CoreControlPlane_0/SYS_CLK] [get_bd_pins PRMSYS/m_axi_aclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_perf_mon_0/core_aclk] [get_bd_pins axi_perf_mon_0/slot_0_axi_aclk] [get_bd_pins clk_wiz_0/clk_in1] [get_bd_pins mig_7series_0/c1_ui_clk] [get_bd_pins reset_100M/slowest_sync_clk]
+  connect_bd_net -net mig_7series_0_c1_ui_clk [get_bd_pins CoreControlPlane_0/SYS_CLK] [get_bd_pins PRMSYS/m_axi_aclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins axi_clock_converter_1/s_axi_aclk] [get_bd_pins axi_perf_mon_0/core_aclk] [get_bd_pins axi_perf_mon_0/slot_0_axi_aclk] [get_bd_pins clk_wiz_0/clk_in1] [get_bd_pins mig_7series_0/c1_ui_clk] [get_bd_pins mig_control_plane_0/aclk] [get_bd_pins reset_100M/slowest_sync_clk]
   connect_bd_net -net mig_7series_0_c1_ui_clk_sync_rst [get_bd_pins clk_wiz_0/reset] [get_bd_pins mig_7series_0/c1_ui_clk_sync_rst] [get_bd_pins pardio_reset/ext_reset_in] [get_bd_pins reset_100M/ext_reset_in] [get_bd_pins vc709_sfp/ext_reset_in]
-  connect_bd_net -net pardcore_reset_interconnect_aresetn [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins mig_control_plane_0/aresetn] [get_bd_pins pardio_reset/interconnect_aresetn] [get_bd_pins rocketchip/s_axi_aresetn1]
+  connect_bd_net -net pardcore_reset_interconnect_aresetn [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins axi_clock_converter_1/m_axi_aresetn] [get_bd_pins pardio_reset/interconnect_aresetn] [get_bd_pins rocketchip/s_axi_aresetn1]
   connect_bd_net -net pardcore_reset_peripheral_aresetn [get_bd_pins PRMSYS/aresetn1] [get_bd_pins axi_perf_mon_0/core_aresetn] [get_bd_pins axi_perf_mon_0/slot_0_axi_aresetn] [get_bd_pins mig_7series_0/c1_aresetn] [get_bd_pins reset_100M/peripheral_aresetn]
   connect_bd_net -net pardio_reset_mb_reset [get_bd_pins pardio_reset/mb_reset] [get_bd_pins rocketchip/uncorerst]
   connect_bd_net -net reset_1 [get_bd_pins pardcore_reset1/mb_reset] [get_bd_pins rocketchip/corerst]
-  connect_bd_net -net reset_100M_interconnect_aresetn [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins reset_100M/interconnect_aresetn]
+  connect_bd_net -net reset_100M_interconnect_aresetn [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins axi_clock_converter_1/s_axi_aresetn] [get_bd_pins mig_control_plane_0/aresetn] [get_bd_pins reset_100M/interconnect_aresetn]
   connect_bd_net -net reset_100M_mb_reset [get_bd_pins CoreControlPlane_0/RST] [get_bd_pins reset_100M/mb_reset]
   connect_bd_net -net rocketchip_UART_txd [get_bd_pins rocketchip/UART_txd] [get_bd_pins uart_inverter_0/tx_src]
   connect_bd_net -net s_axi_aresetn_1 [get_bd_pins pardio_reset/peripheral_aresetn] [get_bd_pins rocketchip/s_axi_aresetn]
@@ -1862,7 +1861,7 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
   connect_bd_net -net xlconstant_2_dout [get_bd_pins mig_control_plane_0/ADDR] [get_bd_pins xlconstant_2/dout]
 
   # Create address segments
-  create_bd_addr_seg -range 0x80000000 -offset 0x80000000 [get_bd_addr_spaces mig_control_plane_0/M_AXI] [get_bd_addr_segs mig_7series_0/c1_memmap/c1_memaddr] SEG_mig_7series_0_c1_memaddr
+  create_bd_addr_seg -range 0x000100000000 -offset 0x00000000 [get_bd_addr_spaces mig_control_plane_0/M_AXI] [get_bd_addr_segs mig_7series_0/c1_memmap/c1_memaddr] SEG_mig_7series_0_c1_memaddr
   create_bd_addr_seg -range 0x80000000 -offset 0x00000000 [get_bd_addr_spaces PRMSYS/PRM_CORE/axi_cdma_0/Data] [get_bd_addr_segs cdma_addr_0/S_AXI/Reg] SEG_cdma_addr_0_Reg
   create_bd_addr_seg -range 0x80000000 -offset 0x80000000 [get_bd_addr_spaces PRMSYS/PRM_CORE/axi_cdma_0/Data] [get_bd_addr_segs mig_7series_0/c0_memmap/c0_memaddr] SEG_mig_7series_0_c0_memaddr
   create_bd_addr_seg -range 0x80000000 -offset 0x80000000 [get_bd_addr_spaces PRMSYS/PRM_CORE/axi_cdma_0/Data_SG] [get_bd_addr_segs mig_7series_0/c0_memmap/c0_memaddr] SEG_mig_7series_0_c0_memaddr
