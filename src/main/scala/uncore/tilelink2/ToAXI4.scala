@@ -192,6 +192,7 @@ class TLToAXI4(idBits: Int, combinational: Boolean = true)(implicit p: Parameter
     arw.cache := UInt(0) // do not allow AXI to modify our transactions
     arw.prot  := AXI4Parameters.PROT_PRIVILEDGED
     arw.qos   := UInt(0) // no QoS
+    arw.user  := in.a.bits.dsid
 
     in.a.ready := Mux(a_isPut, (doneAW || out_arw.ready) && out_w.ready, out_arw.ready)
     out_arw.valid := in.a.valid && Mux(a_isPut, !doneAW && out_w.ready, Bool(true))

@@ -140,6 +140,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
     val put_who  = Mux(c_releasedata, in.c.bits.source, c_trackerSrc)
     putfull.valid := in.c.valid && (c_probeackdata || c_releasedata)
     putfull.bits := edgeOut.Put(Cat(put_what, put_who), in.c.bits.address, in.c.bits.size, in.c.bits.data)._2
+    putfull.bits.dsid := in.c.bits.dsid
 
     // Combine ReleaseAck or the modified D
     TLArbiter.lowest(edgeOut, in.d, releaseack, d_normal)
@@ -234,6 +235,7 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
   val size    = Reg(io.in_a.bits.size)
   val source  = Reg(io.in_a.bits.source)
   val address = RegInit(UInt(id << lineShift, width = io.in_a.bits.address.getWidth))
+  val dsid    = Reg(io.in_a.bits.dsid)
   val count   = Reg(UInt(width = probeCountBits))
 
   when (io.in_a.fire() && io.in_a_first) {
@@ -244,6 +246,7 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
     size    := io.in_a.bits.size
     source  := io.in_a.bits.source
     address := io.in_a.bits.address
+    dsid    := io.in_a.bits.dsid
     count   := io.probe
   }
   when (io.d_last) {
@@ -289,6 +292,7 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
   io.out_a.bits.address := address
   io.out_a.bits.mask    := o_data.bits.mask
   io.out_a.bits.data    := o_data.bits.data
+  io.out_a.bits.dsid    := dsid
 }
 
 object TLBroadcastConstants

@@ -44,6 +44,13 @@ class RocketTileModule(outer: RocketTile) extends BaseTileModule(outer, () => ne
     core.io.rocc.interrupt := lr.module.io.core.interrupt
   }
 
+  val dsid = UInt(0x1, width = 16) + io.hartid
+  (io.master).foreach { x => {
+      x.a.bits.dsid := dsid
+      x.c.bits.dsid := dsid
+    }
+  }
+
   // TODO figure out how to move the below into their respective mix-ins
   require(dcachePorts.size == core.dcacheArbPorts)
   dcacheArb.io.requestor <> dcachePorts

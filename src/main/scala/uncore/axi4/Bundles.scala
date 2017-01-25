@@ -19,6 +19,7 @@ abstract class AXI4BundleA(params: AXI4BundleParameters) extends AXI4BundleBase(
   val cache  = UInt(width = params.cacheBits)
   val prot   = UInt(width = params.protBits)
   val qos    = UInt(width = params.qosBits)  // 0=no QoS, bigger = higher priority
+  val user   = UInt(width = 16)
   // val region = UInt(width = 4) // optional
 
   // Number of bytes-1 in this operation
