@@ -5,6 +5,12 @@ package rocketchip
 import coreplex._
 import config._
 
+class PARDSimConfig extends Config(new WithBlockingL1
+  ++ new WithoutTLMonitors
+  ++ new WithoutFPU
+  ++ new WithExtMemSize(0x4000000L)
+  ++ new BaseConfig)
+
 class PARDFPGAConfig extends Config(new FPGAConfig
   ++ new WithoutFPU
   ++ new WithExtMemSize(0x80000000L)
