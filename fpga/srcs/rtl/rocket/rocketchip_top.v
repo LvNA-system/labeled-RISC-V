@@ -47,7 +47,7 @@ module rocketchip_top(
   output [33:0] io_debug_resp_bits_data
 );
 
-ExampleRocketTop top(
+PARDFPGATop top(
    .clock(uncoreclk),
    .reset(uncorerst),
    .io_coreclk(coreclk),
