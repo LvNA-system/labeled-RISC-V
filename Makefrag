@@ -3,6 +3,8 @@ ifndef RISCV
 $(error Please set environment variable RISCV. Please take a look at README)
 endif
 
+MAKE += -j 32
+
 MODEL ?= TestHarness
 PROJECT ?= rocketchip
 CFG_PROJECT ?= $(PROJECT)
