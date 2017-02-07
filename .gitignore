@@ -4,3 +4,4 @@ project/target
 *~
 .addons-dont-touch
 fpga/srcs/rtl/rocket/rocketchip.v
+fpga/build
