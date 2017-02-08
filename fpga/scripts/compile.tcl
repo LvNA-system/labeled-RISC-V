@@ -7,7 +7,7 @@ if {[llength $argv] > 0} {
 	set projectName rocket
 }
 
-set projectDir $thisDir/../../project/$projectName
+set projectDir $thisDir/../build/$projectName
 open_project $projectDir/$projectName.xpr
 
 # launch impl run
