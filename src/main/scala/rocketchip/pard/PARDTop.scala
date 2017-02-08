@@ -14,22 +14,15 @@ trait UARTConfigs {
 }
 
 abstract class PARDTop(implicit p: Parameters) extends BaseTop
+    with PeripheryExtInterrupts
+    with PeripheryMasterAXI4Mem
+    with PeripherySlaveAXI4
     with PeripheryBootROM
     with PeripheryDebug
     with PeripheryCounter
     with HardwiredResetVector
-    with PeripheryExtInterrupts
-    with PeripheryMasterAXI4Mem
-    with PeripherySlaveAXI4
-    with MultiClockRocketPlexMaster
     {
       override lazy val module = new PARDTopModule(this, () => new PARDTopBundle(this))
-      {
-        coreplex.module.io.tcrs foreach { tcr =>
-          tcr.clock := io.coreclk
-          tcr.reset := io.corerst
-        }
-      }
     }
 
 class PARDTopBundle[+L <: PARDTop](_outer: L) extends BaseTopBundle(_outer)
@@ -40,11 +33,6 @@ class PARDTopBundle[+L <: PARDTop](_outer: L) extends BaseTopBundle(_outer)
     with PeripheryDebugBundle
     with PeripheryCounterBundle
     with HardwiredResetVectorBundle
-    with MultiClockRocketPlexMasterBundle
-    {
-      val coreclk = Clock(INPUT)
-      val corerst= Bool(INPUT)
-    }
 
 class PARDTopModule[+L <: PARDTop, +B <: PARDTopBundle[L]](_outer: L, _io: () => B) extends BaseTopModule(_outer, _io)
     with PeripheryExtInterruptsModule
@@ -54,28 +42,59 @@ class PARDTopModule[+L <: PARDTop, +B <: PARDTopBundle[L]](_outer: L, _io: () =>
     with PeripheryDebugModule
     with PeripheryCounterModule
     with HardwiredResetVectorModule
-    with MultiClockRocketPlexMasterModule
 
 
 
 class PARDSimTop(implicit p: Parameters) extends PARDTop
     with UARTConfigs
     with PeripheryUART
+    with MultiClockRocketPlexMaster
+    {
+      override lazy val module = new PARDSimTopModule(this, () => new PARDSimTopBundle(this))
+      {
+        coreplex.module.io.tcrs foreach { tcr =>
+          tcr.clock := io.coreclk
+          tcr.reset := io.corerst
+        }
+      }
+    }
 
 class PARDSimTopBundle[+L <: PARDSimTop](_outer: L) extends PARDTopBundle(_outer)
     with UARTConfigs
     with PeripheryUARTBundle
+    with MultiClockRocketPlexMasterBundle
+    {
+      val coreclk = Clock(INPUT)
+      val corerst= Bool(INPUT)
+    }
 
 class PARDSimTopModule[+L <: PARDSimTop, +B <: PARDSimTopBundle[L]](_outer: L, _io: () => B) extends PARDTopModule(_outer, _io)
     with UARTConfigs
     with PeripheryUARTModule
+    with MultiClockRocketPlexMasterModule
 
 
 class PARDFPGATop(implicit p: Parameters) extends PARDTop
     with PeripheryMasterAXI4MMIO
+    with MultiClockRocketPlexMaster
+    {
+      override lazy val module = new PARDFPGATopModule(this, () => new PARDFPGATopBundle(this))
+      {
+        coreplex.module.io.tcrs foreach { tcr =>
+          tcr.clock := io.coreclk
+          tcr.reset := io.corerst
+        }
+      }
+    }
 
 class PARDFPGATopBundle[+L <: PARDFPGATop](_outer: L) extends PARDTopBundle(_outer)
     with PeripheryMasterAXI4MMIOBundle
+    with MultiClockRocketPlexMasterBundle
+    {
+      val coreclk = Clock(INPUT)
+      val corerst= Bool(INPUT)
+    }
 
 class PARDFPGATopModule[+L <: PARDFPGATop, +B <: PARDFPGATopBundle[L]](_outer: L, _io: () => B) extends PARDTopModule(_outer, _io)
     with PeripheryMasterAXI4MMIOModule
+    with MultiClockRocketPlexMasterModule
