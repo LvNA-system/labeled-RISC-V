@@ -19,7 +19,7 @@ fpga_script_dir = $(fpga_dir)/scripts
 generated_dir = $(fpga_dir)/build/generated-src
 
 MODEL ?= PARDFPGAHarness
-CONFIG ?= PARDSimConfig
+CONFIG ?= PARDFPGAConfig
 
 #--------------------------------------------------------------------
 # Rocket-chip verilog source generation
