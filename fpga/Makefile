@@ -16,7 +16,8 @@ VIVADO_FLAG = -nolog -nojournal
 base_dir = $(abspath ..)
 fpga_dir = $(abspath .)
 fpga_script_dir = $(fpga_dir)/scripts
-generated_dir = $(fpga_dir)/build/generated-src
+build_dir = $(fpga_dir)/build
+generated_dir = $(build_dir)/generated-src
 
 MODEL ?= PARDFPGAHarness
 CONFIG ?= PARDFPGAConfig
@@ -42,10 +43,31 @@ verilog: $(rocketchip_rtl)
 .PHONY: verilog
 
 #--------------------------------------------------------------------
+# Emulator generation
+#--------------------------------------------------------------------
+
+SIM_CONFIG ?= PARDSimConfig
+original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(SIM_CONFIG)
+emu_dir = $(fpga_dir)/emulator
+emu = $(emu_dir)/emu
+
+$(emu): $(original_emu)
+	ln -sf $< $@
+
+$(original_emu):
+	cd $(base_dir)/emulator && $(MAKE) all CONFIG=$(SIM_CONFIG) \
+		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir)
+
+emu: $(emu)
+
+run-emu: $(emu)
+	cd $(emu_dir) && $< +verbose $(emu) 3>&1 1>&2 2>&3 | spike-dasm > $(fpga_dir)/emulator/emu.log
+
+#--------------------------------------------------------------------
 # Project building and implementation
 #--------------------------------------------------------------------
 
-PRJ_ROOT = $(fpga_dir)/build/$(PRJ)
+PRJ_ROOT = $(build_dir)/$(PRJ)
 XPR_FILE = $(PRJ_ROOT)/$(PRJ).xpr
 $(XPR_FILE): | $(rocketchip_rtl)
 	vivado $(VIVADO_FLAG) -mode batch -source $(fpga_script_dir)/setup.tcl -tclargs $(PRJ)
