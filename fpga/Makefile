@@ -48,8 +48,10 @@ verilog: $(rocketchip_rtl)
 
 SIM_CONFIG ?= PARDSimConfig
 original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(SIM_CONFIG)
-emu_dir = $(fpga_dir)/emulator
-emu = $(emu_dir)/emu
+emu = $(build_dir)/emu
+emu_bin_file = $(fpga_dir)/emulator/bbl.bin
+emu_gen_script = $(fpga_dir)/emulator/gen_bin.sh
+emu_bin_hex_file = $(dir $(emu))/bin.txt
 
 $(emu): $(original_emu)
 	ln -sf $< $@
@@ -58,10 +60,13 @@ $(original_emu):
 	cd $(base_dir)/emulator && $(MAKE) all CONFIG=$(SIM_CONFIG) \
 		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir)
 
+$(emu_bin_hex_file): $(emu_bin_file)
+	cd $(dir $(emu)) && bash $(emu_gen_script) $<
+
 emu: $(emu)
 
-run-emu: $(emu)
-	cd $(emu_dir) && $< +verbose $(emu) 3>&1 1>&2 2>&3 | spike-dasm > $(fpga_dir)/emulator/emu.log
+run-emu: $(emu) $(emu_bin_hex_file)
+	cd $(dir $(emu)) && $< +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
 
 #--------------------------------------------------------------------
 # Project building and implementation
