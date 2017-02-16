@@ -74,7 +74,11 @@ emu: $(emu)
 run-emu: $(emu) $(emu_bin_hex_file)
 	cd $(dir $(emu)) && $< +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
 
-.PHONY: $(original_emu) emu run-emu
+emu-clean:
+	-rm $(emu)
+	-$(MAKE) clean -C $(base_dir)/emulator
+
+.PHONY: $(original_emu) emu run-emu emu-clean
 
 #--------------------------------------------------------------------
 # Project building and implementation
