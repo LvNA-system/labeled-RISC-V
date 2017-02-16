@@ -85,7 +85,7 @@ $(BBL_ELF_BUILD): | $(BBL_BUILD_PATH)
 
 bbl-clean:
 	-rm $(BBL_ELF) $(BBL_BIN)
-	-cd $(BBL_BUILD_PATH) && $(MAKE) clean
+	-$(MAKE) clean -C $(BBL_BUILD_PATH)
 
 .PHONY: bbl bbl-clean $(BBL_ELF_BUILD)
 
@@ -111,7 +111,7 @@ $(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH)
 
 linux-clean:
 	-rm $(LINUX_ELF)
-	-cd $(LINUX_REPO_PATH) && $(MAKE) clean
+	-$(MAKE) clean -C $(LINUX_REPO_PATH)
 
 .PHONY: linux linux-clean $(LINUX_ELF_BUILD)
 

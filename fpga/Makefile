@@ -37,7 +37,7 @@ CONFIG ?= PARDFPGAConfig
 gen_rtl = $(generated_dir)/$(long_name).v $(generated_dir)/$(long_name).behav_srams.v
 
 $(gen_rtl):
-	cd $(base_dir)/vsim && $(MAKE) verilog CONFIG=$(CONFIG) MODEL=$(MODEL) generated_dir=$(generated_dir)
+	$(MAKE) verilog -C $(base_dir)/vsim CONFIG=$(CONFIG) MODEL=$(MODEL) generated_dir=$(generated_dir)
 
 rocketchip_rtl = $(fpga_dir)/srcs/rtl/rocket/rocketchip.v
 
@@ -63,7 +63,7 @@ $(emu): $(original_emu)
 	ln -sf $< $@
 
 $(original_emu):
-	cd $(base_dir)/emulator && $(MAKE) all CONFIG=$(SIM_CONFIG) \
+	$(MAKE) all -C $(base_dir)/emulator CONFIG=$(SIM_CONFIG) \
 		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir)
 
 $(emu_bin_hex_file): $(emu_bin_file)
