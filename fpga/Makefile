@@ -46,7 +46,7 @@ $(rocketchip_rtl): $(gen_rtl) $(base_dir)/vsrc/AsyncResetReg.v
 
 verilog: $(rocketchip_rtl)
 
-.PHONY: verilog
+.PHONY: $(gen_rtl) verilog
 
 #--------------------------------------------------------------------
 # Emulator generation
@@ -73,6 +73,8 @@ emu: $(emu)
 
 run-emu: $(emu) $(emu_bin_hex_file)
 	cd $(dir $(emu)) && $< +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
+
+.PHONY: $(original_emu) emu run-emu
 
 #--------------------------------------------------------------------
 # Project building and implementation
