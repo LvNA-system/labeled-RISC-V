@@ -47,7 +47,7 @@ BBL_BIN = $(build_dir)/bbl.bin
 #--------------------------------------------------------------------
 
 LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
-LINUX_BUILD_COMMIT = 05a74e909c883cee963eb0274e0ebe927896fff9
+LINUX_BUILD_COMMIT = 28e36bad2a210c4f71950b982b2d6d24fa0cec7c
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
@@ -85,7 +85,7 @@ $(BBL_ELF_BUILD): | $(BBL_BUILD_PATH)
 
 bbl-clean:
 	-rm $(BBL_ELF) $(BBL_BIN)
-	-cd $(BBL_BUILD_PATH) && $(MAKE) clean
+	-$(MAKE) clean -C $(BBL_BUILD_PATH)
 
 .PHONY: bbl bbl-clean $(BBL_ELF_BUILD)
 
@@ -111,7 +111,7 @@ $(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH)
 
 linux-clean:
 	-rm $(LINUX_ELF)
-	-cd $(LINUX_REPO_PATH) && $(MAKE) clean
+	-$(MAKE) clean -C $(LINUX_REPO_PATH)
 
 .PHONY: linux linux-clean $(LINUX_ELF_BUILD)
 
