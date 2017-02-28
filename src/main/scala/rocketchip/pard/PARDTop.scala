@@ -6,6 +6,7 @@ import Chisel._
 import config._
 import junctions._
 import rocketchip._
+import uncore.devices.NTiles
 
 import sifive.blocks.devices.uart._
 
@@ -52,10 +53,10 @@ class PARDSimTop(implicit p: Parameters) extends PARDTop
     {
       override lazy val module = new PARDSimTopModule(this, () => new PARDSimTopBundle(this))
       {
-        coreplex.module.io.tcrs foreach { tcr =>
+        coreplex.module.io.tcrs.zipWithIndex.foreach { case (tcr, i) => {
           tcr.clock := io.coreclk
-          tcr.reset := io.corerst
-        }
+          tcr.reset := io.corerst(i)
+        }}
       }
     }
 
@@ -65,7 +66,7 @@ class PARDSimTopBundle[+L <: PARDSimTop](_outer: L) extends PARDTopBundle(_outer
     with MultiClockRocketPlexMasterBundle
     {
       val coreclk = Clock(INPUT)
-      val corerst= Bool(INPUT)
+      val corerst= Vec(_outer.p(NTiles), Bool(INPUT))
     }
 
 class PARDSimTopModule[+L <: PARDSimTop, +B <: PARDSimTopBundle[L]](_outer: L, _io: () => B) extends PARDTopModule(_outer, _io)
@@ -80,10 +81,10 @@ class PARDFPGATop(implicit p: Parameters) extends PARDTop
     {
       override lazy val module = new PARDFPGATopModule(this, () => new PARDFPGATopBundle(this))
       {
-        coreplex.module.io.tcrs foreach { tcr =>
+        coreplex.module.io.tcrs.zipWithIndex.foreach { case (tcr, i) => {
           tcr.clock := io.coreclk
-          tcr.reset := io.corerst
-        }
+          tcr.reset := io.corerst(i)
+        }}
       }
     }
 
@@ -92,7 +93,7 @@ class PARDFPGATopBundle[+L <: PARDFPGATop](_outer: L) extends PARDTopBundle(_out
     with MultiClockRocketPlexMasterBundle
     {
       val coreclk = Clock(INPUT)
-      val corerst= Bool(INPUT)
+      val corerst= Vec(_outer.p(NTiles), Bool(INPUT))
     }
 
 class PARDFPGATopModule[+L <: PARDFPGATop, +B <: PARDFPGATopBundle[L]](_outer: L, _io: () => B) extends PARDTopModule(_outer, _io)
