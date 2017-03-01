@@ -45,7 +45,9 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dma.io.reset := reset
 
   dut.io.coreclk := clock
-  dut.io.corerst := reset || dma.io.intr
+  for (corerst <- dut.io.corerst) {
+    corerst := reset || dma.io.intr
+  }
 
   val l2_axi4 = dut.io.l2_axi4(0)
   l2_axi4.ar.valid := Bool(false)
