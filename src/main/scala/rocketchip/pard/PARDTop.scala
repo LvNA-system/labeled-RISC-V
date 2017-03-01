@@ -66,7 +66,7 @@ class PARDSimTopBundle[+L <: PARDSimTop](_outer: L) extends PARDTopBundle(_outer
     with MultiClockRocketPlexMasterBundle
     {
       val coreclk = Clock(INPUT)
-      val corerst= Vec(_outer.p(NTiles), Bool(INPUT))
+      val corerst = Vec(_outer.p(NTiles), Bool()).asInput
     }
 
 class PARDSimTopModule[+L <: PARDSimTop, +B <: PARDSimTopBundle[L]](_outer: L, _io: () => B) extends PARDTopModule(_outer, _io)
@@ -93,7 +93,7 @@ class PARDFPGATopBundle[+L <: PARDFPGATop](_outer: L) extends PARDTopBundle(_out
     with MultiClockRocketPlexMasterBundle
     {
       val coreclk = Clock(INPUT)
-      val corerst= Vec(_outer.p(NTiles), Bool(INPUT))
+      val corerst = Vec(_outer.p(NTiles), Bool()).asInput
     }
 
 class PARDFPGATopModule[+L <: PARDFPGATop, +B <: PARDFPGATopBundle[L]](_outer: L, _io: () => B) extends PARDTopModule(_outer, _io)
