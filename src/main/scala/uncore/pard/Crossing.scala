@@ -1,6 +1,6 @@
 package uncore.pard
 
-import Chisel._
+import chisel3._
 import chisel3.internal.sourceinfo.SourceInfo
 import config._
 import diplomacy._
@@ -12,14 +12,17 @@ case class ControlledCrossingNode() extends MixedNode(TLImp, TLImp)(
   numPO = 1 to 1,
   numPI = 1 to 1)
 
-class ControlledCrossing()(implicit p: Parameters) extends LazyModule
+class ControlledCrossing(implicit p: Parameters) extends LazyModule
 {
   val node = ControlledCrossingNode()
 
+  val trafficEnable = Wire(true.B)
+
   lazy val module = new LazyModuleImp(this) {
     val io = new Bundle {
-      val in:  Vec[TLBundle] = node.bundleIn
-      val out: Vec[TLBundle] = node.bundleOut
+      val enable: Bool          = Input(trafficEnable)
+      val in:     Vec[TLBundle] = node.bundleIn
+      val out:    Vec[TLBundle] = node.bundleOut
     }
 
     (io.in zip io.out) foreach { case (in, out) =>
@@ -28,7 +31,10 @@ class ControlledCrossing()(implicit p: Parameters) extends LazyModule
       in.b <> out.b
       out.c <> in.c
       out.e <> in.e
-      out.a.valid := Bool(false)
+      // If we controlled Acquire's valid bit, it will not be accepted by the following nodes.
+      // Therefore the Acquire's ready signal will stay inactive, and the following requests
+      // from the master will be blocked.
+      out.a.valid := in.a.valid && io.enable
     }
   }
 }
@@ -36,9 +42,9 @@ class ControlledCrossing()(implicit p: Parameters) extends LazyModule
 object ControlledCrossing
 {
   // applied to the TL source node; y.node := ControlledCrossing(x.node)
-  def apply(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
-    val cross = LazyModule(new ControlledCrossing())
+  def apply(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): ControlledCrossing = {
+    val cross = LazyModule(new ControlledCrossing)
     cross.node := x
-    cross.node
+    cross
   }
 }

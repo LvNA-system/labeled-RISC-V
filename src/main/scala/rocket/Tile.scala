@@ -44,6 +44,8 @@ class RocketTileModule(outer: RocketTile) extends BaseTileModule(outer, () => ne
     core.io.rocc.interrupt := lr.module.io.core.interrupt
   }
 
+  outer.controlledCrossing.module.io.enable := io.trafficEnable
+
   val dsid = UInt(0x1, width = 16) + io.hartid
   (io.master).foreach { x => {
       x.a.bits.dsid := dsid
@@ -73,10 +75,12 @@ class AsyncRocketTile(c: RocketConfig)(implicit p: Parameters) extends LazyModul
       val hartid = UInt(INPUT, p(XLen))
       val interrupts = new TileInterrupts()(p).asInput
       val resetVector = UInt(INPUT, p(XLen))
+      val trafficEnable = Bool(INPUT)
     }
     rocket.module.io.interrupts := ShiftRegister(io.interrupts, 3)
     // signals that do not change:
     rocket.module.io.hartid := io.hartid
     rocket.module.io.resetVector := io.resetVector
+    rocket.module.io.trafficEnable := io.trafficEnable
   }
 }

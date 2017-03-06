@@ -38,9 +38,15 @@ class MultiClockCoreplex(implicit p: Parameters) extends BaseCoreplex
 class MultiClockCoreplexBundle[+L <: MultiClockCoreplex](_outer: L) extends BaseCoreplexBundle(_outer)
     with CoreplexRISCVPlatformBundle
     with HasL2MasterPortBundle
-    with HasAsynchronousRocketTilesBundle
+    with HasAsynchronousRocketTilesBundle {
+  val trafficEnables = Vec(_outer.nTiles, Bool()).asInput
+}
 
 class MultiClockCoreplexModule[+L <: MultiClockCoreplex, +B <: MultiClockCoreplexBundle[L]](_outer: L, _io: () => B) extends BaseCoreplexModule(_outer, _io)
     with CoreplexRISCVPlatformModule
     with HasL2MasterPortModule
-    with HasAsynchronousRocketTilesModule
+    with HasAsynchronousRocketTilesModule {
+  _outer.rocketTiles.zipWithIndex.foreach { case (tile, i) =>
+    tile.module.io.trafficEnable := io.trafficEnables(i)
+  }
+}

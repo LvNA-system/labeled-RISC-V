@@ -27,7 +27,8 @@ trait TileNetwork {
   val module: TileNetworkModule
   val l1backend = LazyModule(new TLXbar)
   val masterNodes = List(TLOutputNode())
-  masterNodes.head := uncore.pard.ControlledCrossing(l1backend.node)
+  val controlledCrossing = uncore.pard.ControlledCrossing(l1backend.node)
+  masterNodes.head := controlledCrossing.node
 }
 
 trait TileNetworkBundle {
@@ -50,6 +51,7 @@ class BaseTileBundle[+L <: BaseTile](_outer: L) extends BareTileBundle(_outer)
   val hartid = UInt(INPUT, p(XLen))
   val interrupts = new TileInterrupts()(p).asInput
   val resetVector = UInt(INPUT, p(XLen))
+  val trafficEnable = Bool(INPUT)
 }
 
 class BaseTileModule[+L <: BaseTile, +B <: BaseTileBundle[L]](_outer: L, _io: () => B) extends BareTileModule(_outer, _io)

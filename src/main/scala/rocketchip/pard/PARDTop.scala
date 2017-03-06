@@ -85,6 +85,10 @@ class PARDFPGATop(implicit p: Parameters) extends PARDTop
           tcr.clock := io.coreclk
           tcr.reset := io.corerst(i)
         }}
+        coreplex.module.io.trafficEnables.zipWithIndex.foreach { case (enable, i) =>
+            // This is a dummy connection.
+            enable := UInt(i) === UInt(0)
+        }
       }
     }
 
