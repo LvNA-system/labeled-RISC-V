@@ -27,7 +27,7 @@ trait TileNetwork {
   val module: TileNetworkModule
   val l1backend = LazyModule(new TLXbar)
   val masterNodes = List(TLOutputNode())
-  masterNodes.head := l1backend.node
+  masterNodes.head := uncore.pard.ControlledCrossing(l1backend.node)
 }
 
 trait TileNetworkBundle {
