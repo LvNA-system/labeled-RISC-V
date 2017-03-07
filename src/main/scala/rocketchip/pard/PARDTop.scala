@@ -57,6 +57,9 @@ class PARDSimTop(implicit p: Parameters) extends PARDTop
           tcr.clock := io.coreclk
           tcr.reset := io.corerst(i)
         }}
+        (coreplex.module.io.trafficEnables zip io.L1enable) foreach {
+          case (in, out) => in := out
+        }
       }
     }
 
@@ -67,6 +70,7 @@ class PARDSimTopBundle[+L <: PARDSimTop](_outer: L) extends PARDTopBundle(_outer
     {
       val coreclk = Clock(INPUT)
       val corerst = Vec(_outer.p(NTiles), Bool()).asInput
+      val L1enable = Vec(_outer.p(NTiles), Bool()).asInput
     }
 
 class PARDSimTopModule[+L <: PARDSimTop, +B <: PARDSimTopBundle[L]](_outer: L, _io: () => B) extends PARDTopModule(_outer, _io)
@@ -85,9 +89,8 @@ class PARDFPGATop(implicit p: Parameters) extends PARDTop
           tcr.clock := io.coreclk
           tcr.reset := io.corerst(i)
         }}
-        coreplex.module.io.trafficEnables.zipWithIndex.foreach { case (enable, i) =>
-            // This is a dummy connection.
-            enable := UInt(i) === UInt(0)
+        (coreplex.module.io.trafficEnables zip io.L1enable) foreach {
+          case (in, out) => in := out
         }
       }
     }
@@ -98,6 +101,8 @@ class PARDFPGATopBundle[+L <: PARDFPGATop](_outer: L) extends PARDTopBundle(_out
     {
       val coreclk = Clock(INPUT)
       val corerst = Vec(_outer.p(NTiles), Bool()).asInput
+      // If disabled, requests from corresponding core's L1 will not be sent to L2 and lower layers.
+      val L1enable = Vec(_outer.p(NTiles), Bool()).asInput
     }
 
 class PARDFPGATopModule[+L <: PARDFPGATop, +B <: PARDFPGATopBundle[L]](_outer: L, _io: () => B) extends PARDTopModule(_outer, _io)
