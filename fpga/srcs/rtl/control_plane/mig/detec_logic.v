@@ -44,6 +44,8 @@ module mig_cp_detec_logic # (
     APM_ADDR,
     APM_VALID,
 
+    L1enable,
+
 	trigger_axis_tready,
 	trigger_axis_tvalid,
 	trigger_axis_tdata
@@ -72,6 +74,8 @@ module mig_cp_detec_logic # (
     input  [31:0]                     APM_DATA  ;
     input  [31:0]                     APM_ADDR  ;
     input                             APM_VALID ;
+
+    output [C_NUM_ENTRIES - 1 : 0] L1enable;
 
 	input trigger_axis_tready;
 	output trigger_axis_tvalid;
@@ -158,6 +162,8 @@ module mig_cp_detec_logic # (
         .rdata(parameter_table_rdata),
         .is_this_table(is_parameter_table),
         .DSID({DSid[4],DSid[3],DSid[2],DSid[1]}),
+        /* For always output table info */
+        .L1enable(L1enable),
         /* AW channel */
         .TAG_A(TAG_A),
         .DO_A(DO_A ),

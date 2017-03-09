@@ -25,6 +25,7 @@ module rocketchip_top(
   input coreclk,
   input corerst0,
   input corerst1,
+  input [1:0] L1enable,  // For nTiles = 2
 	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 uncoreclk CLK" *)
 	(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI_MEM:M_AXI_MMIO:M_AXI_CDMA, ASSOCIATED_RESET uncorerst, FREQ_HZ 50000000" *)
   input   uncoreclk,
@@ -54,6 +55,8 @@ PARDFPGATop top(
    .io_coreclk(coreclk),
    .io_corerst_0(corerst0),
    .io_corerst_1(corerst1),
+   .io_L1enable_0(L1enable[0]),
+   .io_L1enable_1(L1enable[1]),
    .io_interrupts_0_0(io_interrupts_0),
    .io_interrupts_0_1(io_interrupts_1),
 

@@ -21,6 +21,7 @@
 `include "../../include/axi.vh"
 module mig_control_plane # (
     parameter C_DSID_WIDTH = 16,
+    parameter C_NUM_ENTRIES = 2,
     parameter C_ADDR_WIDTH = 32
 )(
     input  wire       aclk,
@@ -44,6 +45,8 @@ module mig_control_plane # (
     input wire  [31:0]                  APM_ADDR ,
     input wire  [31:0]                  APM_DATA,
 
+    /* Enables for cores' L1 traffic */
+    output [C_NUM_ENTRIES - 1 : 0] L1enable,
 	input trigger_axis_tready,
 	output trigger_axis_tvalid,
 	output [15:0] trigger_axis_tdata,
@@ -126,7 +129,8 @@ module mig_control_plane # (
     wire [127:0] ptable_do_b;
     
     mig_cp_detec_logic # (
-        .C_ADDR_WIDTH(C_ADDR_WIDTH)
+        .C_ADDR_WIDTH(C_ADDR_WIDTH),
+        .C_NUM_ENTRIES(C_NUM_ENTRIES)
     ) detc_logic_i(
         .SYS_CLK(aclk),
         .DETECT_RST(areset),
@@ -148,6 +152,8 @@ module mig_control_plane # (
         .APM_DATA(APM_DATA),
         .APM_VALID(APM_VALID),
         .APM_ADDR(APM_ADDR),
+
+        .L1enable(L1enable),
 
 		.trigger_axis_tready(trigger_axis_tready),
 		.trigger_axis_tvalid(trigger_axis_tvalid),
