@@ -32,9 +32,10 @@ class ControlledCrossing(implicit p: Parameters) extends LazyModule
       out.c <> in.c
       out.e <> in.e
       // If we controlled Acquire's valid bit, it will not be accepted by the following nodes.
-      // Therefore the Acquire's ready signal will stay inactive, and the following requests
-      // from the master will be blocked.
+      // Ready signal from the other side should also be masked. Then the master will not go
+      // to the next Acquire.
       out.a.valid := in.a.valid && io.enable
+      in.a.ready := out.a.ready && io.enable
     }
   }
 }
