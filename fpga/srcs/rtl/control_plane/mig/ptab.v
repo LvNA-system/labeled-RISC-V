@@ -27,6 +27,8 @@ module mig_cp_ptab #
    parameter integer C_BASE_WIDTH = 32,
    parameter integer C_LENGTH_WIDTH = 32,
    parameter integer C_DSID_LENTH = 64 ,
+   parameter integer C_BUCKET_SIZE_WIDTH = 32,
+   parameter integer C_BUCKET_FREQ_WIDTH = 32,
    // Table Size
    parameter integer C_NUM_ENTRIES = 5
    )
@@ -43,6 +45,9 @@ module mig_cp_ptab #
      input  wire [C_DSID_LENTH-1 :0]       DSID ,
      /* Always output info */
      output wire [C_NUM_ENTRIES - 1 : 0] L1enable,
+     output wire [C_NUM_ENTRIES * C_BUCKET_SIZE_WIDTH - 1 : 0] bucket_size_bundle,
+     output wire [C_NUM_ENTRIES * C_BUCKET_FREQ_WIDTH - 1 : 0] bucket_freq_bundle,
+     output wire [C_NUM_ENTRIES * C_BUCKET_SIZE_WIDTH - 1 : 0] bucket_inc_bundle,
       /* TypeA access: by tag */
      input  wire [C_TAG_WIDTH-1    : 0]     TAG_A,
      output wire [C_DATA_WIDTH-1   : 0]     DO_A,
@@ -72,12 +77,20 @@ module mig_cp_ptab #
 
   reg [0:0] L1EnableReg [C_NUM_ENTRIES - 1 : 0];
 
+  // Token bucket info
+  reg [C_BUCKET_SIZE_WIDTH - 1 : 0] bucket_size [C_NUM_ENTRIES - 1 : 0];
+  reg [C_BUCKET_FREQ_WIDTH - 1 : 0] bucket_freq [C_NUM_ENTRIES - 1 : 0];
+  reg [C_BUCKET_SIZE_WIDTH - 1 : 0] bucket_inc [C_NUM_ENTRIES - 1 : 0];
+
 
 
    generate
      for (i=0; i<C_NUM_ENTRIES; i=i+1) 
      begin: tag_match_blk
         assign L1enable[i] = L1EnableReg[i];
+        assign bucket_size_bundle[i * C_BUCKET_SIZE_WIDTH +: C_BUCKET_SIZE_WIDTH] = bucket_size[i];
+        assign bucket_freq_bundle[i * C_BUCKET_FREQ_WIDTH +: C_BUCKET_FREQ_WIDTH] = bucket_freq[i];
+        assign bucket_inc_bundle[i * C_BUCKET_SIZE_WIDTH +: C_BUCKET_SIZE_WIDTH] = bucket_inc[i];
         assign tag_match_a[i] = ~|(reg_files_dsid[(i+1)*C_TAG_WIDTH-1 -: C_TAG_WIDTH] ^ TAG_A[C_TAG_WIDTH-1:0]);
         assign tag_match_b[i] = ~|(reg_files_dsid[(i+1)*C_TAG_WIDTH-1 -: C_TAG_WIDTH] ^ TAG_B[C_TAG_WIDTH-1:0]);
      end
@@ -103,6 +116,9 @@ module mig_cp_ptab #
           if (areset) begin
              for (j=0 ; j<C_NUM_ENTRIES;j=j+1 ) 
                begin
+                 bucket_size[j] <= {C_BUCKET_SIZE_WIDTH{1'b0}};
+                 bucket_freq[j] <= {C_BUCKET_FREQ_WIDTH{1'b0}};
+                 bucket_inc[j] <= {C_BUCKET_SIZE_WIDTH{1'b0}};
                  L1EnableReg[j] <= 0;
                  reg_files_base[j] <= {C_BASE_WIDTH{1'd0}};
                  reg_files_len[j] <=  {C_LENGTH_WIDTH{1'd0}};
@@ -110,6 +126,9 @@ module mig_cp_ptab #
           end
           else if ((is_this_table) & (wen)) begin
               case(col)
+                   15'd5: bucket_inc[row]     <= wdata[0 +: C_BUCKET_SIZE_WIDTH] ;
+                   15'd4: bucket_freq[row]    <= wdata[0 +: C_BUCKET_FREQ_WIDTH] ;
+                   15'd3: bucket_size[row]    <= wdata[0 +: C_BUCKET_SIZE_WIDTH] ;
                    15'd2: L1EnableReg[row]    <= wdata != 64'd0 ;
                    15'd1: reg_files_len[row]  <= wdata ;
                    15'd0: reg_files_base[row] <= wdata ;
@@ -121,6 +140,9 @@ module mig_cp_ptab #
   always @(*)
    begin
         case(col)
+	       15'd5:rdata = {32'd0,bucket_inc[row]} ;
+	       15'd4:rdata = {32'd0,bucket_freq[row]} ;
+	       15'd3:rdata = {32'd0,bucket_size[row]} ;
 	       15'd2:rdata = {63'd0,L1EnableReg[row]} ;
 	       15'd1:rdata = {32'd0,reg_files_len[row]} ;
 	       15'd0:rdata = {32'd0,reg_files_base[row]} ;

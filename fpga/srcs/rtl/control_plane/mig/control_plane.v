@@ -20,6 +20,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 `include "../../include/axi.vh"
 module mig_control_plane # (
+    parameter C_BUCKET_SIZE_WIDTH = 32,
+    parameter C_BUCKET_FREQ_WIDTH = 32,
     parameter C_DSID_WIDTH = 16,
     parameter C_NUM_ENTRIES = 2,
     parameter C_ADDR_WIDTH = 32
@@ -128,7 +130,14 @@ module mig_control_plane # (
     wire [127:0] ptable_do_a;
     wire [127:0] ptable_do_b;
     
+    wire [C_DSID_WIDTH * C_NUM_ENTRIES - 1 : 0] dsid_bundle;
+    wire [C_BUCKET_SIZE_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_size_bundle;
+    wire [C_BUCKET_FREQ_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_freq_bundle;
+    wire [C_BUCKET_SIZE_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_inc_bundle;
     mig_cp_detec_logic # (
+        .C_TAG_WIDTH(C_DSID_WIDTH),
+        .C_BUCKET_SIZE_WIDTH(C_BUCKET_SIZE_WIDTH),
+        .C_BUCKET_FREQ_WIDTH(C_BUCKET_FREQ_WIDTH),
         .C_ADDR_WIDTH(C_ADDR_WIDTH),
         .C_NUM_ENTRIES(C_NUM_ENTRIES)
     ) detc_logic_i(
@@ -154,6 +163,11 @@ module mig_control_plane # (
         .APM_ADDR(APM_ADDR),
 
         .L1enable(L1enable),
+
+        .dsid_bundle(dsid_bundle),
+        .bucket_size_bundle(bucket_size_bundle),
+        .bucket_freq_bundle(bucket_freq_bundle),
+        .bucket_inc_bundle(bucket_inc_bundle),
 
 		.trigger_axis_tready(trigger_axis_tready),
 		.trigger_axis_tvalid(trigger_axis_tvalid),

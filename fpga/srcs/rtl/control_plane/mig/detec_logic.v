@@ -22,6 +22,8 @@ module mig_cp_detec_logic # (
    parameter integer C_ADDR_WIDTH = 32,
    parameter integer C_TAG_WIDTH = 16,
    parameter integer C_DATA_WIDTH = 128,
+   parameter integer C_BUCKET_SIZE_WIDTH = 32,
+   parameter integer C_BUCKET_FREQ_WIDTH = 32,
    parameter integer C_NUM_ENTRIES = 5
 )(
     SYS_CLK,
@@ -44,7 +46,11 @@ module mig_cp_detec_logic # (
     APM_ADDR,
     APM_VALID,
 
+    dsid_bundle,
     L1enable,
+    bucket_size_bundle,
+    bucket_freq_bundle,
+    bucket_inc_bundle,
 
 	trigger_axis_tready,
 	trigger_axis_tvalid,
@@ -75,7 +81,11 @@ module mig_cp_detec_logic # (
     input  [31:0]                     APM_ADDR  ;
     input                             APM_VALID ;
 
+    output [C_TAG_WIDTH * C_NUM_ENTRIES - 1 : 0] dsid_bundle;
     output [C_NUM_ENTRIES - 1 : 0] L1enable;
+    output [C_BUCKET_SIZE_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_size_bundle;
+    output [C_BUCKET_FREQ_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_freq_bundle;
+    output [C_BUCKET_SIZE_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_inc_bundle;
 
 	input trigger_axis_tready;
 	output trigger_axis_tvalid;
@@ -100,6 +110,13 @@ module mig_cp_detec_logic # (
         DSid[3] <= 16'd3;
         DSid[4] <= 16'd4;
     end
+
+    generate
+      genvar i;
+      for (i = 0; i < C_NUM_ENTRIES; i = i + 1) begin
+        assign dsid_bundle[(i * C_TAG_WIDTH) +: C_TAG_WIDTH] = DSid[i + 1];
+      end
+    endgenerate
 
 	wire [15:0] trigger_dsid;
 	reg [14:0] trigger_row;
@@ -148,6 +165,8 @@ module mig_cp_detec_logic # (
 
     mig_cp_ptab # (
         // Interface parameter
+        .C_BUCKET_SIZE_WIDTH (C_BUCKET_SIZE_WIDTH),
+        .C_BUCKET_FREQ_WIDTH (C_BUCKET_FREQ_WIDTH),
         .C_TAG_WIDTH    (C_TAG_WIDTH),
         .C_DATA_WIDTH   (C_DATA_WIDTH),
         .C_NUM_ENTRIES  (C_NUM_ENTRIES)
@@ -164,6 +183,9 @@ module mig_cp_detec_logic # (
         .DSID({DSid[4],DSid[3],DSid[2],DSid[1]}),
         /* For always output table info */
         .L1enable(L1enable),
+        .bucket_size_bundle(bucket_size_bundle),
+        .bucket_freq_bundle(bucket_freq_bundle),
+        .bucket_inc_bundle(bucket_inc_bundle),
         /* AW channel */
         .TAG_A(TAG_A),
         .DO_A(DO_A ),
