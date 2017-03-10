@@ -134,6 +134,32 @@ module mig_control_plane # (
     wire [C_BUCKET_SIZE_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_size_bundle;
     wire [C_BUCKET_FREQ_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_freq_bundle;
     wire [C_BUCKET_SIZE_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_inc_bundle;
+
+    wire rpass [C_NUM_ENTRIES - 1 : 0];
+    wire wpass [C_NUM_ENTRIES - 1 : 0];
+    wire [C_NUM_ENTRIES - 1 : 0] L1enable_param;
+    generate
+      genvar i;
+      for (i = 0; i < C_NUM_ENTRIES; i = i + 1) begin
+        token_bucket bucket(
+          .aclk          (aclk),
+          .aresetn       (aresetn),
+          .is_reading    (s_axi_ar_valid && (dsid_bundle[i * C_DSID_WIDTH +: C_DSID_WIDTH] == s_axi_ar_bits_user)),
+          .is_writing    (s_axi_aw_valid && (dsid_bundle[i * C_DSID_WIDTH +: C_DSID_WIDTH] == s_axi_aw_bits_user)),
+          .can_read      (m_axi_ar_ready),
+          .can_write     (m_axi_aw_ready),
+          .nr_rbyte      (({24'd0, s_axi_ar_bits_len} + 1'b1) << s_axi_ar_bits_size),  // AXI4 spec
+          .nr_wbyte      (({24'd0, s_axi_aw_bits_len} + 1'b1) << s_axi_aw_bits_size),  // AXI4 spec
+          .bucket_size   (bucket_size_bundle[i * C_BUCKET_SIZE_WIDTH +: C_BUCKET_SIZE_WIDTH]),
+          .bucket_freq   (bucket_freq_bundle[i * C_BUCKET_FREQ_WIDTH +: C_BUCKET_FREQ_WIDTH]),
+          .bucket_inc    (bucket_inc_bundle[i * C_BUCKET_SIZE_WIDTH +: C_BUCKET_SIZE_WIDTH]),
+          .rpass         (rpass[i]),
+          .wpass         (wpass[i])
+        );
+        assign L1enable[i] = L1enable_param[i] && rpass[i] && wpass[i];
+      end
+    endgenerate
+
     mig_cp_detec_logic # (
         .C_TAG_WIDTH(C_DSID_WIDTH),
         .C_BUCKET_SIZE_WIDTH(C_BUCKET_SIZE_WIDTH),
@@ -162,7 +188,7 @@ module mig_control_plane # (
         .APM_VALID(APM_VALID),
         .APM_ADDR(APM_ADDR),
 
-        .L1enable(L1enable),
+        .L1enable(L1enable_param),
 
         .dsid_bundle(dsid_bundle),
         .bucket_size_bundle(bucket_size_bundle),
