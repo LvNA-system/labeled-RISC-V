@@ -135,9 +135,8 @@ module mig_control_plane # (
     wire [C_BUCKET_FREQ_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_freq_bundle;
     wire [C_BUCKET_SIZE_WIDTH * C_NUM_ENTRIES - 1 : 0] bucket_inc_bundle;
 
-    wire rpass [C_NUM_ENTRIES - 1 : 0];
-    wire wpass [C_NUM_ENTRIES - 1 : 0];
     wire [C_NUM_ENTRIES - 1 : 0] L1enable_param;
+    wire bucket_enable [C_NUM_ENTRIES - 1 : 0];
     generate
       genvar i;
       for (i = 0; i < C_NUM_ENTRIES; i = i + 1) begin
@@ -153,10 +152,9 @@ module mig_control_plane # (
           .bucket_size   (bucket_size_bundle[i * C_BUCKET_SIZE_WIDTH +: C_BUCKET_SIZE_WIDTH]),
           .bucket_freq   (bucket_freq_bundle[i * C_BUCKET_FREQ_WIDTH +: C_BUCKET_FREQ_WIDTH]),
           .bucket_inc    (bucket_inc_bundle[i * C_BUCKET_SIZE_WIDTH +: C_BUCKET_SIZE_WIDTH]),
-          .rpass         (rpass[i]),
-          .wpass         (wpass[i])
+          .enable        (bucket_enable[i])
         );
-        assign L1enable[i] = L1enable_param[i] && rpass[i] && wpass[i];
+        assign L1enable[i] = L1enable_param[i] && bucket_enable[i];
       end
     endgenerate
 

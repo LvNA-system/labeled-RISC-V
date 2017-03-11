@@ -8,10 +8,10 @@ module token_bucket(
   input aclk,
   input aresetn,
 
-  (* mark_debug = "true" *) input is_reading,
-  (* mark_debug = "true" *) input is_writing,
-  (* mark_debug = "true" *) input can_read,
-  (* mark_debug = "true" *) input can_write,
+  input is_reading,
+  input is_writing,
+  input can_read,
+  input can_write,
 
   input [31:0] nr_rbyte,
   input [31:0] nr_wbyte,
@@ -21,8 +21,7 @@ module token_bucket(
   input [31:0] bucket_freq,  // One can gain tokens every `freq' cycles
   input [31:0] bucket_inc,   // Number of tokens each time one can gain
 
-  (* mark_debug = "true" *) output rpass,  // Reed can pass
-  (* mark_debug = "true" *) output wpass   // Write can pass
+  output reg enable  // Whether request from this ds is allowed.
 );
 
   wire bypass = (bucket_freq == 32'b0);
@@ -35,9 +34,9 @@ module token_bucket(
 
   always @(posedge aclk or negedge aresetn) begin
     if (~aresetn) begin
-      nr_token <= 32'd0;
+      nr_token <= bucket_size;
     end
-    else if (is_token_change) begin
+    else if (!bypass) begin
       nr_token <= nr_token_next_real;
     end
   end
@@ -53,20 +52,47 @@ module token_bucket(
   end
 
   wire is_token_add = (counter == 32'b1);
+  wire [31:0] token_add = is_token_add ? bucket_inc : 32'd0;
 
-  wire [31:0] rtoken_sub = is_reading ? nr_rbyte : 32'd0;
-  wire [31:0] wtoken_sub = is_writing ? nr_wbyte  : 32'd0;
+  wire ren = is_reading && can_read;
+  wire wen = is_writing && can_write;
+  wire [31:0] rtoken_sub = ren ? nr_rbyte : 32'd0;
+  wire [31:0] wtoken_sub = wen ? nr_wbyte  : 32'd0;
   wire [31:0] token_sub  = rtoken_sub + wtoken_sub;
+  wire consume_up = token_sub >= nr_token;
 
   // Read is prior to write
   // If this ds is not reading or writing, the traffic it consumes is zero.
   // Therefore rpass and wpass is high and won't block this ds.
   assign rpass = (rtoken_sub <= nr_token) || bypass;
-  assign wpass = (wtoken_sub + rtoken_sub <= nr_token) || bypass;
+  assign wpass = !consume_up || bypass;  // Neglect case `token_sub == nr_token`, but it can be calc correctly for wtoken_sub_real.
 
-  assign nr_token_change = (is_token_add ? bucket_inc : 32'd0)
-                           - ((rpass && can_read) ? rtoken_sub : 32'd0)
-                           - ((wpass && can_write) ? wtoken_sub : 32'd0);
-  assign is_token_change = (nr_token_change != 32'd0) && !bypass;
+  wire [31:0] rtoken_sub_real = rpass ? rtoken_sub : nr_token;
+  wire [31:0] wtoken_sub_real = wpass ? wtoken_sub : nr_token - rtoken_sub_real;  // If rpass is false, it is 0.
 
+  assign nr_token_change = token_add - rtoken_sub_real - wtoken_sub_real;
+
+  //
+  // Throttle logic
+  //
+  reg [31:0] token_threshold;  // The number of tokens that can allow requests from this ds.
+  wire [31:0] token_threshold_real = (token_threshold > bucket_size) ? bucket_size : token_threshold;  // Choose feasible one.
+  always @(posedge aclk or negedge aresetn) begin
+    if (~aresetn) begin
+      enable <= 1'b1;
+      token_threshold <= 32'd0;
+    end
+    else if ((ren || wen) && consume_up) begin
+      // This cycle read and/or write request consumes all tokens.
+      // We need to remeber this event and disable the ds' ability to send requests.
+      enable <= 1'b0;
+      // Heuristic, considering that L2 traffic is always in the size of cache block.
+      // TODO Use total token consumption, or use read or write consumption only?
+      token_threshold <= token_sub;
+    end
+    else if (nr_token >= token_threshold_real) begin
+      enable <= 1'b1;
+      token_threshold <= 32'd0;
+    end
+  end
 endmodule
