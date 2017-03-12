@@ -10,7 +10,6 @@ import uncore.tilelink2._
   * It generates endless, randomized, and always-valid Get requests,
   * in order to disturb memory bandwidth in real hardware enviroment,
   * without side effects.
-  * @param enable is the switch to control the traffic.
   * @param dsid is the tag that PARD will use to recognize this unit.
   * @param base is the start value of the randomized address.
   * @param mask is the mask of the address space.
@@ -18,7 +17,7 @@ import uncore.tilelink2._
   * @param noiseMaker is a function that supplies a random UInt of a given width every time inc is true
   */
 class TrafficGenerator(
-    enable: Bool, dsid: Int, base: String, mask: String, inFlight: Int = 32,
+    dsid: Int, base: String, mask: String, inFlight: Int = 32,
     noiseMaker: (Int, Bool, Int) => UInt = {
       (wide: Int, increment: Bool, abs_values: Int) =>
          LFSRNoiseMaker(wide=wide, increment=increment)
@@ -30,7 +29,7 @@ class TrafficGenerator(
   lazy val module = new LazyModuleImp(this) {
     val io = new Bundle {
       val out = node.bundleOut
-      val enable = Input(enable)
+      val enable = Input(Bool())
     }
 
     val out = io.out(0)
@@ -69,10 +68,10 @@ class TrafficGenerator(
     out.a.valid := legal && alloc.valid && io.enable
     out.a.bits  := getBits
     out.a.bits.dsid := dsid.U(16.W)
-    out.b.ready := Bool(true)
-    out.c.valid := Bool(false)
-    out.d.ready := Bool(true)
-    out.e.valid := Bool(false)
+    out.b.ready := true.B
+    out.c.valid := false.B
+    out.d.ready := true.B
+    out.e.valid := false.B
 
     // Increment the various progress-tracking states
     inc := !legal || req_done
@@ -80,23 +79,25 @@ class TrafficGenerator(
 }
 
 object TrafficGenerator {
-  def apply(enable: Bool, dsid: Int, base: String, mask: String)(implicit p: Parameters) = {
-    LazyModule(new TrafficGenerator(enable, dsdi, base, mask)).node
+  def apply(dsid: Int, base: String, mask: String)(implicit p: Parameters) = {
+    LazyModule(new TrafficGenerator(dsid, base, mask))
   }
 }
 
-trait HasTrafficGenerator {
+trait HasTrafficGenerator extends coreplex.HasCoreplexParameters {
   val l1tol2: TLXbar
-  val trafficGeneratorEnable = Wire(true.B)
   // TODO Make it configured
-  val trafficGenerator = TrafficGenerator(trafficGeneratorEnable, 3, "h80000000", "h3ffffff")
-  l1tol2.node := trafficGenerator
+  val trafficGenerator = TrafficGenerator(nTiles + 1, "h80000000", "h3ffffff")
+  l1tol2.node := trafficGenerator.node
 }
 
 trait HasTrafficGeneratorBundle {
   val outer: HasTrafficGenerator
-  val trafficGeneratorEnable = outer.trafficGeneratorEnable
+  val trafficGeneratorEnable = Input(Bool())
 }
 
 trait HasTrafficGeneratorModule {
+  val outer: HasTrafficGenerator
+  val io: HasTrafficGeneratorBundle
+  outer.trafficGenerator.module.io.enable := io.trafficGeneratorEnable
 }

@@ -1240,7 +1240,7 @@ proc create_hier_cell_rocketchip { parentCell nameHier } {
   create_bd_intf_pin -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 UART1
 
   # Create pins
-  create_bd_pin -dir I -from 1 -to 0 L1enable
+  create_bd_pin -dir I -from 2 -to 0 L1enable
   create_bd_pin -dir I coreclk
   create_bd_pin -dir I -type rst corerst0
   create_bd_pin -dir I -type rst corerst1

@@ -24,9 +24,12 @@ trait MultiClockRocketPlexMaster extends L2Crossbar {
 
 trait MultiClockRocketPlexMasterBundle extends L2CrossbarBundle {
   val outer: MultiClockRocketPlexMaster
+  val trafficGeneratorEnable = Bool(INPUT)
 }
 
 trait MultiClockRocketPlexMasterModule extends L2CrossbarModule {
   val outer: MultiClockRocketPlexMaster
   val io: MultiClockRocketPlexMasterBundle
+
+  outer.coreplex.module.io.trafficGeneratorEnable := io.trafficGeneratorEnable
 }

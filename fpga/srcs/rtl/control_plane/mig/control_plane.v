@@ -23,7 +23,7 @@ module mig_control_plane # (
     parameter C_BUCKET_SIZE_WIDTH = 32,
     parameter C_BUCKET_FREQ_WIDTH = 32,
     parameter C_DSID_WIDTH = 16,
-    parameter C_NUM_ENTRIES = 2,
+    parameter C_NUM_ENTRIES = 3,
     parameter C_ADDR_WIDTH = 32
 )(
     input  wire       aclk,
