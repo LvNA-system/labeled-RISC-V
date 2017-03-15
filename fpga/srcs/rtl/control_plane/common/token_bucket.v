@@ -25,7 +25,6 @@ module token_bucket(
 );
 
   reg [31:0] nr_token;
-  wire is_token_change;
   wire [31:0] nr_token_change;
   wire [31:0] nr_token_next = nr_token + nr_token_change;
   wire [31:0] nr_token_next_real = (nr_token_next > bucket_size ? bucket_size : nr_token_next);
