@@ -90,7 +90,7 @@ module token_bucket(
       // TODO Use total token consumption, or use read or write consumption only?
       token_threshold <= token_sub;
     end
-    else if (nr_token >= token_threshold_real) begin
+    else if (nr_token >= token_threshold_real && nr_token != 32'd0) begin  // Don't want traffic to go through when bucket size is 0.
       enable <= 1'b1;
       token_threshold <= 32'd0;
     end
