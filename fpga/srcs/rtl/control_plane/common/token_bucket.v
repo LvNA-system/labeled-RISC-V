@@ -24,8 +24,6 @@ module token_bucket(
   output reg enable  // Whether request from this ds is allowed.
 );
 
-  wire bypass = (bucket_freq == 32'b0);
-
   reg [31:0] nr_token;
   wire is_token_change;
   wire [31:0] nr_token_change;
@@ -36,7 +34,7 @@ module token_bucket(
     if (~aresetn) begin
       nr_token <= bucket_size;
     end
-    else if (!bypass) begin
+    else begin
       nr_token <= nr_token_next_real;
     end
   end
@@ -54,18 +52,20 @@ module token_bucket(
   wire is_token_add = (counter == 32'b1);
   wire [31:0] token_add = is_token_add ? bucket_inc : 32'd0;
 
+  wire bypass = (bucket_freq == 32'b0);
+
   wire ren = is_reading && can_read;
   wire wen = is_writing && can_write;
-  wire [31:0] rtoken_sub = ren ? nr_rbyte : 32'd0;
-  wire [31:0] wtoken_sub = wen ? nr_wbyte  : 32'd0;
+  wire [31:0] rtoken_sub = (ren && !bypass) ? nr_rbyte : 32'd0;
+  wire [31:0] wtoken_sub = (wen && !bypass) ? nr_wbyte : 32'd0;
   wire [31:0] token_sub  = rtoken_sub + wtoken_sub;
   wire consume_up = token_sub >= nr_token;
 
   // Read is prior to write
   // If this ds is not reading or writing, the traffic it consumes is zero.
   // Therefore rpass and wpass is high and won't block this ds.
-  assign rpass = (rtoken_sub <= nr_token) || bypass;
-  assign wpass = !consume_up || bypass;  // Neglect case `token_sub == nr_token`, but it can be calc correctly for wtoken_sub_real.
+  assign rpass = rtoken_sub <= nr_token;
+  assign wpass = !consume_up;  // Neglect case `token_sub == nr_token`, but it can be calc correctly for wtoken_sub_real.
 
   wire [31:0] rtoken_sub_real = rpass ? rtoken_sub : nr_token;
   wire [31:0] wtoken_sub_real = wpass ? wtoken_sub : nr_token - rtoken_sub_real;  // If rpass is false, it is 0.
