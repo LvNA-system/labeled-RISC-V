@@ -40,7 +40,7 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 
 # The design that will be created by this Tcl script contains the following 
 # module references:
-# CoreControlPlane, cdma_addr, i2c_switch_top, leds_mux_controller, mig_control_plane, uart_inverter, uart_inverter, rocketchip_top, vc709_sfp
+# CoreControlPlane, cdma_addr, i2c_switch_top, leds_mux_controller, mig_control_plane, uart_inverter, uart_inverter, rocketchip_top, vc709_sfp, axi_reg
 
 # Please add the sources of those modules before sourcing this Tcl script.
 
@@ -845,6 +845,17 @@ CONFIG.C_M_AXI_DATA_WIDTH {64} \
 CONFIG.C_M_AXI_MAX_BURST_LEN {8} \
  ] $axi_cdma_0
 
+  # Create instance: axi_dma_dsid, and set properties
+  set block_name axi_reg
+  set block_cell_name axi_dma_dsid
+  if { [catch {set axi_dma_dsid [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
+     catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   } elseif { $axi_dma_dsid eq "" } {
+     catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   }
+
   # Create instance: axi_emc_flash, and set properties
   set axi_emc_flash [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_emc:3.0 axi_emc_flash ]
   set_property -dict [ list \
@@ -861,14 +872,6 @@ CONFIG.C_WR_REC_TIME_MEM_0 {200000} \
 CONFIG.EMC_BOARD_INTERFACE {linear_flash} \
 CONFIG.USE_BOARD_FLOW {false} \
  ] $axi_emc_flash
-
-  # Create instance: axi_gpio_dma_dsid, and set properties
-  set axi_gpio_dma_dsid [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_dma_dsid ]
-  set_property -dict [ list \
-CONFIG.C_ALL_OUTPUTS {0} \
-CONFIG.C_DOUT_DEFAULT {0x000000ff} \
-CONFIG.C_GPIO_WIDTH {16} \
- ] $axi_gpio_dma_dsid
 
   # Create instance: axi_gpio_softreset, and set properties
   set axi_gpio_softreset [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_softreset ]
@@ -1024,6 +1027,15 @@ CONFIG.NUM_PORTS {10} \
   # Create instance: rst_processor_clk, and set properties
   set rst_processor_clk [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_processor_clk ]
 
+  # Create instance: xlslice_0, and set properties
+  set xlslice_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlslice:1.0 xlslice_0 ]
+  set_property -dict [ list \
+CONFIG.DIN_FROM {15} \
+CONFIG.DIN_TO {0} \
+CONFIG.DIN_WIDTH {64} \
+CONFIG.DOUT_WIDTH {16} \
+ ] $xlslice_0
+
   # Create interface connections
   connect_bd_intf_net -intf_net Conn1 [get_bd_intf_pins IIC] [get_bd_intf_pins axi_iic_0/IIC]
   connect_bd_intf_net -intf_net Conn2 [get_bd_intf_pins SYS_UART_0] [get_bd_intf_pins axi_uartlite_0/UART]
@@ -1054,7 +1066,7 @@ CONFIG.NUM_PORTS {10} \
   connect_bd_intf_net -intf_net prmcore_axi_periph_M09_AXI [get_bd_intf_pins axi_emc_flash/S_AXI_MEM] [get_bd_intf_pins prmcore_axi_periph/M09_AXI]
   connect_bd_intf_net -intf_net prmcore_axi_periph_M10_AXI [get_bd_intf_pins axi_gpio_softreset/S_AXI] [get_bd_intf_pins prmcore_axi_periph/M10_AXI]
   connect_bd_intf_net -intf_net prmcore_axi_periph_M11_AXI [get_bd_intf_pins ethernet_block/S_AXI_LITE] [get_bd_intf_pins prmcore_axi_periph/M11_AXI]
-  connect_bd_intf_net -intf_net prmcore_axi_periph_M13_AXI [get_bd_intf_pins axi_gpio_dma_dsid/S_AXI] [get_bd_intf_pins prmcore_axi_periph/M13_AXI]
+  connect_bd_intf_net -intf_net prmcore_axi_periph_M13_AXI [get_bd_intf_pins axi_dma_dsid/S_AXI] [get_bd_intf_pins prmcore_axi_periph/M13_AXI]
   connect_bd_intf_net -intf_net prmcore_debug [get_bd_intf_pins mdm_1/MBDEBUG_0] [get_bd_intf_pins prmcore/DEBUG]
   connect_bd_intf_net -intf_net prmcore_dlmb_1 [get_bd_intf_pins prmcore/DLMB] [get_bd_intf_pins prmcore_local_memory/DLMB]
   connect_bd_intf_net -intf_net prmcore_ilmb_1 [get_bd_intf_pins prmcore/ILMB] [get_bd_intf_pins prmcore_local_memory/ILMB]
@@ -1064,9 +1076,9 @@ CONFIG.NUM_PORTS {10} \
   # Create port connections
   connect_bd_net -net In9_1 [get_bd_pins apm_interrupt] [get_bd_pins prmcore_xlconcat/In9]
   connect_bd_net -net axi_cdma_0_cdma_introut [get_bd_pins axi_cdma_0/cdma_introut] [get_bd_pins prmcore_xlconcat/In7]
-  connect_bd_net -net axi_gpio_0_gpio_io_o [get_bd_pins DMA_DS_ID] [get_bd_pins axi_gpio_dma_dsid/gpio_io_i] [get_bd_pins axi_gpio_dma_dsid/gpio_io_o]
   connect_bd_net -net axi_gpio_softreset_gpio_io_o [get_bd_pins prm_softreset] [get_bd_pins axi_gpio_softreset/gpio_io_o]
   connect_bd_net -net axi_iic_0_iic2intc_irpt [get_bd_pins axi_iic_0/iic2intc_irpt] [get_bd_pins prmcore_xlconcat/In2]
+  connect_bd_net -net axi_reg_0_val [get_bd_pins axi_dma_dsid/val] [get_bd_pins xlslice_0/Din]
   connect_bd_net -net axi_uartlite_0_interrupt [get_bd_pins prm_uartlite/interrupt] [get_bd_pins prmcore_xlconcat/In1]
   connect_bd_net -net axi_uartlite_0_interrupt1 [get_bd_pins axi_uartlite_0/interrupt] [get_bd_pins prmcore_xlconcat/In3]
   connect_bd_net -net axi_uartlite_1_interrupt [get_bd_pins axi_uartlite_1/interrupt] [get_bd_pins prmcore_xlconcat/In4]
@@ -1091,13 +1103,14 @@ CONFIG.NUM_PORTS {10} \
   connect_bd_net -net processor_clk_1 [get_bd_pins processor_clk] [get_bd_pins prmcore/Clk] [get_bd_pins prmcore_axi_intc/processor_clk] [get_bd_pins prmcore_axi_periph/S00_ACLK] [get_bd_pins prmcore_local_memory/LMB_Clk] [get_bd_pins rst_processor_clk/slowest_sync_clk]
   connect_bd_net -net reset_rtl_1 [get_bd_pins ext_reset_in] [get_bd_pins rst_io_clk/ext_reset_in] [get_bd_pins rst_processor_clk/ext_reset_in]
   connect_bd_net -net rst_Clk_100M_interconnect_aresetn [get_bd_pins prmcore_axi_periph/ARESETN] [get_bd_pins rst_io_clk/interconnect_aresetn]
-  connect_bd_net -net rst_Clk_100M_peripheral_aresetn [get_bd_pins peripheral_aresetn] [get_bd_pins axi_cdma_0/s_axi_lite_aresetn] [get_bd_pins axi_emc_flash/s_axi_aresetn] [get_bd_pins axi_gpio_dma_dsid/s_axi_aresetn] [get_bd_pins axi_gpio_softreset/s_axi_aresetn] [get_bd_pins axi_iic_0/s_axi_aresetn] [get_bd_pins axi_uartlite_0/s_axi_aresetn] [get_bd_pins axi_uartlite_1/s_axi_aresetn] [get_bd_pins axi_uartlite_2/s_axi_aresetn] [get_bd_pins axi_uartlite_3/s_axi_aresetn] [get_bd_pins ethernet_block/s_axi_lite_aresetn] [get_bd_pins prm_timer/s_axi_aresetn] [get_bd_pins prm_uartlite/s_axi_aresetn] [get_bd_pins prmcore_axi_intc/s_axi_aresetn] [get_bd_pins prmcore_axi_periph/M00_ARESETN] [get_bd_pins prmcore_axi_periph/M01_ARESETN] [get_bd_pins prmcore_axi_periph/M02_ARESETN] [get_bd_pins prmcore_axi_periph/M03_ARESETN] [get_bd_pins prmcore_axi_periph/M04_ARESETN] [get_bd_pins prmcore_axi_periph/M05_ARESETN] [get_bd_pins prmcore_axi_periph/M06_ARESETN] [get_bd_pins prmcore_axi_periph/M07_ARESETN] [get_bd_pins prmcore_axi_periph/M08_ARESETN] [get_bd_pins prmcore_axi_periph/M09_ARESETN] [get_bd_pins prmcore_axi_periph/M10_ARESETN] [get_bd_pins prmcore_axi_periph/M11_ARESETN] [get_bd_pins prmcore_axi_periph/M12_ARESETN] [get_bd_pins prmcore_axi_periph/M13_ARESETN] [get_bd_pins rst_io_clk/peripheral_aresetn]
+  connect_bd_net -net rst_Clk_100M_peripheral_aresetn [get_bd_pins peripheral_aresetn] [get_bd_pins axi_cdma_0/s_axi_lite_aresetn] [get_bd_pins axi_dma_dsid/s_axi_aresetn] [get_bd_pins axi_emc_flash/s_axi_aresetn] [get_bd_pins axi_gpio_softreset/s_axi_aresetn] [get_bd_pins axi_iic_0/s_axi_aresetn] [get_bd_pins axi_uartlite_0/s_axi_aresetn] [get_bd_pins axi_uartlite_1/s_axi_aresetn] [get_bd_pins axi_uartlite_2/s_axi_aresetn] [get_bd_pins axi_uartlite_3/s_axi_aresetn] [get_bd_pins ethernet_block/s_axi_lite_aresetn] [get_bd_pins prm_timer/s_axi_aresetn] [get_bd_pins prm_uartlite/s_axi_aresetn] [get_bd_pins prmcore_axi_intc/s_axi_aresetn] [get_bd_pins prmcore_axi_periph/M00_ARESETN] [get_bd_pins prmcore_axi_periph/M01_ARESETN] [get_bd_pins prmcore_axi_periph/M02_ARESETN] [get_bd_pins prmcore_axi_periph/M03_ARESETN] [get_bd_pins prmcore_axi_periph/M04_ARESETN] [get_bd_pins prmcore_axi_periph/M05_ARESETN] [get_bd_pins prmcore_axi_periph/M06_ARESETN] [get_bd_pins prmcore_axi_periph/M07_ARESETN] [get_bd_pins prmcore_axi_periph/M08_ARESETN] [get_bd_pins prmcore_axi_periph/M09_ARESETN] [get_bd_pins prmcore_axi_periph/M10_ARESETN] [get_bd_pins prmcore_axi_periph/M11_ARESETN] [get_bd_pins prmcore_axi_periph/M12_ARESETN] [get_bd_pins prmcore_axi_periph/M13_ARESETN] [get_bd_pins rst_io_clk/peripheral_aresetn]
   connect_bd_net -net rst_processor_clk_bus_struct_reset [get_bd_pins prmcore_local_memory/LMB_Rst] [get_bd_pins rst_processor_clk/bus_struct_reset]
   connect_bd_net -net rst_processor_clk_mb_reset [get_bd_pins prmcore/Reset] [get_bd_pins prmcore_axi_intc/processor_rst] [get_bd_pins rst_processor_clk/mb_reset]
   connect_bd_net -net rst_processor_clk_peripheral_aresetn [get_bd_pins processor_aresetn] [get_bd_pins prmcore_axi_periph/S00_ARESETN] [get_bd_pins rst_processor_clk/peripheral_aresetn]
-  connect_bd_net -net s_axi_aclk_1 [get_bd_pins io_clk] [get_bd_pins axi_cdma_0/s_axi_lite_aclk] [get_bd_pins axi_emc_flash/rdclk] [get_bd_pins axi_emc_flash/s_axi_aclk] [get_bd_pins axi_gpio_dma_dsid/s_axi_aclk] [get_bd_pins axi_gpio_softreset/s_axi_aclk] [get_bd_pins axi_iic_0/s_axi_aclk] [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins axi_uartlite_1/s_axi_aclk] [get_bd_pins axi_uartlite_2/s_axi_aclk] [get_bd_pins axi_uartlite_3/s_axi_aclk] [get_bd_pins ethernet_block/s_axi_lite_aclk] [get_bd_pins prm_timer/s_axi_aclk] [get_bd_pins prm_uartlite/s_axi_aclk] [get_bd_pins prmcore_axi_intc/s_axi_aclk] [get_bd_pins prmcore_axi_periph/ACLK] [get_bd_pins prmcore_axi_periph/M00_ACLK] [get_bd_pins prmcore_axi_periph/M01_ACLK] [get_bd_pins prmcore_axi_periph/M02_ACLK] [get_bd_pins prmcore_axi_periph/M03_ACLK] [get_bd_pins prmcore_axi_periph/M04_ACLK] [get_bd_pins prmcore_axi_periph/M05_ACLK] [get_bd_pins prmcore_axi_periph/M06_ACLK] [get_bd_pins prmcore_axi_periph/M07_ACLK] [get_bd_pins prmcore_axi_periph/M08_ACLK] [get_bd_pins prmcore_axi_periph/M09_ACLK] [get_bd_pins prmcore_axi_periph/M10_ACLK] [get_bd_pins prmcore_axi_periph/M11_ACLK] [get_bd_pins prmcore_axi_periph/M12_ACLK] [get_bd_pins prmcore_axi_periph/M13_ACLK] [get_bd_pins rst_io_clk/slowest_sync_clk]
+  connect_bd_net -net s_axi_aclk_1 [get_bd_pins io_clk] [get_bd_pins axi_cdma_0/s_axi_lite_aclk] [get_bd_pins axi_dma_dsid/s_axi_aclk] [get_bd_pins axi_emc_flash/rdclk] [get_bd_pins axi_emc_flash/s_axi_aclk] [get_bd_pins axi_gpio_softreset/s_axi_aclk] [get_bd_pins axi_iic_0/s_axi_aclk] [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins axi_uartlite_1/s_axi_aclk] [get_bd_pins axi_uartlite_2/s_axi_aclk] [get_bd_pins axi_uartlite_3/s_axi_aclk] [get_bd_pins ethernet_block/s_axi_lite_aclk] [get_bd_pins prm_timer/s_axi_aclk] [get_bd_pins prm_uartlite/s_axi_aclk] [get_bd_pins prmcore_axi_intc/s_axi_aclk] [get_bd_pins prmcore_axi_periph/ACLK] [get_bd_pins prmcore_axi_periph/M00_ACLK] [get_bd_pins prmcore_axi_periph/M01_ACLK] [get_bd_pins prmcore_axi_periph/M02_ACLK] [get_bd_pins prmcore_axi_periph/M03_ACLK] [get_bd_pins prmcore_axi_periph/M04_ACLK] [get_bd_pins prmcore_axi_periph/M05_ACLK] [get_bd_pins prmcore_axi_periph/M06_ACLK] [get_bd_pins prmcore_axi_periph/M07_ACLK] [get_bd_pins prmcore_axi_periph/M08_ACLK] [get_bd_pins prmcore_axi_periph/M09_ACLK] [get_bd_pins prmcore_axi_periph/M10_ACLK] [get_bd_pins prmcore_axi_periph/M11_ACLK] [get_bd_pins prmcore_axi_periph/M12_ACLK] [get_bd_pins prmcore_axi_periph/M13_ACLK] [get_bd_pins rst_io_clk/slowest_sync_clk]
   connect_bd_net -net signal_detect_1 [get_bd_pins signal_detect] [get_bd_pins ethernet_block/signal_detect]
   connect_bd_net -net timer_interrupt [get_bd_pins prm_timer/interrupt] [get_bd_pins prmcore_xlconcat/In0]
+  connect_bd_net -net xlslice_0_Dout [get_bd_pins DMA_DS_ID] [get_bd_pins xlslice_0/Dout]
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -1579,7 +1592,7 @@ CONFIG.C_AUX_RESET_HIGH {1} \
   connect_bd_intf_net -intf_net sfp_mgt_clk_1 [get_bd_intf_pins mgt_clk] [get_bd_intf_pins PRM_CORE/mgt_clk]
 
   # Create port connections
-  connect_bd_net -net PRM_CORE_gpio2_io_o [get_bd_pins DMA_DS_ID] [get_bd_pins PRM_CORE/DMA_DS_ID]
+  connect_bd_net -net PRM_CORE_Dout [get_bd_pins DMA_DS_ID] [get_bd_pins PRM_CORE/DMA_DS_ID]
   connect_bd_net -net PRM_CORE_gt0_qplloutclk_out [get_bd_pins gt0_qplloutclk_out] [get_bd_pins PRM_CORE/gt0_qplloutclk_out]
   connect_bd_net -net PRM_CORE_gt0_qplloutrefclk_out [get_bd_pins gt0_qplloutrefclk_out] [get_bd_pins PRM_CORE/gt0_qplloutrefclk_out]
   connect_bd_net -net PRM_CORE_gtref_clk_buf_out [get_bd_pins gtref_clk_buf_out] [get_bd_pins PRM_CORE/gtref_clk_buf_out]
@@ -1958,10 +1971,10 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_
   create_bd_addr_seg -range 0x80000000 -offset 0x80000000 [get_bd_addr_spaces PRMSYS/PRM_CORE/axi_cdma_0/Data] [get_bd_addr_segs mig_7series_0/c0_memmap/c0_memaddr] SEG_mig_7series_0_c0_memaddr
   create_bd_addr_seg -range 0x80000000 -offset 0x80000000 [get_bd_addr_spaces PRMSYS/PRM_CORE/axi_cdma_0/Data_SG] [get_bd_addr_segs mig_7series_0/c0_memmap/c0_memaddr] SEG_mig_7series_0_c0_memaddr
   create_bd_addr_seg -range 0x00010000 -offset 0x44A00000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs PRMSYS/PRM_CORE/axi_cdma_0/S_AXI_LITE/Reg] SEG_axi_cdma_0_Reg
+  create_bd_addr_seg -range 0x00001000 -offset 0x40010000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs PRMSYS/PRM_CORE/axi_dma_dsid/S_AXI/Reg] SEG_axi_dma_dsid_Reg
   create_bd_addr_seg -range 0x08000000 -offset 0x60000000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs PRMSYS/PRM_CORE/axi_emc_flash/S_AXI_MEM/MEM0] SEG_axi_emc_flash_MEM0
   create_bd_addr_seg -range 0x00040000 -offset 0x40C00000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs PRMSYS/PRM_CORE/ethernet_block/axi_ethernet/s_axi/Reg0] SEG_axi_ethernet_Reg0
   create_bd_addr_seg -range 0x00010000 -offset 0x41E00000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs PRMSYS/PRM_CORE/ethernet_block/axi_ethernet_dma/S_AXI_LITE/Reg] SEG_axi_ethernet_dma_Reg
-  create_bd_addr_seg -range 0x00010000 -offset 0x40010000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs PRMSYS/PRM_CORE/axi_gpio_dma_dsid/S_AXI/Reg] SEG_axi_gpio_dma_dsid_Reg
   create_bd_addr_seg -range 0x00010000 -offset 0x40000000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs PRMSYS/PRM_CORE/axi_gpio_softreset/S_AXI/Reg] SEG_axi_gpio_softreset_Reg
   create_bd_addr_seg -range 0x00010000 -offset 0x40800000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs PRMSYS/PRM_CORE/axi_iic_0/S_AXI/Reg] SEG_axi_iic_0_Reg
   create_bd_addr_seg -range 0x00010000 -offset 0x44B00000 [get_bd_addr_spaces PRMSYS/PRM_CORE/prmcore/Data] [get_bd_addr_segs axi_perf_mon_0/S_AXI/Reg] SEG_axi_perf_mon_0_Reg
