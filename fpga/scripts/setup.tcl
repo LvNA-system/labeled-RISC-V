@@ -92,6 +92,7 @@ add_files -norecurse -fileset $fileset $files
 
 # Add files for miscellaneous
 set files [list \
+ "[file normalize "$rtlRoot/misc/axi_reg.v"]"\
  "[file normalize "$rtlRoot/misc/uart_inverter.v"]"\
  "[file normalize "$rtlRoot/misc/cdma_addr.v"]"\
  "[file normalize "$rtlRoot/misc/leds_mux_controller.v"]"\
