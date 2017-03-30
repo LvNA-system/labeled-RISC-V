@@ -32,7 +32,7 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
 
   val ident = "PARDMig7CP".padTo((32 + 64) / 8, ' ').reverse
   val reg = Module(new RegisterInterface(
-    TYPE = 0x40,  // 'M'
+    TYPE = 0x4D,  // 'M'
     IDENT_LOW = ident.substring(8, 12),
     IDENT_HIGH = ident.substring(0, 8)
   ))
