@@ -88,3 +88,87 @@ class token_bucket extends BlackBox {
     val enable = Output(Bool())
   })
 }
+
+class detect_logic_common(val CMD_READ: BigInt = BigInt("0", 2), val CMD_WRITE: BigInt = BigInt("1", 2)) extends BlackBox(Map("CMD_READ" -> IntParam(CMD_READ), "CMD_WRITE" -> IntParam(CMD_WRITE))) {
+  val io = IO(new Bundle {
+    val SYS_CLK = Input(Clock())
+    val DETECT_RST = Input(Bool())
+    val COMM_VALID = Input(Bool())
+    val COMM_DATA = Input(UInt((128).W))
+    val parameter_table_rdata = Input(UInt((64).W))
+    val statistic_table_rdata = Input(UInt((64).W))
+    val trigger_table_rdata = Input(UInt((64).W))
+    val DATA_VALID = Output(Bool())
+    val DATA_RBACK = Output(UInt((64).W))
+    val DATA_MASK = Output(UInt((64).W))
+    val DATA_OFFSET = Output(UInt((2).W))
+    val is_parameter_table = Output(Bool())
+    val is_statistic_table = Output(Bool())
+    val is_trigger_table = Output(Bool())
+    val col = Output(UInt((15).W))
+    val row = Output(UInt((15).W))
+    val wdata = Output(UInt((64).W))
+    val wen = Output(Bool())
+  })
+}
+
+class mig_cp_ptab(val C_TAG_WIDTH: BigInt = BigInt("16", 10), val C_DATA_WIDTH: BigInt = BigInt("128", 10), val C_BASE_WIDTH: BigInt = BigInt("32", 10), val C_LENGTH_WIDTH: BigInt = BigInt("32", 10), val C_DSID_LENTH: BigInt = BigInt("64", 10), val C_BUCKET_SIZE_WIDTH: BigInt = BigInt("32", 10), val C_BUCKET_FREQ_WIDTH: BigInt = BigInt("32", 10), val C_NUM_ENTRIES: BigInt = BigInt("5", 10)) extends BlackBox(Map("C_TAG_WIDTH" -> IntParam(C_TAG_WIDTH), "C_DATA_WIDTH" -> IntParam(C_DATA_WIDTH), "C_BASE_WIDTH" -> IntParam(C_BASE_WIDTH), "C_LENGTH_WIDTH" -> IntParam(C_LENGTH_WIDTH), "C_DSID_LENTH" -> IntParam(C_DSID_LENTH), "C_BUCKET_SIZE_WIDTH" -> IntParam(C_BUCKET_SIZE_WIDTH), "C_BUCKET_FREQ_WIDTH" -> IntParam(C_BUCKET_FREQ_WIDTH), "C_NUM_ENTRIES" -> IntParam(C_NUM_ENTRIES))) {
+  val io = IO(new Bundle {
+    val aclk = Input(Clock())
+    val areset = Input(Bool())
+    val is_this_table = Input(Bool())
+    val col = Input(UInt((15).W))
+    val row = Input(UInt((15).W))
+    val wdata = Input(UInt((64).W))
+    val wen = Input(Bool())
+    val rdata = Output(UInt((64).W))
+    val DSID = Input(UInt((C_DSID_LENTH-1 + 1).toInt.W))
+    val L1enable = Output(UInt((C_NUM_ENTRIES-1 + 1).toInt.W))
+    val bucket_size_bundle = Output(UInt((C_NUM_ENTRIES*C_BUCKET_SIZE_WIDTH-1 + 1).toInt.W))
+    val bucket_freq_bundle = Output(UInt((C_NUM_ENTRIES*C_BUCKET_FREQ_WIDTH-1 + 1).toInt.W))
+    val bucket_inc_bundle = Output(UInt((C_NUM_ENTRIES*C_BUCKET_SIZE_WIDTH-1 + 1).toInt.W))
+    val TAG_A = Input(UInt((C_TAG_WIDTH-1 + 1).toInt.W))
+    val DO_A = Output(UInt((C_DATA_WIDTH-1 + 1).toInt.W))
+    val TAG_MATCH_A = Output(Bool())
+    val TAG_B = Input(UInt((C_TAG_WIDTH-1 + 1).toInt.W))
+    val DO_B = Output(UInt((C_DATA_WIDTH-1 + 1).toInt.W))
+    val TAG_MATCH_B = Output(Bool())
+  })
+}
+
+class mig_cp_stab extends BlackBox {
+  val io = IO(new Bundle {
+    val aclk = Input(Clock())
+    val areset = Input(Bool())
+    val col = Input(UInt((15).W))
+    val row = Input(UInt((15).W))
+    val wdata = Input(UInt((32).W))
+    val wen = Input(Bool())
+    val is_this_table = Input(Bool())
+    val rdata = Output(UInt((64).W))
+    val trigger_row = Input(UInt((15).W))
+    val trigger_metric = Input(UInt((3).W))
+    val trigger_rdata = Output(UInt((32).W))
+    val apm_axi_araddr = Input(UInt((32).W))
+  })
+}
+
+class ttab(val CP_ID: BigInt = BigInt("0", 10), val NR_ENTRY_WIDTH: BigInt = BigInt("2", 10)) extends BlackBox(Map("CP_ID" -> IntParam(CP_ID), "NR_ENTRY_WIDTH" -> IntParam(NR_ENTRY_WIDTH))) {
+  val io = IO(new Bundle {
+    val SYS_CLK = Input(Clock())
+    val DETECT_RST = Input(Bool())
+    val is_this_table = Input(Bool())
+    val col = Input(UInt((15).W))
+    val row = Input(UInt((15).W))
+    val wdata = Input(UInt((64).W))
+    val wen = Input(Bool())
+    val rdata = Output(UInt((64).W))
+    val trigger_dsid = Output(UInt((16).W))
+    val trigger_metric = Output(UInt((3).W))
+    val trigger_rdata = Input(UInt((32).W))
+    val trigger_dsid_valid = Input(Bool())
+    val fifo_wready = Input(Bool())
+    val fifo_wvalid = Output(Bool())
+    val fifo_wdata = Output(UInt((16).W))
+  })
+}

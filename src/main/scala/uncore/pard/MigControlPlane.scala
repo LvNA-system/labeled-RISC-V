@@ -37,7 +37,13 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
     IDENT_HIGH = ident.substring(0, 8)
   ))
 
-  val detect = Module(new mig_cp_detec_logic(C_ADDR_WIDTH = addrWidth, C_TAG_WIDTH = tagWidth, C_NUM_ENTRIES = numEntries))
+  val detect = Module(new MigDetectLogic(
+    tagBits = tagWidth,
+    bucketSizeBits = 32,
+    bucketFreqBits = 32,
+    addrBits = addrWidth,
+    nEntries = numEntries
+  ))
 
   i2c.io.RST := reset
   i2c.io.SYS_CLK := clock
@@ -62,22 +68,20 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
   reg.io.DATA_MASK := detect.io.DATA_MASK
   reg.io.DATA_OFFSET := detect.io.DATA_OFFSET
 
-  val rdBase = Wire(Bits((detect.C_DATA_WIDTH / 2).W))
+  val rdBase = Wire(Bits((detect.dataBits / 2).W))
   val wrBase = Wire(Bits(rdBase.getWidth.W))
   val rdMask = Wire(Bits(rdBase.getWidth.W))
   val wrMask = Wire(Bits(rdMask.getWidth.W))
 
-  detect.io.SYS_CLK := clock
-  detect.io.DETECT_RST := reset
   detect.io.COMM_VALID := reg.io.COMM_VALID && !reg.io.COMM_DATA(31)
   (detect.io, io.s_axi) match { case (recv, in) =>
     // TODO: Use rocket's split utility
     recv.TAG_A := in.ar.bits.user
-    rdMask := recv.DO_A(detect.C_DATA_WIDTH - 1, detect.C_DATA_WIDTH / 2)
-    rdBase := recv.DO_A(detect.C_DATA_WIDTH / 2 - 1, 0)
+    rdMask := recv.DO_A(detect.dataBits - 1, detect.dataBits / 2)
+    rdBase := recv.DO_A(detect.dataBits / 2 - 1, 0)
     recv.TAG_B := in.aw.bits.user
-    wrMask := recv.DO_B(detect.C_DATA_WIDTH - 1, detect.C_DATA_WIDTH / 2)
-    wrBase := recv.DO_B(detect.C_DATA_WIDTH / 2 - 1, 0)
+    wrMask := recv.DO_B(detect.dataBits - 1, detect.dataBits / 2)
+    wrBase := recv.DO_B(detect.dataBits / 2 - 1, 0)
   }
 
   (detect.io, io.apm) match { case (d, apm) =>
@@ -95,7 +99,7 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
   // Traffic control
   val buckets = Seq.fill(numEntries){ Module(new token_bucket) }
   buckets.zipWithIndex.foreach { case (bucket, i) =>
-    val id = detect.io.dsid_bundle(tagWidth * (i + 1) - 1, tagWidth * i)
+    val id = detect.io.dsids(i)
     bucket.io.aclk := clock
     bucket.io.aresetn := !reset
     bucket.io.is_reading := io.s_axi.ar.valid && (id === io.s_axi.ar.bits.user)
@@ -104,10 +108,10 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
     bucket.io.can_write := io.m_axi.aw.ready
     bucket.io.nr_rbyte := (io.s_axi.ar.bits.len + 1.U) << io.s_axi.ar.bits.size
     bucket.io.nr_wbyte := (io.s_axi.aw.bits.len + 1.U) << io.s_axi.aw.bits.size
-    bucket.io.bucket_size := detect.io.bucket_size_bundle(32 * (i + 1) - 1, 32 * i)
-    bucket.io.bucket_freq := detect.io.bucket_freq_bundle(32 * (i + 1) - 1, 32 * i)
-    bucket.io.bucket_inc := detect.io.bucket_inc_bundle(32 * (i + 1) - 1, 32 * i)
-    io.l1enable(i) := detect.io.L1enable(i) && bucket.io.enable
+    bucket.io.bucket_size := detect.io.buckets(i).size
+    bucket.io.bucket_freq := detect.io.buckets(i).freq
+    bucket.io.bucket_inc := detect.io.buckets(i).inc
+    io.l1enable(i) := detect.io.l1enables(i) && bucket.io.enable
   }
 }
 
