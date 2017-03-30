@@ -9,13 +9,13 @@ import regmapper._
 import scala.math.{min,max}
 
 class AHBRegisterNode(address: AddressSet, concurrency: Int = 0, beatBytes: Int = 4, undefZero: Boolean = true, executable: Boolean = false)
-  extends AHBSlaveNode(AHBSlavePortParameters(
+  extends AHBSlaveNode(Seq(AHBSlavePortParameters(
     Seq(AHBSlaveParameters(
       address       = Seq(address),
       executable    = executable,
       supportsWrite = TransferSizes(1, min(address.alignment.toInt, beatBytes * AHBParameters.maxTransfer)),
       supportsRead  = TransferSizes(1, min(address.alignment.toInt, beatBytes * AHBParameters.maxTransfer)))),
-    beatBytes  = beatBytes))
+    beatBytes  = beatBytes)))
 {
   require (address.contiguous)
 
@@ -77,10 +77,10 @@ object AHBRegisterNode
 abstract class AHBRegisterRouterBase(address: AddressSet, interrupts: Int, concurrency: Int, beatBytes: Int, undefZero: Boolean, executable: Boolean)(implicit p: Parameters) extends LazyModule
 {
   val node = AHBRegisterNode(address, concurrency, beatBytes, undefZero, executable)
-  val intnode = uncore.tilelink2.IntSourceNode(interrupts)
+  val intnode = uncore.tilelink2.IntSourceNode(uncore.tilelink2.IntSourcePortSimple(num = interrupts))
 }
 
-case class AHBRegBundleArg(interrupts: Vec[Vec[Bool]], in: Vec[AHBBundle])(implicit val p: Parameters)
+case class AHBRegBundleArg(interrupts: util.HeterogeneousBag[Vec[Bool]], in: util.HeterogeneousBag[AHBBundle])(implicit val p: Parameters)
 
 class AHBRegBundleBase(arg: AHBRegBundleArg) extends Bundle
 {

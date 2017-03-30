@@ -10,7 +10,7 @@ import util._
 
 class TLAsyncCrossingSource(sync: Int = 3)(implicit p: Parameters) extends LazyModule
 {
-  val node = TLAsyncSourceNode()
+  val node = TLAsyncSourceNode(sync)
 
   lazy val module = new LazyModuleImp(this) {
     val io = new Bundle {
@@ -44,7 +44,7 @@ class TLAsyncCrossingSource(sync: Int = 3)(implicit p: Parameters) extends LazyM
 
 class TLAsyncCrossingSink(depth: Int = 8, sync: Int = 3)(implicit p: Parameters) extends LazyModule
 {
-  val node = TLAsyncSinkNode(depth)
+  val node = TLAsyncSinkNode(depth, sync)
 
   lazy val module = new LazyModuleImp(this) {
     val io = new Bundle {
@@ -137,14 +137,14 @@ class TLAsyncCrossing(depth: Int = 8, sync: Int = 3)(implicit p: Parameters) ext
 /** Synthesizeable unit tests */
 import unittest._
 
-class TLRAMCrossing(implicit p: Parameters) extends LazyModule {
+class TLRAMAsyncCrossing(implicit p: Parameters) extends LazyModule {
   val model = LazyModule(new TLRAMModel)
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x3ff)))
   val fuzz = LazyModule(new TLFuzzer(5000))
   val cross = LazyModule(new TLAsyncCrossing)
 
   model.node := fuzz.node
-  cross.node := TLFragmenter(4, 256)(model.node)
+  cross.node := TLFragmenter(4, 256)(TLDelayer(0.1)(model.node))
   val monitor = (ram.node := cross.node)
 
   lazy val module = new LazyModuleImp(this) with HasUnitTestIO {
@@ -168,6 +168,6 @@ class TLRAMCrossing(implicit p: Parameters) extends LazyModule {
   }
 }
 
-class TLRAMCrossingTest(implicit p: Parameters) extends UnitTest(timeout = 500000) {
-  io.finished := Module(LazyModule(new TLRAMCrossing).module).io.finished
+class TLRAMAsyncCrossingTest(implicit p: Parameters) extends UnitTest(timeout = 500000) {
+  io.finished := Module(LazyModule(new TLRAMAsyncCrossing).module).io.finished
 }

@@ -9,6 +9,7 @@ import scala.math.max
 
 case class AHBSlaveParameters(
   address:       Seq[AddressSet],
+  resources:     Seq[Resource] = Nil,
   regionType:    RegionType.T  = RegionType.GET_EFFECTS,
   executable:    Boolean       = false, // processor can execute from this memory
   nodePath:      Seq[BaseNode] = Seq(),
@@ -41,10 +42,6 @@ case class AHBSlavePortParameters(
   require (maxTransfer >= beatBytes)
   // Check that the link can be implemented in AHB
   require (maxTransfer <= beatBytes * AHBParameters.maxTransfer)
-
-  lazy val routingMask = AddressDecoder(slaves.map(_.address))
-  def findSafe(address: UInt) = Vec(slaves.map(_.address.map(_.contains(address)).reduce(_ || _)))
-  def findFast(address: UInt) = Vec(slaves.map(_.address.map(_.widen(~routingMask)).distinct.map(_.contains(address)).reduce(_ || _)))
 
   // Require disjoint ranges for addresses
   slaves.combinations(2).foreach { case Seq(x,y) =>

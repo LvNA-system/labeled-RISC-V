@@ -12,16 +12,12 @@ object APBImp extends NodeImp[APBMasterPortParameters, APBSlavePortParameters, A
   def edgeO(pd: APBMasterPortParameters, pu: APBSlavePortParameters): APBEdgeParameters = APBEdgeParameters(pd, pu)
   def edgeI(pd: APBMasterPortParameters, pu: APBSlavePortParameters): APBEdgeParameters = APBEdgeParameters(pd, pu)
 
-  def bundleO(eo: Seq[APBEdgeParameters]): Vec[APBBundle] = Vec(eo.size, APBBundle(APBBundleParameters.union(eo.map(_.bundle))))
-  def bundleI(ei: Seq[APBEdgeParameters]): Vec[APBBundle] = Vec(ei.size, APBBundle(APBBundleParameters.union(ei.map(_.bundle))))
+  def bundleO(eo: APBEdgeParameters): APBBundle = APBBundle(eo.bundle)
+  def bundleI(ei: APBEdgeParameters): APBBundle = APBBundle(ei.bundle)
 
   def colour = "#00ccff" // bluish
   override def labelI(ei: APBEdgeParameters) = (ei.slave.beatBytes * 8).toString
   override def labelO(eo: APBEdgeParameters) = (eo.slave.beatBytes * 8).toString
-
-  def connect(bo: => APBBundle, bi: => APBBundle, ei: => APBEdgeParameters)(implicit p: Parameters, sourceInfo: SourceInfo): (Option[LazyModule], () => Unit) = {
-    (None, () => { bi <> bo })
-  }
 
   override def mixO(pd: APBMasterPortParameters, node: OutwardNode[APBMasterPortParameters, APBSlavePortParameters, APBBundle]): APBMasterPortParameters  =
    pd.copy(masters = pd.masters.map  { c => c.copy (nodePath = node +: c.nodePath) })
@@ -31,16 +27,14 @@ object APBImp extends NodeImp[APBMasterPortParameters, APBSlavePortParameters, A
 
 // Nodes implemented inside modules
 case class APBIdentityNode() extends IdentityNode(APBImp)
-case class APBMasterNode(portParams: APBMasterPortParameters, numPorts: Range.Inclusive = 1 to 1)
-  extends SourceNode(APBImp)(portParams, numPorts)
-case class APBSlaveNode(portParams: APBSlavePortParameters, numPorts: Range.Inclusive = 1 to 1)
-  extends SinkNode(APBImp)(portParams, numPorts)
-case class APBAdapterNode(
-  masterFn:       Seq[APBMasterPortParameters]  => APBMasterPortParameters,
-  slaveFn:        Seq[APBSlavePortParameters] => APBSlavePortParameters,
+case class APBMasterNode(portParams: Seq[APBMasterPortParameters]) extends SourceNode(APBImp)(portParams)
+case class APBSlaveNode(portParams: Seq[APBSlavePortParameters]) extends SinkNode(APBImp)(portParams)
+case class APBNexusNode(
+  masterFn:       Seq[APBMasterPortParameters] => APBMasterPortParameters,
+  slaveFn:        Seq[APBSlavePortParameters]  => APBSlavePortParameters,
   numMasterPorts: Range.Inclusive = 1 to 1,
   numSlavePorts:  Range.Inclusive = 1 to 1)
-  extends InteriorNode(APBImp)(masterFn, slaveFn, numMasterPorts, numSlavePorts)
+  extends NexusNode(APBImp)(masterFn, slaveFn, numMasterPorts, numSlavePorts)
 
 // Nodes passed from an inner module
 case class APBOutputNode() extends OutputNode(APBImp)

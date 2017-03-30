@@ -4,13 +4,13 @@
 package rocket
 
 import Chisel._
+import Chisel.ImplicitConversions._
 import config._
 import coreplex._
 import diplomacy._
 import uncore.tilelink2._
-import uncore.util.CacheName
+import tile._
 import util._
-import Chisel.ImplicitConversions._
 
 class FrontendReq(implicit p: Parameters) extends CoreBundle()(p) {
   val pc = UInt(width = vaddrBitsExtended)
@@ -22,19 +22,23 @@ class FrontendResp(implicit p: Parameters) extends CoreBundle()(p) {
   val pc = UInt(width = vaddrBitsExtended)  // ID stage PC
   val data = UInt(width = fetchWidth * coreInstBits)
   val mask = Bits(width = fetchWidth)
-  val xcpt_if = Bool()
+  val pf = Bool()
+  val ae = Bool()
   val replay = Bool()
 }
 
 class FrontendIO(implicit p: Parameters) extends CoreBundle()(p) {
   val req = Valid(new FrontendReq)
+  val sfence = Valid(new SFenceReq)
   val resp = Decoupled(new FrontendResp).flip
   val btb_update = Valid(new BTBUpdate)
   val bht_update = Valid(new BHTUpdate)
   val ras_update = Valid(new RASUpdate)
   val flush_icache = Bool(OUTPUT)
-  val flush_tlb = Bool(OUTPUT)
   val npc = UInt(INPUT, width = vaddrBitsExtended)
+
+  // performance events
+  val acquire = Bool(INPUT)
 }
 
 class Frontend(implicit p: Parameters) extends LazyModule {
@@ -54,12 +58,12 @@ class FrontendBundle(outer: Frontend) extends CoreBundle()(outer.p) {
 
 class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
     with HasCoreParameters
-    with HasL1CacheParameters {
+    with HasL1ICacheParameters {
   val io = new FrontendBundle(outer)
   implicit val edge = outer.node.edgesOut(0)
   val icache = outer.icache.module
 
-  val tlb = Module(new TLB)
+  val tlb = Module(new TLB(log2Ceil(coreInstBytes*fetchWidth), nTLBEntries))
 
   val s1_pc_ = Reg(UInt(width=vaddrBitsExtended))
   val s1_pc = ~(~s1_pc_ | (coreInstBytes-1)) // discard PC LSBS (this propagates down the pipeline)
@@ -69,7 +73,12 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
   val s2_pc = Reg(init=io.resetVector)
   val s2_btb_resp_valid = Reg(init=Bool(false))
   val s2_btb_resp_bits = Reg(new BTBResp)
-  val s2_xcpt_if = Reg(init=Bool(false))
+  val s2_maybe_pf = Reg(init=Bool(false))
+  val s2_maybe_ae = Reg(init=Bool(false))
+  val s2_tlb_miss = Reg(Bool())
+  val s2_pf = s2_maybe_pf && !s2_tlb_miss
+  val s2_ae = s2_maybe_ae && !s2_tlb_miss
+  val s2_xcpt = s2_pf || s2_ae
   val s2_speculative = Reg(init=Bool(false))
   val s2_cacheable = Reg(init=Bool(false))
 
@@ -96,7 +105,9 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
       s2_pc := s1_pc
       s2_speculative := s1_speculative
       s2_cacheable := tlb.io.resp.cacheable
-      s2_xcpt_if := tlb.io.resp.xcpt_if && !tlb.io.resp.miss
+      s2_maybe_pf := tlb.io.resp.pf.inst
+      s2_maybe_ae := tlb.io.resp.ae.inst
+      s2_tlb_miss := tlb.io.resp.miss
     }
   }
   when (io.cpu.req.valid) {
@@ -106,7 +117,7 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
     s2_valid := Bool(false)
   }
 
-  if (p(BtbKey).nEntries > 0) {
+  if (usingBTB) {
     val btb = Module(new BTB)
     btb.io.req.valid := false
     btb.io.req.bits.addr := s1_pc_
@@ -126,48 +137,51 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
 
   io.ptw <> tlb.io.ptw
   tlb.io.req.valid := !stall && !icmiss
-  tlb.io.req.bits.vpn := s1_pc >> pgIdxBits
+  tlb.io.req.bits.vaddr := s1_pc
   tlb.io.req.bits.passthrough := Bool(false)
   tlb.io.req.bits.instruction := Bool(true)
   tlb.io.req.bits.store := Bool(false)
+  tlb.io.req.bits.sfence := io.cpu.sfence
+  tlb.io.req.bits.size := log2Ceil(coreInstBytes*fetchWidth)
 
   icache.io.req.valid := !stall && !s0_same_block
   icache.io.req.bits.addr := io.cpu.npc
   icache.io.invalidate := io.cpu.flush_icache
-  icache.io.s1_ppn := tlb.io.resp.ppn
-  icache.io.s1_kill := io.cpu.req.valid || tlb.io.resp.miss || tlb.io.resp.xcpt_if || icmiss || io.cpu.flush_tlb
-  icache.io.s2_kill := s2_speculative && !s2_cacheable
+  icache.io.s1_paddr := tlb.io.resp.paddr
+  icache.io.s1_kill := io.cpu.req.valid || tlb.io.resp.miss || icmiss
+  icache.io.s2_kill := s2_speculative && !s2_cacheable || s2_xcpt
   icache.io.resp.ready := !stall && !s1_same_block
 
-  io.cpu.resp.valid := s2_valid && (icache.io.resp.valid || icache.io.s2_kill || s2_xcpt_if)
+  io.cpu.resp.valid := s2_valid && (icache.io.resp.valid || icache.io.s2_kill || s2_xcpt)
   io.cpu.resp.bits.pc := s2_pc
   io.cpu.npc := Mux(io.cpu.req.valid, io.cpu.req.bits.pc, npc)
 
   require(fetchWidth * coreInstBytes <= rowBytes && isPow2(fetchWidth))
   io.cpu.resp.bits.data := icache.io.resp.bits.datablock >> (s2_pc.extract(log2Ceil(rowBytes)-1,log2Ceil(fetchWidth*coreInstBytes)) << log2Ceil(fetchWidth*coreInstBits))
   io.cpu.resp.bits.mask := UInt((1 << fetchWidth)-1) << s2_pc.extract(log2Ceil(fetchWidth)+log2Ceil(coreInstBytes)-1, log2Ceil(coreInstBytes))
-  io.cpu.resp.bits.xcpt_if := s2_xcpt_if
-  io.cpu.resp.bits.replay := icache.io.s2_kill && !icache.io.resp.valid && !s2_xcpt_if
+  io.cpu.resp.bits.pf := s2_pf
+  io.cpu.resp.bits.ae := s2_ae
+  io.cpu.resp.bits.replay := icache.io.s2_kill && !icache.io.resp.valid && !s2_xcpt
   io.cpu.resp.bits.btb.valid := s2_btb_resp_valid
   io.cpu.resp.bits.btb.bits := s2_btb_resp_bits
+
+  // performance events
+  io.cpu.acquire := edge.done(icache.io.mem(0).a)
 }
 
 /** Mix-ins for constructing tiles that have an ICache-based pipeline frontend */
-trait HasICacheFrontend extends CanHavePTW with TileNetwork {
+trait HasICacheFrontend extends CanHavePTW with HasTileLinkMasterPort {
   val module: HasICacheFrontendModule
-  val frontend = LazyModule(new Frontend()(p.alterPartial({
-    case CacheName => CacheName("L1I")
-  })))
-  l1backend.node := frontend.node
+  val frontend = LazyModule(new Frontend)
+  masterNode := frontend.node
   nPTWPorts += 1
 }
 
-trait HasICacheFrontendBundle extends TileNetworkBundle {
+trait HasICacheFrontendBundle extends HasTileLinkMasterPortBundle {
   val outer: HasICacheFrontend
 }
 
-trait HasICacheFrontendModule extends CanHavePTWModule with TileNetworkModule {
+trait HasICacheFrontendModule extends CanHavePTWModule with HasTileLinkMasterPortModule {
   val outer: HasICacheFrontend
-  //val io: HasICacheFrontendBundle
   ptwPorts += outer.frontend.module.io.ptw
 }

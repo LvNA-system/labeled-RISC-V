@@ -6,6 +6,7 @@ import Chisel._
 import junctions._
 import util._
 import regmapper._
+import tile.XLen
 import uncore.tilelink2._
 import config._
 
@@ -723,7 +724,7 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   // This logic assumes only up to 128 components.
   rdHaltnotStatus := Bits(0)
   for (ii <- 0 until numHaltnotStatus) {
-    when (dbReq.addr === UInt(ii)) {
+    when (dbReq.addr(1, 0) === UInt(ii)) {
       rdHaltnotStatus := haltnotStatus(ii)
     }
   }
@@ -848,7 +849,7 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   */
 
 class TLDebugModule(address: BigInt = 0)(implicit p: Parameters)
-  extends TLRegisterRouter(address, beatBytes=p(rocket.XLen)/8, executable=true)(
+  extends TLRegisterRouter(address, "debug", Nil, beatBytes=p(XLen)/8, executable=true)(
   new TLRegBundle((), _ )    with DebugModuleBundle)(
   new TLRegModule((), _, _)  with DebugModule)
 

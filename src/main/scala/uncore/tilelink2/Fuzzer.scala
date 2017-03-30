@@ -34,18 +34,14 @@ class IDMapGenerator(numIds: Int) extends Module {
 
 object LFSR64
 { 
-  private var counter = 0 
-  private def next: Int = {
-    counter += 1
-    counter
-  }
-  
-  def apply(increment: Bool = Bool(true), seed: Int = next): UInt =
+  def apply(increment: Bool = Bool(true)): UInt =
   { 
     val wide = 64
-    val lfsr = RegInit(UInt((seed * 0xDEADBEEFCAFEBAB1L) >>> 1, width = wide))
+    val lfsr = Reg(UInt(width = wide)) // random initial value based on simulation seed
     val xor = lfsr(0) ^ lfsr(1) ^ lfsr(3) ^ lfsr(4)
-    when (increment) { lfsr := Cat(xor, lfsr(wide-1,1)) }
+    when (increment) {
+      lfsr := Mux(lfsr === UInt(0), UInt(1), Cat(xor, lfsr(wide-1,1)))
+    }
     lfsr
   }
 }
@@ -85,8 +81,8 @@ class TLFuzzer(
     noiseMaker: (Int, Bool, Int) => UInt = {
                   (wide: Int, increment: Bool, abs_values: Int) =>
                    LFSRNoiseMaker(wide=wide, increment=increment)
-                  }
-              )(implicit p: Parameters) extends LazyModule
+                  },
+    noModify: Boolean = false)(implicit p: Parameters) extends LazyModule
 {
   val node = TLClientNode(TLClientParameters(sourceId = IdRange(0,inFlight)))
 
@@ -169,10 +165,10 @@ class TLFuzzer(
 
     val legal = legal_dest && MuxLookup(a_type_sel, glegal, Seq(
       UInt("b000") -> glegal,
-      UInt("b001") -> pflegal,
-      UInt("b010") -> pplegal,
-      UInt("b011") -> alegal,
-      UInt("b100") -> llegal,
+      UInt("b001") -> (pflegal && !Bool(noModify)),
+      UInt("b010") -> (pplegal && !Bool(noModify)),
+      UInt("b011") -> (alegal && !Bool(noModify)),
+      UInt("b100") -> (llegal && !Bool(noModify)),
       UInt("b101") -> hlegal))
 
     val bits = MuxLookup(a_type_sel, gbits, Seq(

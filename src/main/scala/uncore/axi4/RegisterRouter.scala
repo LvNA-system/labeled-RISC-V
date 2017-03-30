@@ -9,14 +9,15 @@ import regmapper._
 import scala.math.{min,max}
 
 class AXI4RegisterNode(address: AddressSet, concurrency: Int = 0, beatBytes: Int = 4, undefZero: Boolean = true, executable: Boolean = false)
-  extends AXI4SlaveNode(AXI4SlavePortParameters(
+  extends AXI4SlaveNode(Seq(AXI4SlavePortParameters(
     Seq(AXI4SlaveParameters(
       address       = Seq(address),
       executable    = executable,
       supportsWrite = TransferSizes(1, beatBytes),
       supportsRead  = TransferSizes(1, beatBytes),
       interleavedId = Some(0))),
-    beatBytes  = beatBytes))
+    beatBytes  = beatBytes,
+    minLatency = min(concurrency, 1)))) // the Queue adds at most one cycle
 {
   require (address.contiguous)
 
@@ -81,10 +82,10 @@ object AXI4RegisterNode
 abstract class AXI4RegisterRouterBase(address: AddressSet, interrupts: Int, concurrency: Int, beatBytes: Int, undefZero: Boolean, executable: Boolean)(implicit p: Parameters) extends LazyModule
 {
   val node = AXI4RegisterNode(address, concurrency, beatBytes, undefZero, executable)
-  val intnode = uncore.tilelink2.IntSourceNode(interrupts)
+  val intnode = uncore.tilelink2.IntSourceNode(uncore.tilelink2.IntSourcePortSimple(num = interrupts))
 }
 
-case class AXI4RegBundleArg(interrupts: Vec[Vec[Bool]], in: Vec[AXI4Bundle])(implicit val p: Parameters)
+case class AXI4RegBundleArg(interrupts: util.HeterogeneousBag[Vec[Bool]], in: util.HeterogeneousBag[AXI4Bundle])(implicit val p: Parameters)
 
 class AXI4RegBundleBase(arg: AXI4RegBundleArg) extends Bundle
 {

@@ -6,25 +6,33 @@ package rocket
 import Chisel._
 import config._
 import diplomacy._
-import uncore.agents._
+import tile._
 import uncore.tilelink2._
-import uncore.util._
+import uncore.util.Code
 import util._
 import Chisel.ImplicitConversions._
 
-trait HasL1CacheParameters extends HasCacheParameters with HasCoreParameters {
-  val cacheBlockBytes = p(CacheBlockBytes)
-  val lgCacheBlockBytes = log2Up(cacheBlockBytes)
-  val cacheDataBits = p(SharedMemoryTLEdge).bundle.dataBits
-  val cacheDataBeats = (cacheBlockBytes * 8) / cacheDataBits
-  val refillCycles = cacheDataBeats
+case class ICacheParams(
+    nSets: Int = 64,
+    nWays: Int = 4,
+    rowBits: Int = 128,
+    nTLBEntries: Int = 32,
+    cacheIdBits: Int = 0,
+    splitMetadata: Boolean = false,
+    ecc: Option[Code] = None,
+    blockBytes: Int = 64) extends L1CacheParams {
+  def replacement = new RandomReplacement(nWays)
 }
 
-class ICacheReq(implicit p: Parameters) extends CoreBundle()(p) with HasL1CacheParameters {
+trait HasL1ICacheParameters extends HasL1CacheParameters with HasCoreParameters {
+  val cacheParams = tileParams.icache.get
+}
+
+class ICacheReq(implicit p: Parameters) extends CoreBundle()(p) with HasL1ICacheParameters {
   val addr = UInt(width = vaddrBits)
 }
 
-class ICacheResp(implicit p: Parameters) extends CoreBundle()(p) with HasL1CacheParameters {
+class ICacheResp(implicit p: Parameters) extends CoreBundle()(p) with HasL1ICacheParameters {
   val data = Bits(width = coreInstBits)
   val datablock = Bits(width = rowBits)
 }
@@ -36,7 +44,7 @@ class ICache(val latency: Int)(implicit p: Parameters) extends LazyModule {
 
 class ICacheBundle(outer: ICache) extends CoreBundle()(outer.p) {
   val req = Valid(new ICacheReq).flip
-  val s1_ppn = UInt(INPUT, ppnBits) // delayed one cycle w.r.t. req
+  val s1_paddr = UInt(INPUT, paddrBits) // delayed one cycle w.r.t. req
   val s1_kill = Bool(INPUT) // delayed one cycle w.r.t. req
   val s2_kill = Bool(INPUT) // delayed two cycles; prevents I$ miss emission
 
@@ -46,8 +54,7 @@ class ICacheBundle(outer: ICache) extends CoreBundle()(outer.p) {
 }
 
 class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
-    with HasCoreParameters
-    with HasL1CacheParameters {
+    with HasL1ICacheParameters {
   val io = new ICacheBundle(outer)
   val edge = outer.node.edgesOut(0)
   val tl_out = io.mem(0)
@@ -60,36 +67,30 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
   val state = Reg(init=s_ready)
   val invalidated = Reg(Bool())
   val stall = !io.resp.ready
-  val rdy = Wire(Bool())
 
   val refill_addr = Reg(UInt(width = paddrBits))
   val s1_any_tag_hit = Wire(Bool())
 
   val s1_valid = Reg(init=Bool(false))
-  val s1_vaddr = Reg(UInt())
-  val s1_paddr = Cat(io.s1_ppn, s1_vaddr(pgIdxBits-1,0))
-  val s1_tag = s1_paddr(tagBits+untagBits-1,untagBits)
-
-  val s0_valid = io.req.valid || s1_valid && stall
-  val s0_vaddr = Mux(s1_valid && stall, s1_vaddr, io.req.bits.addr)
-
-  s1_valid := io.req.valid && rdy || s1_valid && stall && !io.s1_kill
-  when (io.req.valid && rdy) {
-    s1_vaddr := io.req.bits.addr
-  }
-
   val out_valid = s1_valid && !io.s1_kill && state === s_ready
-  val s1_idx = s1_vaddr(untagBits-1,blockOffBits)
+  val s1_idx = io.s1_paddr(untagBits-1,blockOffBits)
+  val s1_tag = io.s1_paddr(tagBits+untagBits-1,untagBits)
   val s1_hit = out_valid && s1_any_tag_hit
   val s1_miss = out_valid && !s1_any_tag_hit
-  rdy := state === s_ready && !s1_miss
+
+  val s0_valid = io.req.valid && state === s_ready && !(out_valid && stall)
+  val s0_vaddr = io.req.bits.addr
+
+  s1_valid := s0_valid || out_valid && stall
 
   when (s1_miss && state === s_ready) {
-    refill_addr := s1_paddr
+    refill_addr := io.s1_paddr
   }
   val refill_tag = refill_addr(tagBits+untagBits-1,untagBits)
+  val refill_idx = refill_addr(untagBits-1,blockOffBits)
   val (_, _, refill_done, refill_cnt) = edge.count(tl_out.d)
-  tl_out.d.ready := state === s_refill
+  tl_out.d.ready := Bool(true)
+  require (edge.manager.minLatency > 0)
 
   val repl_way = if (isDM) UInt(0) else LFSR16(s1_miss)(log2Up(nWays)-1,0)
   val entagbits = code.width(tagBits)
@@ -97,12 +98,12 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
   val tag_rdata = tag_array.read(s0_vaddr(untagBits-1,blockOffBits), !refill_done && s0_valid)
   when (refill_done) {
     val tag = code.encode(refill_tag)
-    tag_array.write(s1_idx, Vec.fill(nWays)(tag), Vec.tabulate(nWays)(repl_way === _))
+    tag_array.write(refill_idx, Vec.fill(nWays)(tag), Vec.tabulate(nWays)(repl_way === _))
   }
 
   val vb_array = Reg(init=Bits(0, nSets*nWays))
   when (refill_done && !invalidated) {
-    vb_array := vb_array.bitSet(Cat(repl_way, s1_idx), Bool(true))
+    vb_array := vb_array.bitSet(Cat(repl_way, refill_idx), Bool(true))
   }
   when (io.invalidate) {
     vb_array := Bits(0)
@@ -115,12 +116,13 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
   val s1_tag_match = Wire(Vec(nWays, Bool()))
   val s1_tag_hit = Wire(Vec(nWays, Bool()))
   val s1_dout = Wire(Vec(nWays, Bits(width = rowBits)))
+  val s1_dout_valid = RegNext(s0_valid)
 
   for (i <- 0 until nWays) {
-    val s1_vb = !io.invalidate && vb_array(Cat(UInt(i), s1_vaddr(untagBits-1,blockOffBits))).toBool
+    val s1_vb = !io.invalidate && vb_array(Cat(UInt(i), io.s1_paddr(untagBits-1,blockOffBits))).toBool
     val tag_out = tag_rdata(i)
-    val s1_tag_disparity = code.decode(tag_out).error
-    s1_tag_match(i) := tag_out(tagBits-1,0) === s1_tag
+    val s1_tag_disparity = code.decode(tag_out).error holdUnless s1_dout_valid
+    s1_tag_match(i) := (tag_out(tagBits-1,0) === s1_tag) holdUnless s1_dout_valid
     s1_tag_hit(i) := s1_vb && s1_tag_match(i)
     s1_disparity(i) := s1_vb && (s1_tag_disparity || code.decode(s1_dout(i)).error)
   }
@@ -131,10 +133,10 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
     val wen = tl_out.d.valid && repl_way === UInt(i)
     when (wen) {
       val e_d = code.encode(tl_out.d.bits.data)
-      data_array.write((s1_idx << log2Ceil(refillCycles)) | refill_cnt, e_d)
+      data_array.write((refill_idx << log2Ceil(refillCycles)) | refill_cnt, e_d)
     }
     val s0_raddr = s0_vaddr(untagBits-1,blockOffBits-log2Ceil(refillCycles))
-    s1_dout(i) := data_array.read(s0_raddr, !wen && s0_valid)
+    s1_dout(i) := data_array.read(s0_raddr, !wen && s0_valid) holdUnless s1_dout_valid
   }
 
   // output signals
@@ -154,6 +156,7 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
                     fromSource = UInt(0),
                     toAddress = (refill_addr >> blockOffBits) << blockOffBits,
                     lgSize = lgCacheBlockBytes)._2
+  tl_out.b.ready := Bool(true)
   tl_out.c.valid := Bool(false)
   tl_out.e.valid := Bool(false)
 

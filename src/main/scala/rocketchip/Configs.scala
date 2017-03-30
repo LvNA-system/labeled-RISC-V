@@ -18,8 +18,14 @@ import scala.collection.mutable.{LinkedHashSet, ListBuffer}
 import scala.collection.immutable.HashMap
 import DefaultTestSuites._
 import config._
+import tile.XLen
 
 class BasePlatformConfig extends Config((site, here, up) => {
+  // DTS descriptive parameters
+  case DTSModel => "ucbbar,rocketchip-unknown"
+  case DTSCompat => Nil
+  case DTSTimebase => BigInt(1000000) // 1 MHz
+  case RTCPeriod => 1000 // Implies coreplex clock is DTSTimebase * RTCPeriod = 1 GHz
   // TileLink connection parameters
   case TLMonitorBuilder => (args: TLMonitorArgs) => Some(LazyModule(new TLMonitor(args)))
   case TLFuzzReadyValid => false
@@ -31,39 +37,27 @@ class BasePlatformConfig extends Config((site, here, up) => {
   case PeripheryBusArithmetic => true
   // Note that PLIC asserts that this is > 0.
   case IncludeJtagDTM => false
+  case ZeroConfig => ZeroConfig(base=0xa000000L, size=0x2000000L, beatBytes=8)
   case ExtMem => MasterConfig(base=0x80000000L, size=0x10000000L, beatBytes=8, idBits=4)
   case ExtBus => MasterConfig(base=0x60000000L, size=0x20000000L, beatBytes=8, idBits=4)
   case ExtIn  => SlaveConfig(beatBytes=8, idBits=8, sourceBits=2)
-  case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
 })
+
+/** Actual elaboratable target Configs */
 
 class BaseConfig extends Config(new BaseCoreplexConfig ++ new BasePlatformConfig)
-class DefaultConfig extends Config(new WithBlockingL1 ++ new BaseConfig)
+class DefaultConfig extends Config(new WithNBigCores(1) ++ new BaseConfig)
 
-class DefaultL2Config extends Config(new WithL2Cache ++ new BaseConfig)
+class DefaultL2Config extends Config(new WithL2Cache ++ new WithNBigCores(1) ++ new BaseConfig)
 class DefaultBufferlessConfig extends Config(
-  new WithBufferlessBroadcastHub ++ new BaseConfig)
+  new WithBufferlessBroadcastHub ++ new WithNBigCores(1) ++ new BaseConfig)
 
-class FPGAConfig extends Config ((site, here, up) => {
-  case NAcquireTransactors => 4
-})
-
+class FPGAConfig extends Config(Parameters.empty)
 class DefaultFPGAConfig extends Config(new FPGAConfig ++ new BaseConfig)
 class DefaultL2FPGAConfig extends Config(
   new WithL2Capacity(64) ++ new WithL2Cache ++ new DefaultFPGAConfig)
 
-class WithNMemoryChannels(n: Int) extends Config((site, here, up) => {
-  case BankedL2Config => up(BankedL2Config, site).copy(nMemoryChannels = n)
-})
-
-class WithExtMemSize(n: Long) extends Config((site, here, up) => {
-  case ExtMem => up(ExtMem, site).copy(size = n)
-})
-
-class WithScratchpads extends Config(new WithNMemoryChannels(0) ++ new WithDataScratchpad(16384))
-
-class DefaultFPGASmallConfig extends Config(new WithSmallCores ++ new DefaultFPGAConfig)
-class DefaultSmallConfig extends Config(new WithSmallCores ++ new BaseConfig)
+class DefaultSmallConfig extends Config(new WithNSmallCores(1) ++ new BaseConfig)
 class DefaultRV32Config extends Config(new WithRV32 ++ new DefaultConfig)
 
 class DualBankConfig extends Config(
@@ -82,11 +76,7 @@ class DualChannelDualBankL2Config extends Config(
   new WithNMemoryChannels(2) ++ new WithNBanksPerMemChannel(2) ++
   new WithL2Cache ++ new BaseConfig)
 
-class RoccExampleConfig extends Config(new WithRoccExample ++ new BaseConfig)
-
-class WithEdgeDataBits(dataBits: Int) extends Config((site, here, up) => {
-  case ExtMem => up(ExtMem, site).copy(beatBytes = dataBits/8)
-})
+class RoccExampleConfig extends Config(new WithRoccExample ++ new DefaultConfig)
 
 class Edge128BitConfig extends Config(
   new WithEdgeDataBits(128) ++ new BaseConfig)
@@ -105,12 +95,43 @@ class OctoChannelBenchmarkConfig extends Config(new WithNMemoryChannels(8) ++ ne
 class EightChannelConfig extends Config(new WithNMemoryChannels(8) ++ new BaseConfig)
 
 class DualCoreConfig extends Config(
-  new WithNCores(2) ++ new WithL2Cache ++ new BaseConfig)
+  new WithNBigCores(2) ++ new WithL2Cache ++ new BaseConfig)
+class HeterogeneousDualCoreConfig extends Config(
+  new WithNSmallCores(1) ++ new WithNBigCores(1) ++ new WithL2Cache ++ new BaseConfig)
 
 class TinyConfig extends Config(
-  new WithScratchpads ++
-  new WithSmallCores ++ new WithRV32 ++
-  new WithStatelessBridge ++ new BaseConfig)
+  new WithNMemoryChannels(0) ++
+  new WithStatelessBridge ++
+  new BaseConfig().alter((site, here, up) => {
+    case XLen => 32
+    case RocketTilesKey => Seq(
+      RocketTileParams(
+        core = RocketCoreParams(
+          useVM = false,
+          fpu = None,
+          mulDiv = Some(MulDivParams(mulUnroll = 8))),
+        btb = None,
+        dcache = Some(DCacheParams(
+          rowBits = site(L1toL2Config).beatBytes*8,
+          nSets = 256, // 16Kb scratchpad
+          nWays = 1,
+          nTLBEntries = 4,
+          nMSHRs = 0,
+          blockBytes = site(CacheBlockBytes),
+          scratch = Some(0x80000000L))),
+        icache = Some(ICacheParams(
+          rowBits = site(L1toL2Config).beatBytes*8,
+          nSets = 64,
+          nWays = 1,
+          nTLBEntries = 4,
+          blockBytes = site(CacheBlockBytes)))))}))
+
+/* Composable partial function Configs to set individual parameters */
+
+class WithEdgeDataBits(dataBits: Int) extends Config((site, here, up) => {
+  case ExtMem => up(ExtMem, site).copy(beatBytes = dataBits/8)
+  case ZeroConfig => up(ZeroConfig, site).copy(beatBytes = dataBits/8)
+})
 
 class WithJtagDTM extends Config ((site, here, up) => {
   case IncludeJtagDTM => true
@@ -132,10 +153,25 @@ class WithNExtTopInterrupts(nExtInts: Int) extends Config((site, here, up) => {
   case NExtTopInterrupts => nExtInts
 })
 
-class WithNBreakpoints(hwbp: Int) extends Config ((site, here, up) => {
-  case NBreakpoints => hwbp
-})
-
 class WithRTCPeriod(nCycles: Int) extends Config((site, here, up) => {
   case RTCPeriod => nCycles
 })
+
+class WithNMemoryChannels(n: Int) extends Config((site, here, up) => {
+  case BankedL2Config => up(BankedL2Config, site).copy(nMemoryChannels = n)
+})
+
+class WithExtMemSize(n: Long) extends Config((site, here, up) => {
+  case ExtMem => up(ExtMem, site).copy(size = n)
+})
+
+class WithDTS(model: String, compat: Seq[String]) extends Config((site, here, up) => {
+  case DTSModel => model
+  case DTSCompat => compat
+})
+
+class WithTimebase(hertz: BigInt) extends Config((site, here, up) => {
+  case DTSTimebase => hertz
+})
+
+class DefaultFPGASmallConfig extends Config(new WithNSmallCores(1) ++ new DefaultFPGAConfig)

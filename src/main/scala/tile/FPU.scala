@@ -1,17 +1,18 @@
 // See LICENSE.Berkeley for license details.
 // See LICENSE.SiFive for license details.
 
-package rocket
+package tile
 
 import Chisel._
-import Instructions._
-import util._
 import Chisel.ImplicitConversions._
 import FPConstants._
+import rocket.DecodeLogic
+import rocket.Instructions._
 import uncore.constants.MemoryOpConstants._
 import config._
+import util._
 
-case class FPUConfig(
+case class FPUParams(
   divSqrt: Boolean = true,
   sfmaLatency: Int = 3,
   dfmaLatency: Int = 4
@@ -19,24 +20,24 @@ case class FPUConfig(
 
 object FPConstants
 {
-  val FCMD_ADD =    BitPat("b0??00")
-  val FCMD_SUB =    BitPat("b0??01")
-  val FCMD_MUL =    BitPat("b0??10")
-  val FCMD_MADD =   BitPat("b1??00")
-  val FCMD_MSUB =   BitPat("b1??01")
-  val FCMD_NMSUB =  BitPat("b1??10")
-  val FCMD_NMADD =  BitPat("b1??11")
-  val FCMD_DIV =    BitPat("b?0011")
-  val FCMD_SQRT =   BitPat("b?1011")
-  val FCMD_SGNJ =   BitPat("b??1?0")
-  val FCMD_MINMAX = BitPat("b?01?1")
-  val FCMD_CVT_FF = BitPat("b??0??")
-  val FCMD_CVT_IF = BitPat("b?10??")
-  val FCMD_CMP =    BitPat("b?01??")
-  val FCMD_MV_XF =  BitPat("b?11??")
-  val FCMD_CVT_FI = BitPat("b??0??")
-  val FCMD_MV_FX =  BitPat("b??1??")
-  val FCMD_X =      BitPat("b?????")
+  def FCMD_ADD =    BitPat("b0??00")
+  def FCMD_SUB =    BitPat("b0??01")
+  def FCMD_MUL =    BitPat("b0??10")
+  def FCMD_MADD =   BitPat("b1??00")
+  def FCMD_MSUB =   BitPat("b1??01")
+  def FCMD_NMSUB =  BitPat("b1??10")
+  def FCMD_NMADD =  BitPat("b1??11")
+  def FCMD_DIV =    BitPat("b?0011")
+  def FCMD_SQRT =   BitPat("b?1011")
+  def FCMD_SGNJ =   BitPat("b??1?0")
+  def FCMD_MINMAX = BitPat("b?01?1")
+  def FCMD_CVT_FF = BitPat("b??0??")
+  def FCMD_CVT_IF = BitPat("b?10??")
+  def FCMD_CMP =    BitPat("b?01??")
+  def FCMD_MV_XF =  BitPat("b?11??")
+  def FCMD_CVT_FI = BitPat("b??0??")
+  def FCMD_MV_FX =  BitPat("b??1??")
+  def FCMD_X =      BitPat("b?????")
   val FCMD_WIDTH = 5
 
   val RM_SZ = 3
@@ -59,7 +60,6 @@ trait HasFPUCtrlSigs {
   val fma = Bool()
   val div = Bool()
   val sqrt = Bool()
-  val round = Bool()
   val wflags = Bool()
 }
 
@@ -71,71 +71,71 @@ class FPUDecoder(implicit p: Parameters) extends FPUModule()(p) {
     val sigs = new FPUCtrlSigs().asOutput
   }
 
-  val default =       List(FCMD_X,      X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X)
+  val default =       List(FCMD_X,      X,X,X,X,X,X,X,X,X,X,X,X,X,X,X)
   val f =
-    Array(FLW      -> List(FCMD_X,      Y,Y,N,N,N,X,X,Y,N,N,N,N,N,N,N,N),
-          FSW      -> List(FCMD_MV_XF,  Y,N,N,Y,N,Y,X,Y,N,Y,N,N,N,N,N,N),
-          FMV_S_X  -> List(FCMD_MV_FX,  N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y,N),
-          FCVT_S_W -> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y,Y),
-          FCVT_S_WU-> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y,Y),
-          FCVT_S_L -> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y,Y),
-          FCVT_S_LU-> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y,Y),
-          FMV_X_S  -> List(FCMD_MV_XF,  N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y,N),
-          FCLASS_S -> List(FCMD_MV_XF,  N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y,N),
-          FCVT_W_S -> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y,Y),
-          FCVT_WU_S-> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y,Y),
-          FCVT_L_S -> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y,Y),
-          FCVT_LU_S-> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y,Y),
-          FEQ_S    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,Y,N,Y,N,N,N,N,N,Y),
-          FLT_S    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,Y,N,Y,N,N,N,N,N,Y),
-          FLE_S    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,Y,N,Y,N,N,N,N,N,Y),
-          FSGNJ_S  -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,N,N),
-          FSGNJN_S -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,N,N),
-          FSGNJX_S -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,N,N),
-          FMIN_S   -> List(FCMD_MINMAX, N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,N,Y),
-          FMAX_S   -> List(FCMD_MINMAX, N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,N,Y),
-          FADD_S   -> List(FCMD_ADD,    N,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y,Y),
-          FSUB_S   -> List(FCMD_SUB,    N,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y,Y),
-          FMUL_S   -> List(FCMD_MUL,    N,Y,Y,Y,N,N,N,Y,N,N,N,Y,N,N,Y,Y),
-          FMADD_S  -> List(FCMD_MADD,   N,Y,Y,Y,Y,N,N,Y,N,N,N,Y,N,N,Y,Y),
-          FMSUB_S  -> List(FCMD_MSUB,   N,Y,Y,Y,Y,N,N,Y,N,N,N,Y,N,N,Y,Y),
-          FNMADD_S -> List(FCMD_NMADD,  N,Y,Y,Y,Y,N,N,Y,N,N,N,Y,N,N,Y,Y),
-          FNMSUB_S -> List(FCMD_NMSUB,  N,Y,Y,Y,Y,N,N,Y,N,N,N,Y,N,N,Y,Y),
-          FDIV_S   -> List(FCMD_DIV,    N,Y,Y,Y,N,N,N,Y,N,N,N,N,Y,N,Y,Y),
-          FSQRT_S  -> List(FCMD_SQRT,   N,Y,Y,N,N,Y,X,Y,N,N,N,N,N,Y,Y,Y))
+    Array(FLW      -> List(FCMD_X,      Y,Y,N,N,N,X,X,Y,N,N,N,N,N,N,N),
+          FSW      -> List(FCMD_MV_XF,  Y,N,N,Y,N,Y,X,Y,N,Y,N,N,N,N,N),
+          FMV_S_X  -> List(FCMD_MV_FX,  N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,N),
+          FCVT_S_W -> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y),
+          FCVT_S_WU-> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y),
+          FCVT_S_L -> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y),
+          FCVT_S_LU-> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,Y,Y,N,N,N,N,N,Y),
+          FMV_X_S  -> List(FCMD_MV_XF,  N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,N),
+          FCLASS_S -> List(FCMD_MV_XF,  N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,N),
+          FCVT_W_S -> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y),
+          FCVT_WU_S-> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y),
+          FCVT_L_S -> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y),
+          FCVT_LU_S-> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,Y,N,Y,N,N,N,N,Y),
+          FEQ_S    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,Y,N,Y,N,N,N,N,Y),
+          FLT_S    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,Y,N,Y,N,N,N,N,Y),
+          FLE_S    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,Y,N,Y,N,N,N,N,Y),
+          FSGNJ_S  -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,N),
+          FSGNJN_S -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,N),
+          FSGNJX_S -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,N),
+          FMIN_S   -> List(FCMD_MINMAX, N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,Y),
+          FMAX_S   -> List(FCMD_MINMAX, N,Y,Y,Y,N,N,N,Y,N,N,Y,N,N,N,Y),
+          FADD_S   -> List(FCMD_ADD,    N,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y),
+          FSUB_S   -> List(FCMD_SUB,    N,Y,Y,Y,N,N,Y,Y,N,N,N,Y,N,N,Y),
+          FMUL_S   -> List(FCMD_MUL,    N,Y,Y,Y,N,N,N,Y,N,N,N,Y,N,N,Y),
+          FMADD_S  -> List(FCMD_MADD,   N,Y,Y,Y,Y,N,N,Y,N,N,N,Y,N,N,Y),
+          FMSUB_S  -> List(FCMD_MSUB,   N,Y,Y,Y,Y,N,N,Y,N,N,N,Y,N,N,Y),
+          FNMADD_S -> List(FCMD_NMADD,  N,Y,Y,Y,Y,N,N,Y,N,N,N,Y,N,N,Y),
+          FNMSUB_S -> List(FCMD_NMSUB,  N,Y,Y,Y,Y,N,N,Y,N,N,N,Y,N,N,Y),
+          FDIV_S   -> List(FCMD_DIV,    N,Y,Y,Y,N,N,N,Y,N,N,N,N,Y,N,Y),
+          FSQRT_S  -> List(FCMD_SQRT,   N,Y,Y,N,N,Y,X,Y,N,N,N,N,N,Y,Y))
   val d =
-    Array(FLD      -> List(FCMD_X,      Y,Y,N,N,N,X,X,N,N,N,N,N,N,N,N,N),
-          FSD      -> List(FCMD_MV_XF,  Y,N,N,Y,N,Y,X,N,N,Y,N,N,N,N,N,N),
-          FMV_D_X  -> List(FCMD_MV_FX,  N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y,N),
-          FCVT_D_W -> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y,Y),
-          FCVT_D_WU-> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y,Y),
-          FCVT_D_L -> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y,Y),
-          FCVT_D_LU-> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y,Y),
-          FMV_X_D  -> List(FCMD_MV_XF,  N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y,N),
-          FCLASS_D -> List(FCMD_MV_XF,  N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y,N),
-          FCVT_W_D -> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y,Y),
-          FCVT_WU_D-> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y,Y),
-          FCVT_L_D -> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y,Y),
-          FCVT_LU_D-> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y,Y),
-          FCVT_S_D -> List(FCMD_CVT_FF, N,Y,Y,N,N,N,X,Y,N,N,Y,N,N,N,Y,Y),
-          FCVT_D_S -> List(FCMD_CVT_FF, N,Y,Y,N,N,N,X,N,N,N,Y,N,N,N,Y,Y),
-          FEQ_D    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,N,N,Y,N,N,N,N,N,Y),
-          FLT_D    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,N,N,Y,N,N,N,N,N,Y),
-          FLE_D    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,N,N,Y,N,N,N,N,N,Y),
-          FSGNJ_D  -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,N),
-          FSGNJN_D -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,N),
-          FSGNJX_D -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,N),
-          FMIN_D   -> List(FCMD_MINMAX, N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,Y),
-          FMAX_D   -> List(FCMD_MINMAX, N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,N,Y),
-          FADD_D   -> List(FCMD_ADD,    N,Y,Y,Y,N,N,Y,N,N,N,N,Y,N,N,Y,Y),
-          FSUB_D   -> List(FCMD_SUB,    N,Y,Y,Y,N,N,Y,N,N,N,N,Y,N,N,Y,Y),
-          FMUL_D   -> List(FCMD_MUL,    N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y,Y),
-          FMADD_D  -> List(FCMD_MADD,   N,Y,Y,Y,Y,N,N,N,N,N,N,Y,N,N,Y,Y),
-          FMSUB_D  -> List(FCMD_MSUB,   N,Y,Y,Y,Y,N,N,N,N,N,N,Y,N,N,Y,Y),
-          FNMADD_D -> List(FCMD_NMADD,  N,Y,Y,Y,Y,N,N,N,N,N,N,Y,N,N,Y,Y),
-          FNMSUB_D -> List(FCMD_NMSUB,  N,Y,Y,Y,Y,N,N,N,N,N,N,Y,N,N,Y,Y),
-          FDIV_D   -> List(FCMD_DIV,    N,Y,Y,Y,N,N,N,N,N,N,N,N,Y,N,Y,Y),
-          FSQRT_D  -> List(FCMD_SQRT,   N,Y,Y,N,N,Y,X,N,N,N,N,N,N,Y,Y,Y))
+    Array(FLD      -> List(FCMD_X,      Y,Y,N,N,N,X,X,N,N,N,N,N,N,N,N),
+          FSD      -> List(FCMD_MV_XF,  Y,N,N,Y,N,Y,X,N,N,Y,N,N,N,N,N),
+          FMV_D_X  -> List(FCMD_MV_FX,  N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,N),
+          FCVT_D_W -> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y),
+          FCVT_D_WU-> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y),
+          FCVT_D_L -> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y),
+          FCVT_D_LU-> List(FCMD_CVT_FI, N,Y,N,N,N,X,X,N,Y,N,N,N,N,N,Y),
+          FMV_X_D  -> List(FCMD_MV_XF,  N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,N),
+          FCLASS_D -> List(FCMD_MV_XF,  N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,N),
+          FCVT_W_D -> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y),
+          FCVT_WU_D-> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y),
+          FCVT_L_D -> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y),
+          FCVT_LU_D-> List(FCMD_CVT_IF, N,N,Y,N,N,N,X,N,N,Y,N,N,N,N,Y),
+          FCVT_S_D -> List(FCMD_CVT_FF, N,Y,Y,N,N,N,X,Y,N,N,Y,N,N,N,Y),
+          FCVT_D_S -> List(FCMD_CVT_FF, N,Y,Y,N,N,N,X,N,N,N,Y,N,N,N,Y),
+          FEQ_D    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,N,N,Y,N,N,N,N,Y),
+          FLT_D    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,N,N,Y,N,N,N,N,Y),
+          FLE_D    -> List(FCMD_CMP,    N,N,Y,Y,N,N,N,N,N,Y,N,N,N,N,Y),
+          FSGNJ_D  -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,N),
+          FSGNJN_D -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,N),
+          FSGNJX_D -> List(FCMD_SGNJ,   N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,N),
+          FMIN_D   -> List(FCMD_MINMAX, N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,Y),
+          FMAX_D   -> List(FCMD_MINMAX, N,Y,Y,Y,N,N,N,N,N,N,Y,N,N,N,Y),
+          FADD_D   -> List(FCMD_ADD,    N,Y,Y,Y,N,N,Y,N,N,N,N,Y,N,N,Y),
+          FSUB_D   -> List(FCMD_SUB,    N,Y,Y,Y,N,N,Y,N,N,N,N,Y,N,N,Y),
+          FMUL_D   -> List(FCMD_MUL,    N,Y,Y,Y,N,N,N,N,N,N,N,Y,N,N,Y),
+          FMADD_D  -> List(FCMD_MADD,   N,Y,Y,Y,Y,N,N,N,N,N,N,Y,N,N,Y),
+          FMSUB_D  -> List(FCMD_MSUB,   N,Y,Y,Y,Y,N,N,N,N,N,N,Y,N,N,Y),
+          FNMADD_D -> List(FCMD_NMADD,  N,Y,Y,Y,Y,N,N,N,N,N,N,Y,N,N,Y),
+          FNMSUB_D -> List(FCMD_NMSUB,  N,Y,Y,Y,Y,N,N,N,N,N,N,Y,N,N,Y),
+          FDIV_D   -> List(FCMD_DIV,    N,Y,Y,Y,N,N,N,N,N,N,N,N,Y,N,Y),
+          FSQRT_D  -> List(FCMD_SQRT,   N,Y,Y,N,N,Y,X,N,N,N,N,N,N,Y,Y))
 
   val insns = fLen match {
     case 32 => f
@@ -145,7 +145,7 @@ class FPUDecoder(implicit p: Parameters) extends FPUModule()(p) {
   val s = io.sigs
   val sigs = Seq(s.cmd, s.ldst, s.wen, s.ren1, s.ren2, s.ren3, s.swap12,
                  s.swap23, s.single, s.fromint, s.toint, s.fastpipe, s.fma,
-                 s.div, s.sqrt, s.round, s.wflags)
+                 s.div, s.sqrt, s.wflags)
   sigs zip decoder map {case(s,d) => s := d}
 }
 
@@ -222,13 +222,18 @@ object ClassifyRecFN {
 }
 
 object IsNaNRecFN {
-  def apply(expWidth: Int, sigWidth: Int, in: UInt) =
-    in(sigWidth + expWidth - 1, sigWidth + expWidth - 3).andR
+  def apply(in: UInt, t: FType) = in(t.sig + t.exp - 1, t.sig + t.exp - 3).andR
 }
 
 object IsSNaNRecFN {
-  def apply(expWidth: Int, sigWidth: Int, in: UInt) =
-    IsNaNRecFN(expWidth, sigWidth, in) && !in(sigWidth - 2)
+  def apply(in: UInt, t: FType) = IsNaNRecFN(in, t) && !in(t.sig - 2)
+}
+
+class FType(val exp: Int, val sig: Int)
+
+object FType {
+  val S = new FType(8, 24)
+  val D = new FType(11, 53)
 }
 
 /** Format conversion without rounding or NaN handling */
@@ -248,14 +253,27 @@ object RecFNToRecFN_noncompliant {
   }
 }
 
+object CanonicalNaN {
+  def apply(t: FType): UInt =
+    UInt((BigInt(7) << (t.exp + t.sig - 3)) + (BigInt(1) << (t.sig - 2)), t.exp + t.sig + 1)
+  def signaling(t: FType): UInt =
+    UInt((BigInt(7) << (t.exp + t.sig - 3)) + (BigInt(1) << (t.sig - 3)), t.exp + t.sig + 1)
+}
+
 trait HasFPUParameters {
   val fLen: Int
-  val (sExpWidth, sSigWidth) = (8, 24)
-  val (dExpWidth, dSigWidth) = (11, 53)
-  val (maxExpWidth, maxSigWidth) = fLen match {
-    case 32 => (sExpWidth, sSigWidth)
-    case 64 => (dExpWidth, dSigWidth)
+  val (sExpWidth, sSigWidth) = (FType.S.exp, FType.S.sig)
+  val (dExpWidth, dSigWidth) = (FType.D.exp, FType.D.sig)
+  val floatTypes = fLen match {
+    case 32 => List(FType.S)
+    case 64 => List(FType.S, FType.D)
   }
+  val maxType = floatTypes.sortWith(_.exp > _.exp).head
+  val maxExpWidth = maxType.exp
+  val maxSigWidth = maxType.sig
+
+  def expand(x: UInt, t: FType) = RecFNToRecFN_noncompliant(x, t.exp, t.sig, maxType.exp, maxType.sig)
+  def contract(x: UInt, t: FType) = RecFNToRecFN_noncompliant(x, maxType.exp, maxType.sig, t.exp, t.sig)
 }
 
 abstract class FPUModule(implicit p: Parameters) extends CoreModule()(p) with HasFPUParameters
@@ -274,20 +292,11 @@ class FPToInt(implicit p: Parameters) extends FPUModule()(p) {
     val out = Valid(new Output)
   }
 
-  val in = Reg(new FPInput)
+  val in = RegEnable(io.in.bits, io.in.valid)
   val valid = Reg(next=io.in.valid)
 
-  def upconvert(x: UInt) = RecFNToRecFN_noncompliant(x, sExpWidth, sSigWidth, maxExpWidth, maxSigWidth)
-
-  when (io.in.valid) {
-    in := io.in.bits
-    if (fLen > 32) when (io.in.bits.single && !io.in.bits.ldst && io.in.bits.cmd =/= FCMD_MV_XF) {
-      in.in1 := upconvert(io.in.bits.in1)
-      in.in2 := upconvert(io.in.bits.in2)
-    }
-  }
-
-  val unrec_s = hardfloat.fNFromRecFN(sExpWidth, sSigWidth, in.in1).sextTo(xLen)
+  val in1_s = contract(in.in1, FType.S)
+  val unrec_s = hardfloat.fNFromRecFN(sExpWidth, sSigWidth, in1_s).sextTo(xLen)
   val unrec_mem = fLen match {
     case 32 => unrec_s
     case 64 =>
@@ -299,7 +308,7 @@ class FPToInt(implicit p: Parameters) extends FPUModule()(p) {
     case fLen => unrec_mem
   }
 
-  val classify_s = ClassifyRecFN(sExpWidth, sSigWidth, in.in1)
+  val classify_s = ClassifyRecFN(sExpWidth, sSigWidth, in1_s)
   val classify_out = fLen match {
     case 32 => classify_s
     case 64 =>
@@ -350,7 +359,7 @@ class IntToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
 
   val mux = Wire(new FPResult)
   mux.exc := Bits(0)
-  mux.data := hardfloat.recFNFromFN(sExpWidth, sSigWidth, in.bits.in1)
+  mux.data := expand(hardfloat.recFNFromFN(sExpWidth, sSigWidth, in.bits.in1), FType.S)
   if (fLen > 32) when (!in.bits.single) {
     mux.data := hardfloat.recFNFromFN(dExpWidth, dSigWidth, in.bits.in1)
   }
@@ -373,7 +382,7 @@ class IntToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
     l2s.io.signedIn := ~in.bits.typ(0)
     l2s.io.in := intValue
     l2s.io.roundingMode := in.bits.rm
-    mux.data := Cat(UInt((BigInt(1) << (fLen - 32)) - 1), l2s.io.out)
+    mux.data := expand(l2s.io.out, FType.S)
     mux.exc := l2s.io.exceptionFlags
 
     fLen match {
@@ -384,66 +393,57 @@ class IntToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
         l2d.io.in := intValue
         l2d.io.roundingMode := in.bits.rm
         when (!in.bits.single) {
-            mux.data := Cat(UInt((BigInt(1) << (fLen - 64)) - 1), l2d.io.out)
-            mux.exc := l2d.io.exceptionFlags
+          mux.data := l2d.io.out
+          mux.exc := l2d.io.exceptionFlags
         }
-      }
     }
-
-    io.out <> Pipe(in.valid, mux, latency-1)
   }
 
-  class FPToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
-    val io = new Bundle {
-      val in = Valid(new FPInput).flip
-      val out = Valid(new FPResult)
-      val lt = Bool(INPUT) // from FPToInt
-    }
+  io.out <> Pipe(in.valid, mux, latency-1)
+}
 
-    val in = Pipe(io.in)
+class FPToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
+  val io = new Bundle {
+    val in = Valid(new FPInput).flip
+    val out = Valid(new FPResult)
+    val lt = Bool(INPUT) // from FPToInt
+  }
 
-    val signNum = Mux(in.bits.rm(1), in.bits.in1 ^ in.bits.in2, Mux(in.bits.rm(0), ~in.bits.in2, in.bits.in2))
-    val fsgnj_s = Cat(signNum(32), in.bits.in1(31, 0))
-    val fsgnj = fLen match {
-      case 32 => fsgnj_s
-      case 64 => Mux(in.bits.single, Cat(in.bits.in1 >> 33, fsgnj_s),
-                                     Cat(signNum(64), in.bits.in1(63, 0)))
-    }
-    val mux = Wire(new FPResult)
-    mux.exc := UInt(0)
-    mux.data := fsgnj
+  val in = Pipe(io.in)
 
-    when (in.bits.cmd === FCMD_MINMAX) {
-      def doMinMax(expWidth: Int, sigWidth: Int) = {
-        val isnan1 = IsNaNRecFN(expWidth, sigWidth, in.bits.in1)
-        val isnan2 = IsNaNRecFN(expWidth, sigWidth, in.bits.in2)
-        val issnan1 = IsSNaNRecFN(expWidth, sigWidth, in.bits.in1)
-        val issnan2 = IsSNaNRecFN(expWidth, sigWidth, in.bits.in2)
-        (isnan2 || in.bits.rm(0) =/= io.lt && !isnan1, issnan1 || issnan2)
-      }
-      val (isLHS, isInvalid) = fLen match {
-        case 32 => doMinMax(sExpWidth, sSigWidth)
-        case 64 => MuxT(in.bits.single, doMinMax(sExpWidth, sSigWidth), doMinMax(dExpWidth, dSigWidth))
-      }
-      mux.exc := isInvalid << 4
-      mux.data := in.bits.in1
-      when (!isLHS) { mux.data := in.bits.in2 }
-    }
+  val signNum = Mux(in.bits.rm(1), in.bits.in1 ^ in.bits.in2, Mux(in.bits.rm(0), ~in.bits.in2, in.bits.in2))
+  val fsgnj = Cat(signNum(fLen), in.bits.in1(fLen-1, 0))
 
-    fLen match {
-      case 32 =>
-      case 64 =>
-        when (in.bits.cmd === FCMD_CVT_FF) {
-          when (in.bits.single) {
-            val d2s = Module(new hardfloat.RecFNToRecFN(dExpWidth, dSigWidth, sExpWidth, sSigWidth))
-            d2s.io.in := in.bits.in1
-            d2s.io.roundingMode := in.bits.rm
-          mux.data := Cat(UInt((BigInt(1) << (fLen - 32)) - 1), d2s.io.out)
+  val mux = Wire(new FPResult)
+  mux.exc := UInt(0)
+  mux.data := fsgnj
+
+  when (in.bits.cmd === FCMD_MINMAX) {
+    val isnan1 = IsNaNRecFN(in.bits.in1, maxType)
+    val isnan2 = IsNaNRecFN(in.bits.in2, maxType)
+    val isInvalid = IsSNaNRecFN(in.bits.in1, maxType) || IsSNaNRecFN(in.bits.in2, maxType)
+    val isNaNOut = isInvalid || (isnan1 && isnan2)
+    val isLHS = isnan2 || in.bits.rm(0) =/= io.lt && !isnan1
+    mux.exc := isInvalid << 4
+    mux.data := Mux(isNaNOut, CanonicalNaN(maxType), Mux(isLHS, in.bits.in1, in.bits.in2))
+  }
+
+  fLen match {
+    case 32 =>
+    case 64 =>
+      when (in.bits.cmd === FCMD_CVT_FF) {
+        val d2s = Module(new hardfloat.RecFNToRecFN(dExpWidth, dSigWidth, sExpWidth, sSigWidth))
+        d2s.io.in := in.bits.in1
+        d2s.io.roundingMode := in.bits.rm
+
+        val s2d = Module(new hardfloat.RecFNToRecFN(sExpWidth, sSigWidth, dExpWidth, dSigWidth))
+        s2d.io.in := contract(in.bits.in1, FType.S)
+        s2d.io.roundingMode := in.bits.rm
+
+        when (in.bits.single) {
+          mux.data := expand(d2s.io.out, FType.S)
           mux.exc := d2s.io.exceptionFlags
         }.otherwise {
-          val s2d = Module(new hardfloat.RecFNToRecFN(sExpWidth, sSigWidth, dExpWidth, dSigWidth))
-          s2d.io.in := in.bits.in1
-          s2d.io.roundingMode := in.bits.rm
           mux.data := s2d.io.out
           mux.exc := s2d.io.exceptionFlags
         }
@@ -453,28 +453,29 @@ class IntToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
   io.out <> Pipe(in.valid, mux, latency-1)
 }
 
-class FPUFMAPipe(val latency: Int, expWidth: Int, sigWidth: Int)(implicit p: Parameters) extends FPUModule()(p) {
+class FPUFMAPipe(val latency: Int, t: FType)(implicit p: Parameters) extends FPUModule()(p) {
   val io = new Bundle {
     val in = Valid(new FPInput).flip
     val out = Valid(new FPResult)
   }
 
-  val width = sigWidth + expWidth
+  val width = t.sig + t.exp
   val one = UInt(1) << (width-1)
   val zero = (io.in.bits.in1(width) ^ io.in.bits.in2(width)) << width
 
   val valid = Reg(next=io.in.valid)
   val in = Reg(new FPInput)
   when (io.in.valid) {
-    in := io.in.bits
     val cmd_fma = io.in.bits.ren3
     val cmd_addsub = io.in.bits.swap23
+    in := io.in.bits
+    in.in1 := contract(io.in.bits.in1, t)
+    in.in2 := Mux(cmd_addsub, one, contract(io.in.bits.in2, t))
+    in.in3 := Mux(cmd_fma || cmd_addsub, contract(io.in.bits.in3, t), zero)
     in.cmd := Cat(io.in.bits.cmd(1) & (cmd_fma || cmd_addsub), io.in.bits.cmd(0))
-    when (cmd_addsub) { in.in2 := one }
-    unless (cmd_fma || cmd_addsub) { in.in3 := zero }
   }
 
-  val fma = Module(new hardfloat.MulAddRecFN(expWidth, sigWidth))
+  val fma = Module(new hardfloat.MulAddRecFN(t.exp, t.sig))
   fma.io.op := in.cmd
   fma.io.roundingMode := in.rm
   fma.io.a := in.in1
@@ -482,12 +483,12 @@ class FPUFMAPipe(val latency: Int, expWidth: Int, sigWidth: Int)(implicit p: Par
   fma.io.c := in.in3
 
   val res = Wire(new FPResult)
-  res.data := Cat(UInt((BigInt(1) << (fLen - (expWidth + sigWidth))) - 1), fma.io.out)
+  res.data := expand(fma.io.out, t)
   res.exc := fma.io.exceptionFlags
   io.out := Pipe(valid, res, latency-1)
 }
 
-class FPU(cfg: FPUConfig)(implicit p: Parameters) extends FPUModule()(p) {
+class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   val io = new FPUIO
 
   val ex_reg_valid = Reg(next=io.valid, init=Bool(false))
@@ -524,7 +525,7 @@ class FPU(cfg: FPUConfig)(implicit p: Parameters) extends FPUModule()(p) {
     case 32 => rec_s
     case 64 =>
       val rec_d = hardfloat.recFNFromFN(dExpWidth, dSigWidth, load_wb_data)
-      Mux(load_wb_single, Cat(UInt((BigInt(1) << (fLen - 32)) - 1), rec_s), rec_d)
+      Mux(load_wb_single, expand(rec_s, FType.S), rec_d)
   }
 
   // regfile
@@ -565,7 +566,7 @@ class FPU(cfg: FPUConfig)(implicit p: Parameters) extends FPUModule()(p) {
     }
   }
 
-  val sfma = Module(new FPUFMAPipe(cfg.sfmaLatency, sExpWidth, sSigWidth))
+  val sfma = Module(new FPUFMAPipe(cfg.sfmaLatency, FType.S))
   sfma.io.in.valid := req_valid && ex_ctrl.fma && ex_ctrl.single
   sfma.io.in.bits := req
 
@@ -592,6 +593,7 @@ class FPU(cfg: FPUConfig)(implicit p: Parameters) extends FPUModule()(p) {
   val divSqrt_wen = Reg(next=Bool(false))
   val divSqrt_inReady = Wire(init=Bool(false))
   val divSqrt_waddr = Reg(UInt(width = 5))
+  val divSqrt_single = Reg(Bool())
   val divSqrt_wdata = Wire(UInt(width = fLen+1))
   val divSqrt_flags = Wire(UInt(width = 5))
   val divSqrt_in_flight = Reg(init=Bool(false))
@@ -604,7 +606,7 @@ class FPU(cfg: FPUConfig)(implicit p: Parameters) extends FPUModule()(p) {
     Pipe(ifpu, ifpu.latency, (c: FPUCtrlSigs) => c.fromint, ifpu.io.out.bits),
     Pipe(sfma, sfma.latency, (c: FPUCtrlSigs) => c.fma && c.single, sfma.io.out.bits)) ++
     (fLen > 32).option({
-          val dfma = Module(new FPUFMAPipe(cfg.dfmaLatency, dExpWidth, dSigWidth))
+          val dfma = Module(new FPUFMAPipe(cfg.dfmaLatency, FType.D))
           dfma.io.in.valid := req_valid && ex_ctrl.fma && !ex_ctrl.single
           dfma.io.in.bits := req
           Pipe(dfma, dfma.latency, (c: FPUCtrlSigs) => c.fma && !c.single, dfma.io.out.bits)
@@ -654,12 +656,13 @@ class FPU(cfg: FPUConfig)(implicit p: Parameters) extends FPUModule()(p) {
   when ((!wbInfo(0).cp && wen(0)) || divSqrt_wen) {
     regfile(waddr) := wdata
     if (enableCommitLog) {
-      val wdata_unrec_s = hardfloat.fNFromRecFN(sExpWidth, sSigWidth, wdata)
+      val wsingle = Mux(divSqrt_wen, divSqrt_single, wbInfo(0).single)
+      val wdata_unrec_s = hardfloat.fNFromRecFN(sExpWidth, sSigWidth, contract(wdata, FType.S))
       val unrec = fLen match {
         case 32 => wdata_unrec_s
         case 64 =>
           val wdata_unrec_d = hardfloat.fNFromRecFN(dExpWidth, dSigWidth, wdata)
-          Mux(wbInfo(0).single, wdata_unrec_s, wdata_unrec_d)
+          Mux(wsingle, wdata_unrec_s, wdata_unrec_d)
       }
       printf("f%d p%d 0x%x\n", waddr, waddr + 32, unrec)
     }
@@ -687,13 +690,12 @@ class FPU(cfg: FPUConfig)(implicit p: Parameters) extends FPUModule()(p) {
   io.sboard_clr := !wb_cp_valid && (divSqrt_wen || (wen(0) && useScoreboard(x => wbInfo(0).pipeid === UInt(x._2))))
   io.sboard_clra := waddr
   // we don't currently support round-max-magnitude (rm=4)
-  io.illegal_rm := ex_rm(2) && ex_ctrl.round
+  io.illegal_rm := io.inst(14,12).isOneOf(5, 6) || io.inst(14,12) === 7 && io.fcsr_rm >= 5
 
   divSqrt_wdata := 0
   divSqrt_flags := 0
   if (cfg.divSqrt) {
     require(fLen == 64)
-    val divSqrt_single = Reg(Bool())
     val divSqrt_rm = Reg(Bits())
     val divSqrt_flags_double = Reg(Bits())
     val divSqrt_wdata_double = Reg(Bits())
@@ -725,20 +727,18 @@ class FPU(cfg: FPUConfig)(implicit p: Parameters) extends FPUModule()(p) {
     val divSqrt_toSingle = Module(new hardfloat.RecFNToRecFN(11, 53, 8, 24))
     divSqrt_toSingle.io.in := divSqrt_wdata_double
     divSqrt_toSingle.io.roundingMode := divSqrt_rm
-    divSqrt_wdata := Mux(divSqrt_single, divSqrt_toSingle.io.out, divSqrt_wdata_double)
+    divSqrt_wdata := Mux(divSqrt_single, expand(divSqrt_toSingle.io.out, FType.S), divSqrt_wdata_double)
     divSqrt_flags := divSqrt_flags_double | Mux(divSqrt_single, divSqrt_toSingle.io.exceptionFlags, Bits(0))
   } else {
-    when (ex_ctrl.div || ex_ctrl.sqrt) { io.illegal_rm := true }
+    when (id_ctrl.div || id_ctrl.sqrt) { io.illegal_rm := true }
   }
 }
 
 /** Mix-ins for constructing tiles that may have an FPU external to the core pipeline */
-trait CanHaveSharedFPU {
-  implicit val p: Parameters
-}
+trait CanHaveSharedFPU extends HasTileParameters
 
 trait CanHaveSharedFPUModule {
   val outer: CanHaveSharedFPU
-  val fpuOpt = outer.p(FPUKey).map(cfg => Module(new FPU(cfg)(outer.p)))
+  val fpuOpt = outer.tileParams.core.fpu.map(params => Module(new FPU(params)(outer.p)))
   // TODO fpArb could go here instead of inside LegacyRoccComplex
 }

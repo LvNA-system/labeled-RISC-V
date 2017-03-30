@@ -9,6 +9,7 @@ import scala.math.max
 
 case class AXI4SlaveParameters(
   address:       Seq[AddressSet],
+  resources:     Seq[Resource] = Nil,
   regionType:    RegionType.T  = RegionType.GET_EFFECTS,
   executable:    Boolean       = false, // processor can execute from this memory
   nodePath:      Seq[BaseNode] = Seq(),
@@ -29,8 +30,9 @@ case class AXI4SlaveParameters(
 }
 
 case class AXI4SlavePortParameters(
-  slaves:    Seq[AXI4SlaveParameters],
-  beatBytes: Int)
+  slaves:     Seq[AXI4SlaveParameters],
+  beatBytes:  Int,
+  minLatency: Int = 1)
 {
   require (!slaves.isEmpty)
   require (isPow2(beatBytes))

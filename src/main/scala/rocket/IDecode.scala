@@ -4,12 +4,13 @@
 package rocket
 
 import Chisel._
+import Chisel.ImplicitConversions._
 import Instructions._
 import uncore.constants.MemoryOpConstants._
 import ALU._
 import config._
+import tile.HasCoreParameters
 import util._
-import Chisel.ImplicitConversions._
 
 abstract trait DecodeConstants extends HasCoreParameters
 {
@@ -128,7 +129,7 @@ class IDecode(implicit val p: Parameters) extends DecodeConstants
 class SDecode(implicit val p: Parameters) extends DecodeConstants
 {
   val table: Array[(BitPat, List[BitPat])] = Array(
-    SFENCE_VM-> List(Y,N,N,N,N,N,N,X,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, N,N,N,N,N,N,CSR.I,N,N,N,N),
+    SFENCE_VMA->List(Y,N,N,N,N,N,Y,Y,A2_ZERO,A1_RS1, IMM_X, DW_XPR,FN_ADD,   Y,M_SFENCE,   MT_X, N,N,N,N,N,N,CSR.N,N,N,N,N),
     SRET->      List(Y,N,N,N,N,N,N,X,A2_X,   A1_X,   IMM_X, DW_X,  FN_X,     N,M_X,        MT_X, N,N,N,N,N,N,CSR.I,N,N,N,N))
 }
 

@@ -5,12 +5,16 @@ package uncore.tilelink2
 import Chisel._
 import config._
 import diplomacy._
+import util._
 
 class TLRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4)(implicit p: Parameters) extends LazyModule
 {
-  val node = TLManagerNode(TLManagerPortParameters(
+  val device = new MemoryDevice
+
+  val node = TLManagerNode(Seq(TLManagerPortParameters(
     Seq(TLManagerParameters(
       address            = List(address),
+      resources          = device.reg,
       regionType         = RegionType.UNCACHED,
       executable         = executable,
       supportsGet        = TransferSizes(1, beatBytes),
@@ -18,7 +22,7 @@ class TLRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4)
       supportsPutFull    = TransferSizes(1, beatBytes),
       fifoId             = Some(0))), // requests are handled in order
     beatBytes  = beatBytes,
-    minLatency = 1)) // no bypass needed for this device
+    minLatency = 1))) // no bypass needed for this device
 
   // We require the address range to include an entire beat (for the write mask)
   require ((address.mask & (beatBytes-1)) == beatBytes-1)
@@ -73,7 +77,7 @@ class TLRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4)
       mem.write(memAddress, wdata, in.a.bits.mask.toBools)
     }
     val ren = in.a.fire() && read
-    rdata := holdUnless(mem.read(memAddress, ren), RegNext(ren))
+    rdata := mem.readAndHold(memAddress, ren)
 
     // Tie off unused channels
     in.b.valid := Bool(false)
@@ -91,7 +95,7 @@ class TLRAMSimple(ramBeatBytes: Int)(implicit p: Parameters) extends LazyModule 
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x3ff), beatBytes = ramBeatBytes))
 
   model.node := fuzz.node
-  ram.node := model.node
+  ram.node := TLDelayer(0.25)(model.node)
 
   lazy val module = new LazyModuleImp(this) with HasUnitTestIO {
     io.finished := fuzz.module.io.finished
