@@ -45,6 +45,7 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
     nEntries = numEntries
   ))
 
+  // i2c <> outer
   i2c.io.RST := reset
   i2c.io.SYS_CLK := clock
   i2c.io.ADDR := io.addr
@@ -54,36 +55,27 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
   io.o.sda := i2c.io.SDA_o
   io.t.scl := i2c.io.SCL_t
   io.t.sda := i2c.io.SDA_t
-  i2c.io.SEND_BUFFER := reg.io.SEND_BUFFER
 
+  // regIntf <> outer
   reg.io.RST := reset
   reg.io.SYS_CLK := clock
   reg.io.SCL_i := io.i.scl
+
+  // i2c <> regIntf
+  i2c.io.SEND_BUFFER := reg.io.SEND_BUFFER
   reg.io.STOP_DETECT := i2c.io.STOP_DETECT_o
   reg.io.INDEX_POINTER := i2c.io.INDEX_POINTER_o
   reg.io.WRITE_ENABLE := i2c.io.WRITE_ENABLE_o
   reg.io.RECEIVE_BUFFER := i2c.io.RECEIVE_BUFFER
+
+  // regIntf <> detect
   reg.io.DATA_VALID := detect.io.DATA_VALID
   reg.io.DATA_RBACK := detect.io.DATA_RBACK
   reg.io.DATA_MASK := detect.io.DATA_MASK
   reg.io.DATA_OFFSET := detect.io.DATA_OFFSET
 
-  val rdBase = Wire(Bits((detect.dataBits / 2).W))
-  val wrBase = Wire(Bits(rdBase.getWidth.W))
-  val rdMask = Wire(Bits(rdBase.getWidth.W))
-  val wrMask = Wire(Bits(rdMask.getWidth.W))
-
+  // detect <> outer
   detect.io.COMM_VALID := reg.io.COMM_VALID && !reg.io.COMM_DATA(31)
-  (detect.io, io.s_axi) match { case (recv, in) =>
-    // TODO: Use rocket's split utility
-    recv.TAG_A := in.ar.bits.user
-    rdMask := recv.DO_A(detect.dataBits - 1, detect.dataBits / 2)
-    rdBase := recv.DO_A(detect.dataBits / 2 - 1, 0)
-    recv.TAG_B := in.aw.bits.user
-    wrMask := recv.DO_B(detect.dataBits - 1, detect.dataBits / 2)
-    wrBase := recv.DO_B(detect.dataBits / 2 - 1, 0)
-  }
-
   detect.io.COMM_DATA := reg.io.COMM_DATA
   (detect.io, io.apm) match { case (d, apm) =>
       d.APM_DATA := apm.data
@@ -91,11 +83,15 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
       d.APM_ADDR := apm.addr
   }
 
+  // Bypass
   io.s_axi <> io.m_axi
 
   // Address map
-  io.m_axi.ar.bits.addr := Mux(detect.io.TAG_MATCH_A, io.s_axi.ar.bits.addr & (~rdMask).asUInt | rdBase, 0.U)
-  io.m_axi.aw.bits.addr := Mux(detect.io.TAG_MATCH_B, io.s_axi.aw.bits.addr & (~wrMask).asUInt | wrBase, 0.U)
+  List((io.m_axi.ar.bits, io.s_axi.ar.bits, detect.io.rTag),
+       (io.m_axi.aw.bits, io.s_axi.aw.bits, detect.io.wTag)).foreach { case (m, s, map) =>
+      map.tag := s.user
+      m.addr := Mux(map.matched, s.addr & (~map.mask).asUInt | map.base, 0.U)
+  }
 
   // Traffic control
   val buckets = Seq.fill(numEntries){ Module(new token_bucket) }

@@ -36,12 +36,8 @@ class MigDetectLogic(
     val DATA_RBACK = Output(UInt(rbackBits.W))
     val DATA_MASK = Output(UInt(rbackBits.W))
     val DATA_OFFSET = Output(UInt(2.W))
-    val TAG_A = Input(UInt(tagBits.W))  // TODO Bundle A and B
-    val DO_A = Output(UInt(dataBits.W))
-    val TAG_MATCH_A = Output(Bool())
-    val TAG_B = Input(UInt(tagBits.W))
-    val DO_B = Output(UInt(dataBits.W))
-    val TAG_MATCH_B = Output(Bool())
+    val rTag = new TagBundle(tagBits, dataBits / 2)
+    val wTag = new TagBundle(tagBits, dataBits / 2)
     val APM_DATA = Input(UInt(32.W))  // TODO Bundle APM
     val APM_ADDR = Input(UInt(32.W))
     val APM_VALID = Input(Bool())
@@ -54,14 +50,7 @@ class MigDetectLogic(
   })
 
   val common = Module(new detect_logic_common())
-  val ptab = Module(new mig_cp_ptab(
-    C_BUCKET_SIZE_WIDTH = bucketSizeBits,
-    C_BUCKET_FREQ_WIDTH = bucketFreqBits,
-    C_TAG_WIDTH = tagBits,
-    C_DATA_WIDTH = dataBits,
-    C_NUM_ENTRIES = nEntries,
-    C_DSID_LENTH = nEntries * tagBits
-  ))
+  val ptab = Module(new MigPTab(nEntries, tagBits, dataBits, bucketSizeBits, bucketFreqBits))
   val stab = Module(new mig_cp_stab)
   val ttab = Module(new ttab(CP_ID = 2))
 
@@ -82,7 +71,7 @@ class MigDetectLogic(
   // TODO Bundle this common interface
 
   // detect <> ptab
-  common.io.is_parameter_table <> ptab.io.is_this_table
+  common.io.is_parameter_table <> ptab.io.isThisTable
   common.io.parameter_table_rdata <> ptab.io.rdata
   common.io.col <> ptab.io.col
   common.io.row <> ptab.io.row
@@ -104,18 +93,11 @@ class MigDetectLogic(
   common.io.wen <> ttab.io.wen
 
   // ptab <> outer
-  ptab.io.aclk := clock
-  ptab.io.areset := reset
-  for (i <- 0 until nEntries) {
-    io.l1enables(i) := ptab.io.L1enable(i)
-  }
-  ptab.io.DSID := Cat(io.dsids.reverse)
-  ptab.io.TAG_A := io.TAG_A
-  io.DO_A := ptab.io.DO_A
-  io.TAG_MATCH_A := ptab.io.TAG_MATCH_A
-  ptab.io.TAG_B := io.TAG_B
-  io.DO_B := ptab.io.DO_B
-  io.TAG_MATCH_B := ptab.io.TAG_MATCH_B
+  io.l1enables := ptab.io.l1enables
+  ptab.io.dsid := io.dsids
+  io.rTag <> ptab.io.rTag
+  io.wTag <> ptab.io.wTag
+  io.buckets := ptab.io.buckets
 
   // stab <> outer
   stab.io.aclk := clock
