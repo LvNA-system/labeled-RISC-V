@@ -1,6 +1,6 @@
 package uncore.pard
 
-import chisel3.core._
+import chisel3._
 import chisel3.util._
 
 class BucketBundle(bucketSizeBits: Int, bucketFreqBits: Int) extends Bundle {
@@ -13,19 +13,11 @@ class BucketBundle(bucketSizeBits: Int, bucketFreqBits: Int) extends Bundle {
 
 /**
   * @param tagBits The bit width of tag (dsid).
-  * @param dataBits The width of do_a and do_b.
   * @param nEntries The number of entries.
   * @param bucketSizeBits The bit width of bucket size and inc data.
   * @param bucketFreqBits The bit width of bucket update freq data.
   */
-class MigDetectLogic(
-                      val addrBits: Int = 32,
-                      val tagBits: Int = 16,
-                      val dataBits: Int = 128,
-                      val nEntries: Int = 3,
-                      val bucketSizeBits: Int = 32,
-                      val bucketFreqBits: Int = 32
-                    ) extends Module {
+class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries: Int = 3, val bucketSizeBits: Int = 32, val bucketFreqBits: Int = 32) extends Module {
   val commDataBits = 128
   val rbackBits = 64
 
@@ -36,8 +28,8 @@ class MigDetectLogic(
     val DATA_RBACK = Output(UInt(rbackBits.W))
     val DATA_MASK = Output(UInt(rbackBits.W))
     val DATA_OFFSET = Output(UInt(2.W))
-    val rTag = new TagBundle(tagBits, dataBits / 2)
-    val wTag = new TagBundle(tagBits, dataBits / 2)
+    val rTag = new TagBundle(tagBits, addrBits)
+    val wTag = new TagBundle(tagBits, addrBits)
     val APM_DATA = Input(UInt(32.W))  // TODO Bundle APM
     val APM_ADDR = Input(UInt(32.W))
     val APM_VALID = Input(Bool())
@@ -50,7 +42,7 @@ class MigDetectLogic(
   })
 
   val common = Module(new detect_logic_common())
-  val ptab = Module(new MigPTab(nEntries, tagBits, dataBits, bucketSizeBits, bucketFreqBits))
+  val ptab = Module(new MigPTab(nEntries, tagBits, addrBits, bucketSizeBits, bucketFreqBits))
   val stab = Module(new mig_cp_stab)
   val ttab = Module(new ttab(CP_ID = 2))
 
@@ -94,7 +86,7 @@ class MigDetectLogic(
 
   // ptab <> outer
   io.l1enables := ptab.io.l1enables
-  ptab.io.dsid := io.dsids
+  ptab.io.dsids := io.dsids
   io.rTag <> ptab.io.rTag
   io.wTag <> ptab.io.wTag
   io.buckets := ptab.io.buckets
@@ -126,5 +118,5 @@ class MigDetectLogic(
 }
 
 object Detect extends App {
-  chisel3.Driver.execute(args, () => new MigDetectLogic(32, 16, 128, 3, 32, 32))
+  chisel3.Driver.execute(args, () => new MigDetectLogic(32, 16, 3, 32, 32))
 }

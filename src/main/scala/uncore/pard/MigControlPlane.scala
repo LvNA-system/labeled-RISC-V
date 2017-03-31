@@ -37,13 +37,7 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
     IDENT_HIGH = ident.substring(0, 8)
   ))
 
-  val detect = Module(new MigDetectLogic(
-    tagBits = tagWidth,
-    bucketSizeBits = 32,
-    bucketFreqBits = 32,
-    addrBits = addrWidth,
-    nEntries = numEntries
-  ))
+  val detect = Module(new MigDetectLogic(addrBits = addrWidth, tagBits = tagWidth, nEntries = numEntries, bucketSizeBits = 32, bucketFreqBits = 32))
 
   // i2c <> outer
   i2c.io.RST := reset

@@ -1,7 +1,7 @@
 package uncore.pard
 
-import chisel3._
 import chisel3.util._
+import chisel3.core._
 
 /**
   * The common bundle to describe both read and write channel.
@@ -17,32 +17,34 @@ class TagBundle(tagWidth: Int, dataWidth: Int) extends Bundle {
 /**
   * MIG Control Plane Parameter Table
   */
-class MigPTab(nRows: Int, tagWidth: Int, dataWidth: Int, sizeBits: Int, freqBits: Int) extends Module {
-  val dsids = RegInit(Vec(Seq.tabulate(nRows){ i: Int => i.U(tagWidth.W) }))
-  val bases = RegInit(Vec(Seq.fill(nRows){ 0.U(dataWidth.W) }))
-  val masks = RegInit(Vec(Seq.fill(nRows){ 0.U(dataWidth.W) }))
-  val enables = RegInit(Vec(Seq.fill(nRows){ true.B }))
-  val sizes = RegInit(Vec(Seq.fill(nRows){ 0.U(sizeBits.W) }))
-  val freqs = RegInit(Vec(Seq.fill(nRows){ 0.U(freqBits.W) }))
-  val incs = RegInit(Vec(Seq.fill(nRows){ 0.U(sizeBits.W) }))
-
-  val fields = List(bases, masks, enables, sizes, freqs, incs)
-
+class MigPTab(nRows: Int, tagWidth: Int, addrBits: Int, sizeBits: Int, freqBits: Int) extends Module {
+  val dataBits = 64
+  val posBits = 15  // Bit-width for position signals
   val io = IO(new Bundle {
     // PRM interface
     val isThisTable = Input(Bool())
-    val col = Input(UInt(log2Ceil(fields.length).W))
-    val row = Input(UInt(log2Ceil(nRows).W))
-    val wdata = Input(UInt(dataWidth.W))
+    val col = Input(UInt(posBits.W))
+    val row = Input(UInt(posBits.W))
+    val wdata = Input(UInt(dataBits.W))
     val wen = Input(Bool())
-    val rdata = Output(UInt(dataWidth.W))
-    // ControlPlane interface
-    val l1enables = Output(enables)
+    val rdata = Output(UInt(dataBits.W))
+    // Control plane interface
+    val l1enables = Output(Vec(nRows, Bool()))
     val buckets = Output(Vec(nRows, new BucketBundle(sizeBits, freqBits)))
-    val dsid = Input(Vec(nRows, UInt(tagWidth.W)))
-    val rTag = new TagBundle(tagWidth, dataWidth)
-    val wTag = new TagBundle(tagWidth, dataWidth)
+    val dsids = Input(Vec(nRows, UInt(tagWidth.W)))
+    val rTag = new TagBundle(tagWidth, addrBits)
+    val wTag = new TagBundle(tagWidth, addrBits)
   })
+
+  val dsids   = RegNext(io.dsids, Vec(Seq.fill(nRows){ 0.U(tagWidth.W) }))
+  val bases   = RegInit(Vec(Seq.fill(nRows){ 0.U(addrBits.W) }))
+  val masks   = RegInit(Vec(Seq.fill(nRows){ 0.U(addrBits.W) }))
+  val enables = RegInit(Vec(Seq.fill(nRows){ true.B }))
+  val sizes   = RegInit(Vec(Seq.fill(nRows){ 0.U(sizeBits.W) }))
+  val freqs   = RegInit(Vec(Seq.fill(nRows){ 0.U(freqBits.W) }))
+  val incs    = RegInit(Vec(Seq.fill(nRows){ 0.U(sizeBits.W) }))
+
+  io.l1enables := enables
 
   (io.buckets zip sizes zip freqs zip incs).foreach { case (((bkt, size), freq), inc) =>
     bkt.size := size
@@ -58,6 +60,8 @@ class MigPTab(nRows: Int, tagWidth: Int, dataWidth: Int, sizeBits: Int, freqBits
     tag.base := bases(index)
     tag.mask := masks(index)
   }
+
+  val fields = List(bases, masks, enables, sizes, freqs, incs)
 
   // Write table
   fields.zipWithIndex.foreach { case (field, c) =>
