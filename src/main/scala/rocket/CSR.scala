@@ -47,8 +47,7 @@ class MStatus extends Bundle {
 
 class DCSR extends Bundle {
   val xdebugver = UInt(width = 2)
-  val ndreset = Bool()
-  val fullreset = Bool()
+  val zero4 = UInt(width=2)
   val zero3 = UInt(width = 12)
   val ebreakm = Bool()
   val ebreakh = Bool()
@@ -58,9 +57,9 @@ class DCSR extends Bundle {
   val stopcycle = Bool()
   val stoptime = Bool()
   val cause = UInt(width = 3)
+  // TODO: debugint is not in the Debug Spec v13
   val debugint = Bool()
-  val zero1 = Bool()
-  val halt = Bool()
+  val zero1 = UInt(width=2)
   val step = Bool()
   val prv = UInt(width = PRV.SZ)
 }
@@ -141,6 +140,8 @@ object CSR
   val firstHPM = 3
   val nCtr = 32
   val nHPM = nCtr - firstHPM
+
+  val maxPMPs = 16
 }
 
 class PerfCounterIO(implicit p: Parameters) extends CoreBundle
@@ -419,10 +420,14 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
 
   val pmpCfgPerCSR = xLen / new PMPConfig().getWidth
   def pmpCfgIndex(i: Int) = (xLen / 32) * (i / pmpCfgPerCSR)
-  for (i <- 0 until reg_pmp.size by pmpCfgPerCSR)
-    read_mapping += (CSRs.pmpcfg0 + pmpCfgIndex(i)) -> reg_pmp.map(_.cfg).slice(i, i + pmpCfgPerCSR).asUInt
-  for ((pmp, i) <- reg_pmp zipWithIndex)
-    read_mapping += (CSRs.pmpaddr0 + i) -> pmp.addr
+  if (reg_pmp.nonEmpty) {
+    require(reg_pmp.size <= CSR.maxPMPs)
+    val read_pmp = reg_pmp.padTo(CSR.maxPMPs, 0.U.asTypeOf(new PMP))
+    for (i <- 0 until read_pmp.size by pmpCfgPerCSR)
+      read_mapping += (CSRs.pmpcfg0 + pmpCfgIndex(i)) -> read_pmp.map(_.cfg).slice(i, i + pmpCfgPerCSR).asUInt
+    for ((pmp, i) <- read_pmp zipWithIndex)
+      read_mapping += (CSRs.pmpaddr0 + i) -> pmp.addr
+  }
 
   for (i <- 0 until nCustomMrwCsrs) {
     val addr = 0xff0 + i
@@ -468,8 +473,8 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   val causeIsDebugTrigger = !cause(xLen-1) && cause_lsbs === CSR.debugTriggerCause
   val causeIsDebugBreak = !cause(xLen-1) && insn_break && Cat(reg_dcsr.ebreakm, reg_dcsr.ebreakh, reg_dcsr.ebreaks, reg_dcsr.ebreaku)(reg_mstatus.prv)
   val trapToDebug = Bool(usingDebug) && (reg_singleStepped || causeIsDebugInt || causeIsDebugTrigger || causeIsDebugBreak || reg_debug)
+  val debugTVec = Mux(reg_debug, Mux(insn_break, UInt(0x800), UInt(0x808)), UInt(0x800))
   val delegate = Bool(usingVM) && reg_mstatus.prv <= PRV.S && Mux(cause(xLen-1), reg_mideleg(cause_lsbs), reg_medeleg(cause_lsbs))
-  val debugTVec = Mux(reg_debug, UInt(0x808), UInt(0x800))
   val tvec = Mux(trapToDebug, debugTVec, Mux(delegate, reg_stvec.sextTo(vaddrBitsExtended), reg_mtvec))
   io.evec := tvec
   io.ptbr := reg_sptbr
@@ -504,11 +509,13 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
       Causes.load_page_fault, Causes.store_page_fault, Causes.fetch_page_fault)
 
     when (trapToDebug) {
-      reg_debug := true
-      reg_dpc := epc
-      reg_dcsr.cause := Mux(reg_singleStepped, 4, Mux(causeIsDebugInt, 3, Mux[UInt](causeIsDebugTrigger, 2, 1)))
-      reg_dcsr.prv := trimPrivilege(reg_mstatus.prv)
-      new_prv := PRV.M
+      when (!reg_debug) {
+        reg_debug := true
+        reg_dpc := epc
+        reg_dcsr.cause := Mux(reg_singleStepped, 4, Mux(causeIsDebugInt, 3, Mux[UInt](causeIsDebugTrigger, 2, 1)))
+        reg_dcsr.prv := trimPrivilege(reg_mstatus.prv)
+        new_prv := PRV.M
+      }
     }.elsewhen (delegate) {
       reg_sepc := formEPC(epc)
       reg_scause := cause
@@ -622,7 +629,6 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     if (usingDebug) {
       when (decoded_addr(CSRs.dcsr)) {
         val new_dcsr = new DCSR().fromBits(wdata)
-        reg_dcsr.halt := new_dcsr.halt
         reg_dcsr.step := new_dcsr.step
         reg_dcsr.ebreakm := new_dcsr.ebreakm
         if (usingVM) reg_dcsr.ebreaks := new_dcsr.ebreaks
@@ -687,7 +693,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     }
     if (reg_pmp.nonEmpty) for (((pmp, next), i) <- (reg_pmp zip (reg_pmp.tail :+ reg_pmp.last)) zipWithIndex) {
       require(xLen % pmp.cfg.getWidth == 0)
-      when (decoded_addr(CSRs.pmpcfg0 + pmpCfgIndex(i)) && !pmp.locked) {
+      when (decoded_addr(CSRs.pmpcfg0 + pmpCfgIndex(i)) && !pmp.cfgLocked) {
         pmp.cfg := new PMPConfig().fromBits(wdata >> ((i * pmp.cfg.getWidth) % xLen))
       }
       when (decoded_addr(CSRs.pmpaddr0 + i) && !pmp.addrLocked(next)) {
@@ -735,10 +741,11 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   }
   for (bp <- reg_bp drop nBreakpoints)
     bp := new BP().fromBits(0)
-  if (reg_pmp.nonEmpty) {
-    for (pmp <- reg_pmp) {
-      if (!usingUser) pmp.cfg.m := true
-      when (reset) { pmp.cfg.p := 0 }
+  for (pmp <- reg_pmp) {
+    pmp.cfg.res := 0
+    when (reset) {
+      pmp.cfg.a := 0
+      pmp.cfg.l := 0
     }
   }
 
