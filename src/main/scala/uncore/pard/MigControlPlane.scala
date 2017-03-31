@@ -84,6 +84,7 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
     wrBase := recv.DO_B(detect.dataBits / 2 - 1, 0)
   }
 
+  detect.io.COMM_DATA := reg.io.COMM_DATA
   (detect.io, io.apm) match { case (d, apm) =>
       d.APM_DATA := apm.data
       d.APM_VALID := apm.valid
