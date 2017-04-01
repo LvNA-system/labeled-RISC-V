@@ -33,7 +33,7 @@ class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries
     val APM_DATA = Input(UInt(32.W))  // TODO Bundle APM
     val APM_ADDR = Input(UInt(32.W))
     val APM_VALID = Input(Bool())
-    val dsids = Output(Vec(Seq.tabulate(nEntries){ i => i.U(tagBits.W) }))
+    val dsids = Output(Vec(nEntries, UInt(tagBits.W)))
     val l1enables = Output(Vec(nEntries, Bool()))
     val buckets = Output(Vec(nEntries, new BucketBundle(bucketSizeBits, bucketFreqBits)))
     val trigger_axis_tready = Input(Bool())  // TODO Bundle this using ReadyValidIO
@@ -45,6 +45,10 @@ class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries
   val ptab = Module(new MigPTab(nEntries, tagBits, addrBits, bucketSizeBits, bucketFreqBits))
   val stab = Module(new mig_cp_stab)
   val ttab = Module(new ttab(CP_ID = 2))
+
+  // The source of static dsids!
+  val dsids = Vec(Seq.tabulate(nEntries){ i => (i + 1).U(tagBits.W) })
+  io.dsids := dsids
 
   // TODO Bundle this common interface
 
@@ -86,7 +90,7 @@ class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries
 
   // ptab <> outer
   io.l1enables := ptab.io.l1enables
-  ptab.io.dsids := io.dsids
+  ptab.io.dsids := dsids
   io.rTag <> ptab.io.rTag
   io.wTag <> ptab.io.wTag
   io.buckets := ptab.io.buckets
@@ -110,8 +114,8 @@ class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries
   ttab.io.fifo_wdata <> io.trigger_axis_tdata
 
   // Look up dsid
-  val triggerDsidMatch = io.dsids.map{_ === ttab.io.trigger_dsid}
-  val triggerRow = Mux1H(triggerDsidMatch, io.dsids.indices.map(_.U))
+  val triggerDsidMatch = dsids.map{_ === ttab.io.trigger_dsid}
+  val triggerRow = Mux1H(triggerDsidMatch, dsids.indices.map(_.U))
   val triggerDsidValid = triggerDsidMatch.map(_.asUInt).reduce(_ + _) === 1.U  // Naive one-hot check
   stab.io.trigger_row := triggerRow
   ttab.io.trigger_dsid_valid := triggerDsidValid
