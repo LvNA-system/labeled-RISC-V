@@ -122,7 +122,9 @@ case class DebugModuleConfig (
   hasAccess8   : Boolean,
   nSerialPorts : Int,
   supportQuickAccess : Boolean,
-  supportHartArray   : Boolean
+  supportHartArray   : Boolean,
+  hartIdToHartSel : (UInt) => UInt,
+  hartSelToHartId : (UInt) => UInt
 ) {
 
   if (hasBusMaster == false){
@@ -149,10 +151,9 @@ case class DebugModuleConfig (
 class DefaultDebugModuleConfig (val xlen:Int /*TODO , val configStringAddr: Int*/)
     extends DebugModuleConfig(
       nDMIAddrSize = 7,
-      //TODO use more words to support arbitrary sequences.
-      nProgramBufferWords =  15,
+      nProgramBufferWords =  16,
       // TODO use less for small XLEN?
-      nAbstractDataWords  =  4,
+      nAbstractDataWords  = (if (xlen == 32) 1 else if (xlen == 64) 2 else 4),
       nScratch = 1,
       hasBusMaster = false,
       hasAccess128 = false, 
@@ -162,10 +163,11 @@ class DefaultDebugModuleConfig (val xlen:Int /*TODO , val configStringAddr: Int*
       hasAccess8 = false, 
       nSerialPorts = 0,
       supportQuickAccess = false,
-      supportHartArray = false
-        // TODO configStringAddr = configStringAddr
-        // TODO: accept a mapping function from HARTID -> HARTSEL
-    )
+      supportHartArray = false,
+      // TODO configStringAddr = configStringAddr
+      hartIdToHartSel = (x: UInt) => x,
+      hartSelToHartId = (x: UInt) => x
+)
 
 case object DMKey extends Field[DebugModuleConfig]
 
@@ -215,22 +217,8 @@ class DebugInternalBundle ()(implicit val p: Parameters) extends ParameterizedBu
 class DebugCtrlBundle (nComponents: Int)(implicit val p: Parameters) extends ParameterizedBundle()(p) {
   val debugUnavail    = Vec(nComponents, Bool()).asInput
   val ndreset         = Bool(OUTPUT)
-  val debugActive     = Bool(OUTPUT)
+  val dmactive        = Bool(OUTPUT)
 }
-
-//*****************************************
-// Debug ROM
-//
-// *****************************************
-
-class TLDebugModuleROM()(implicit p: Parameters) extends TLROM(
-  base = DsbRegAddrs.ROMBASE, // This is required for correct functionality. It's not a parameter.
-  size = 0x800,
-  contentsDelayed = DebugRomContents(),
-  executable = true,
-  beatBytes = p(XLen)/8,
-  resources = new SimpleDevice("debug_rom", Seq("sifive,debug-013")).reg
-)
 
 // *****************************************
 // Debug Module 
@@ -404,7 +392,7 @@ class TLDebugModuleOuter(device: Device)(implicit p: Parameters) extends LazyMod
     io.innerCtrl.bits.resumereq := DMCONTROLWrData.resumereq
 
     io.ctrl.ndreset := DMCONTROLReg.ndmreset
-    io.ctrl.debugActive := DMCONTROLReg.dmactive
+    io.ctrl.dmactive := DMCONTROLReg.dmactive
 
   }
 }
@@ -458,7 +446,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int)(implicit p: 
   )
 
   val tlNode = TLRegisterNode(
-    address=Seq(AddressSet(0, 0x7FF)), // This is required for correct functionality, it's not configurable.
+    address=Seq(AddressSet(0, 0xFFF)), // This is required for correct functionality, it's not configurable.
     device=device,
     deviceKey="reg",
     beatBytes=p(XLen)/8,
@@ -710,11 +698,11 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int)(implicit p: 
         haltedBitRegs(component) := false.B
       }.otherwise {
         when (hartHaltedWrEn) {
-          when (hartHaltedId === component.U) {
+          when (cfg.hartIdToHartSel(hartHaltedId) === component.U) {
             haltedBitRegs(component) := true.B
           }
         }.elsewhen (hartResumingWrEn) {
-          when (hartResumingId === component.U) {
+          when (cfg.hartIdToHartSel(hartResumingId) === component.U) {
             haltedBitRegs(component) := false.B
           }
         }
@@ -788,8 +776,10 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int)(implicit p: 
       }
     }
 
-    val goBytes = Wire(init = Vec.fill(nComponents){0.U(8.W)})
-    goBytes(selectedHartReg) := Cat(0.U(7.W), goReg)
+    val goBytes = Wire(init = Vec.fill(1024){0.U(8.W)})
+    assert ((cfg.hartSelToHartId(selectedHartReg) < 1024.U),
+      "HartSel to HartId Mapping is illegal for this Debug Implementation, because HartID must be < 1024 for it to work.");
+    goBytes(cfg.hartSelToHartId(selectedHartReg)) := Cat(0.U(7.W), goReg)
 
     //----------------------------
     // Abstract Command Decoding & Generation
@@ -890,7 +880,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int)(implicit p: 
       PROGBUF     -> programBufferMem.map(x => RegField(8, x)),
 
       // These sections are read-only.
-      //    ROMBASE     -> romRegFields,
+      ROMBASE     -> DebugRomContents().map(x => RegField.r(8, (x & 0xFF).U(8.W))),
       GO          -> goBytes.map(x => RegField.r(8, x)),
       WHERETO     -> Seq(RegField.r(32, whereToReg)),
       ABSTRACT    -> abstractGeneratedMem.map(x => RegField.r(32, x))
@@ -990,7 +980,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int)(implicit p: 
       // We can't just look at 'hartHalted' here, because
       // hartHaltedWrEn is overloaded to mean 'got an ebreak'
       // which may have happened when we were already halted.
-      when(goReg === false.B && hartHaltedWrEn && (hartHaltedId === selectedHartReg)){
+      when(goReg === false.B && hartHaltedWrEn && (cfg.hartIdToHartSel(hartHaltedId) === selectedHartReg)){
         ctrlStateNxt := CtrlState(Abstract)
         goAbstract := true.B
       }
@@ -1004,7 +994,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int)(implicit p: 
       // We can't just look at 'hartHalted' here, because
       // hartHaltedWrEn is overloaded to mean 'got an ebreak'
       // which may have happened when we were already halted.
-      when(goReg === false.B && hartHaltedWrEn && (hartHaltedId === selectedHartReg)){
+      when(goReg === false.B && hartHaltedWrEn && (cfg.hartIdToHartSel(hartHaltedId) === selectedHartReg)){
         when (accessRegisterCommandReg.postexec) {
           ctrlStateNxt := CtrlState(PostExec)
           goProgramBuffer := true.B
@@ -1022,7 +1012,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int)(implicit p: 
       // We can't just look at 'hartHalted' here, because
       // hartHaltedWrEn is overloaded to mean 'got an ebreak'
       // which may have happened when we were already halted.
-      when(goReg === false.B && hartHaltedWrEn && (hartHaltedId === selectedHartReg)){
+      when(goReg === false.B && hartHaltedWrEn && (cfg.hartIdToHartSel(hartHaltedId) === selectedHartReg)){
         ctrlStateNxt := CtrlState(Waiting)
       }
       when(hartExceptionWrEn) {
@@ -1080,7 +1070,7 @@ class TLDebugModuleInnerAsync(device: Device, getNComponents: () => Int)(implici
 
 class TLDebugModule(implicit p: Parameters) extends LazyModule {
 
-  val device = new SimpleDevice("debug-controller", Seq("riscv,debug-013")){
+  val device = new SimpleDevice("debug-controller", Seq("sifive,debug-013","riscv,debug-013")){
     override val alwaysExtended = true
   }
 
@@ -1109,7 +1099,7 @@ class TLDebugModule(implicit p: Parameters) extends LazyModule {
     dmOuter.module.clock := io.dmi.dmiClock
 
     dmInner.module.io.innerCtrl    := dmOuter.module.io.innerCtrl
-    dmInner.module.io.dmactive     := dmOuter.module.io.ctrl.debugActive
+    dmInner.module.io.dmactive     := dmOuter.module.io.ctrl.dmactive
     dmInner.module.io.debugUnavail := io.ctrl.debugUnavail
 
     io.ctrl <> dmOuter.module.io.ctrl
@@ -1151,9 +1141,14 @@ class DMIToTL(implicit p: Parameters) extends LazyModule {
 
     val (_,  gbits) = edge.Get(src, addr, size)
     val (_, pfbits) = edge.Put(src, addr, size, io.dmi.req.bits.data)
-    // This is just used for the DMI's NOP. TODO: Consider whether to send this
-    // across TL at all or just respond immediately.
-    val (_, nbits)  = edge.Put(src, addr, size, io.dmi.req.bits.data, mask = 0.U)
+
+    // Note we force DMI NOPs to go to CONTROL register because
+    // Inner  may be in reset / not have a clock,
+    // so we force address to be the one that goes to Outer.
+    // Besides, for a NOP we don't really need to pay the penalty to go
+    // across the CDC.
+
+    val (_, nbits)  = edge.Put(src, toAddress = (DMI_RegAddrs.DMI_DMCONTROL << 2).U, size, data=0.U, mask = 0.U)
 
     when (io.dmi.req.bits.op === DMIConsts.dmi_OP_WRITE)       { tl.a.bits := pfbits
     }.elsewhen  (io.dmi.req.bits.op === DMIConsts.dmi_OP_READ) { tl.a.bits := gbits
