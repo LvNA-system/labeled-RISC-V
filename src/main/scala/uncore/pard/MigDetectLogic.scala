@@ -11,6 +11,13 @@ class BucketBundle(bucketSizeBits: Int, bucketFreqBits: Int) extends Bundle {
   override def cloneType = new BucketBundle(bucketSizeBits, bucketFreqBits).asInstanceOf[this.type]
 }
 
+/** Only view the ReadyValidIO protocol */
+class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
+  val valid = Input(Bool())
+  val ready = Input(Bool())
+  val bits  = Input(gen.cloneType)
+}
+
 /**
   * @param tagBits The bit width of tag (dsid).
   * @param nEntries The number of entries.

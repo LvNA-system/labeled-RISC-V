@@ -88,20 +88,14 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
   }
 
   // Traffic control
-  val buckets = Seq.fill(numEntries){ Module(new token_bucket) }
+  val buckets = Seq.fill(numEntries){ Module(new TokenBucket(32, 32, 32)) }
   buckets.zipWithIndex.foreach { case (bucket, i) =>
-    val id = detect.io.dsids(i)
-    bucket.io.aclk := clock
-    bucket.io.aresetn := !reset
-    bucket.io.is_reading := io.s_axi.ar.valid && (id === io.s_axi.ar.bits.user)
-    bucket.io.is_writing := io.s_axi.aw.valid && (id === io.s_axi.aw.bits.user)
-    bucket.io.can_read := io.m_axi.ar.ready
-    bucket.io.can_write := io.m_axi.aw.ready
-    bucket.io.nr_rbyte := (io.s_axi.ar.bits.len + 1.U) << io.s_axi.ar.bits.size
-    bucket.io.nr_wbyte := (io.s_axi.aw.bits.len + 1.U) << io.s_axi.aw.bits.size
-    bucket.io.bucket_size := detect.io.buckets(i).size
-    bucket.io.bucket_freq := detect.io.buckets(i).freq
-    bucket.io.bucket_inc := detect.io.buckets(i).inc
+    List((bucket.io.read, io.s_axi.ar), (bucket.io.write, io.s_axi.aw)).foreach { case (bktCh, axiCh) =>
+      bktCh.valid := axiCh.valid && (detect.io.dsids(i) === axiCh.bits.user)
+      bktCh.ready := axiCh.ready
+      bktCh.bits := (axiCh.bits.len + 1.U) << axiCh.bits.size
+    }
+    bucket.io.bucket := detect.io.buckets(i)
     io.l1enable(i) := detect.io.l1enables(i) && bucket.io.enable
   }
 }
