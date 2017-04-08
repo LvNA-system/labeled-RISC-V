@@ -81,8 +81,7 @@ set files [list \
  "[file normalize "$rtlRoot/control_plane/cache/stab.v"]"\
  "[file normalize "$rtlRoot/control_plane/cache/stab_calc.v"]"\
  "[file normalize "$rtlRoot/control_plane/mig/control_plane.v"]"\
- "[file normalize "$rtlRoot/control_plane/mig/detec_logic.v"]"\
- "[file normalize "$rtlRoot/control_plane/mig/ptab.v"]"\
+ "[file normalize "$rtlRoot/control_plane/mig/MigControlPlane.v"]"\
  "[file normalize "$rtlRoot/control_plane/mig/stab.v"]"\
 ]
 add_files -norecurse -fileset $fileset $files
