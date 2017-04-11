@@ -26,6 +26,10 @@ trait RocketPlexMaster extends HasTopLevelNetworks {
 
 trait RocketPlexMasterBundle extends HasTopLevelNetworksBundle {
   val outer: RocketPlexMaster
+  val tcrs = Vec(p(RocketTilesKey).size, new Bundle {
+    val clock = Clock(INPUT)
+    val reset = Bool(INPUT)
+    })
 }
 
 trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
@@ -34,8 +38,9 @@ trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
   val clock: Clock
   val reset: Bool
 
-  outer.coreplex.module.io.tcrs.foreach { case tcr =>
-    tcr.clock := clock
-    tcr.reset := reset
+  outer.coreplex.module.io.tcrs.zipWithIndex.map { case (tcr, i) =>
+    tcr.clock := io.tcrs(i).clock
+    tcr.reset := io.tcrs(i).reset
+  }
   }
 }

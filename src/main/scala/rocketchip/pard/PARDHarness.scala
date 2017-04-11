@@ -22,8 +22,9 @@ class TestHarness()(implicit p: Parameters) extends Module {
   }
   val dut = Module(LazyModule(new PARDSimTop).module)
 
-  for (int <- dut.io.interrupts(0))
-    int := Bool(false)
+  dut.io.interrupts := UInt(0)
+  dut.io.debug.get.dmi.req.valid := Bool(false)
+  dut.io.debug.get.dmi.resp.ready := Bool(true)
 
   val channels = p(coreplex.BankedL2Config).nMemoryChannels
   if (channels > 0) Module(LazyModule(new SimAXIMem(channels)).module).io.axi4 <> dut.io.mem_axi4
@@ -44,12 +45,12 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dma.io.clk := clock
   dma.io.reset := reset
 
-  dut.io.coreclk := clock
-  for (corerst <- dut.io.corerst) {
-    corerst := reset || dma.io.intr
+  for (tcr <- dut.io.tcrs) {
+    tcr.reset := reset || dma.io.intr
+    tcr.clock := clock
   }
 
-  val l2_axi4 = dut.io.l2_axi4(0)
+  val l2_axi4 = dut.io.l2_frontend_bus_axi4(0)
   l2_axi4.ar.valid := Bool(false)
   l2_axi4.r .ready := Bool(true)
   l2_axi4.b .ready := Bool(true)
