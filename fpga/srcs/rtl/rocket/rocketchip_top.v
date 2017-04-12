@@ -22,8 +22,9 @@
 `include "../include/axi.vh"
 
 module rocketchip_top(
-  input coreclk,
+  input coreclk0,
   input corerst0,
+  input coreclk1,
   input corerst1,
 	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 uncoreclk CLK" *)
 	(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI_MEM:M_AXI_MMIO:M_AXI_CDMA, ASSOCIATED_RESET uncorerst, FREQ_HZ 50000000" *)
@@ -35,8 +36,10 @@ module rocketchip_top(
   `axi_out_interface(M_AXI_MEM, io_mem_axi_0, 4),
   `axi_out_interface(M_AXI_MMIO, axi_uart, 4),
   `axi_in_interface(M_AXI_CDMA, axi_cdma, 4),
-  input   io_interrupts_0,
-  input   io_interrupts_1,
+  input  [1:0] io_interrupts,
+
+  input io_debug_clk0,
+  input io_debug_rst0,
   output  io_debug_req_ready,
   input   io_debug_req_valid,
   input  [4:0] io_debug_req_bits_addr,
@@ -51,25 +54,27 @@ module rocketchip_top(
 PARDFPGATop top(
    .clock(uncoreclk),
    .reset(uncorerst),
-   .io_coreclk(coreclk),
-   .io_corerst_0(corerst0),
-   .io_corerst_1(corerst1),
-   .io_interrupts_0_0(io_interrupts_0),
-   .io_interrupts_0_1(io_interrupts_1),
+   .io_tcrs_0_clock(coreclk0),
+   .io_tcrs_1_clock(coreclk1),
+   .io_tcrs_0_reset(corerst0),
+   .io_tcrs_1_reset(corerst1),
+   .io_interrupts(io_interrupts_0),
 
    `axi_connect_interface(io_mem_axi4_0, io_mem_axi_0),
    `axi_connect_interface(io_mmio_axi4_0, axi_uart),
-   `axi_connect_interface(io_l2_axi4_0, axi_cdma),
+   `axi_connect_interface(io_l2_frontend_bus_axi4_0, axi_cdma),
 
-   .io_debug_req_ready(io_debug_req_ready),
-   .io_debug_req_valid(io_debug_req_valid),
-   .io_debug_req_bits_addr(io_debug_req_bits_addr),
-   .io_debug_req_bits_op(io_debug_req_bits_op),
-   .io_debug_req_bits_data(io_debug_req_bits_data),
-   .io_debug_resp_ready(io_debug_resp_ready),
-   .io_debug_resp_valid(io_debug_resp_valid),
-   .io_debug_resp_bits_resp(io_debug_resp_bits_resp),
-   .io_debug_resp_bits_data(io_debug_resp_bits_data)
+   .io_debug_dmiClock(io_debug_clk0),
+   .io_debug_dmiReset(io_debug_rst0),
+   .io_debug_dmi_req_ready(io_debug_req_ready),
+   .io_debug_dmi_req_valid(io_debug_req_valid),
+   .io_debug_dmi_req_bits_addr(io_debug_req_bits_addr),
+   .io_debug_dmi_req_bits_op(io_debug_req_bits_op),
+   .io_debug_dmi_req_bits_data(io_debug_req_bits_data),
+   .io_debug_dmi_resp_ready(io_debug_resp_ready),
+   .io_debug_dmi_resp_valid(io_debug_resp_valid),
+   .io_debug_dmi_resp_bits_resp(io_debug_resp_bits_resp),
+   .io_debug_dmi_resp_bits_data(io_debug_resp_bits_data)
 );
 
 endmodule

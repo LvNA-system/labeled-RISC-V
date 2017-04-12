@@ -1331,13 +1331,13 @@ CONFIG.CONST_VAL {0} \
 
   # Create port connections
   connect_bd_net -net clk_1 [get_bd_pins uncoreclk] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins axi_uartlite_1/s_axi_aclk] [get_bd_pins rocketchip_top_0/uncoreclk]
-  connect_bd_net -net coreclk_1 [get_bd_pins coreclk] [get_bd_pins rocketchip_top_0/coreclk]
+  connect_bd_net -net coreclk_1 [get_bd_pins coreclk] [get_bd_pins rocketchip_top_0/coreclk0] [get_bd_pins rocketchip_top_0/coreclk1]
   connect_bd_net -net corerst0_1 [get_bd_pins corerst0] [get_bd_pins rocketchip_top_0/corerst0]
   connect_bd_net -net corerst1_1 [get_bd_pins corerst1] [get_bd_pins rocketchip_top_0/corerst1]
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins s_axi_aresetn1] [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins axi_uartlite_1/s_axi_aresetn]
   connect_bd_net -net s_axi_aresetn_1 [get_bd_pins s_axi_aresetn] [get_bd_pins axi_uartlite_0/s_axi_aresetn]
   connect_bd_net -net uncorerst_1 [get_bd_pins uncorerst] [get_bd_pins rocketchip_top_0/uncorerst]
-  connect_bd_net -net xlconstant_0_dout [get_bd_pins rocketchip_top_0/io_debug_req_bits_addr] [get_bd_pins rocketchip_top_0/io_debug_req_bits_data] [get_bd_pins rocketchip_top_0/io_debug_req_bits_op] [get_bd_pins rocketchip_top_0/io_debug_req_valid] [get_bd_pins rocketchip_top_0/io_debug_resp_ready] [get_bd_pins rocketchip_top_0/io_interrupts_0] [get_bd_pins rocketchip_top_0/io_interrupts_1] [get_bd_pins xlconstant_0/dout]
+  connect_bd_net -net xlconstant_0_dout [get_bd_pins rocketchip_top_0/io_debug_clk0] [get_bd_pins rocketchip_top_0/io_debug_req_bits_addr] [get_bd_pins rocketchip_top_0/io_debug_req_bits_data] [get_bd_pins rocketchip_top_0/io_debug_req_bits_op] [get_bd_pins rocketchip_top_0/io_debug_req_valid] [get_bd_pins rocketchip_top_0/io_debug_resp_ready] [get_bd_pins rocketchip_top_0/io_debug_rst0] [get_bd_pins rocketchip_top_0/io_interrupts] [get_bd_pins xlconstant_0/dout]
 
   # Restore current instance
   current_bd_instance $oldCurInst
