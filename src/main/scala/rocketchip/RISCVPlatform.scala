@@ -148,5 +148,5 @@ trait HardwiredResetVectorModule extends HasTopLevelNetworksModule {
   val outer: HardwiredResetVector
   val io: HardwiredResetVectorBundle
 
-  outer.coreplex.module.io.resetVector := UInt(0x10040) // boot ROM: hang
+  outer.coreplex.module.io.resetVector := UInt(0x10000) // boot ROM: _start
 }
