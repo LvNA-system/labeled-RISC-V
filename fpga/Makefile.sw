@@ -29,15 +29,14 @@ RISCV_LINK_OPTS = -nostdlib -nostartfiles -ffast-math #-lc -lgcc
 #--------------------------------------------------------------------
 
 BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = 86181a49cd20d5938031900c59b65462e0eb553c
+BBL_BUILD_COMMIT = 4ee1ec37f4bf22c5c3dd9c1c942ffd1a5a82c0d6
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
 
 BBL_PAYLOAD = $(LINUX_ELF)
-BBL_CONFIG = --prefix=$$RISCV --host=riscv64-unknown-linux-gnu --with-payload=$(BBL_PAYLOAD)
-BBL_CFLAGS = "-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks -DBBL_PAYLOAD=\\\"\$$(bbl_payload)\\\" -mabi=lp64 -march=rv64imac"
-# BBL_CFLAGS = "-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks -DBBL_PAYLOAD=\\\"\$$(bbl_payload)\\\""
+BBL_CONFIG = --host=riscv64-unknown-linux-gnu --with-payload=$(BBL_PAYLOAD) --enable-logo
+BBL_CFLAGS = "-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks -DBBL_PAYLOAD=\\\"bbl_payload\\\" -mabi=lp64 -march=rv64imac"
 
 BBL_ELF = $(build_dir)/bbl.elf
 BBL_BIN = $(build_dir)/bbl.bin
@@ -47,7 +46,7 @@ BBL_BIN = $(build_dir)/bbl.bin
 #--------------------------------------------------------------------
 
 LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
-LINUX_BUILD_COMMIT = 28e36bad2a210c4f71950b982b2d6d24fa0cec7c
+LINUX_BUILD_COMMIT = 3203321fb322c26c1f3a2dcb374e2613a616c7b7
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
