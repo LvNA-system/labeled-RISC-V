@@ -42,5 +42,4 @@ trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
     tcr.clock := io.tcrs(i).clock
     tcr.reset := io.tcrs(i).reset
   }
-  }
 }
