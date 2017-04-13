@@ -29,12 +29,13 @@ RISCV_LINK_OPTS = -nostdlib -nostartfiles -ffast-math #-lc -lgcc
 #--------------------------------------------------------------------
 
 BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = 4ee1ec37f4bf22c5c3dd9c1c942ffd1a5a82c0d6
+BBL_BUILD_COMMIT = 115920e39408962f558940ab480879d04cefb28c
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
 
 BBL_PAYLOAD = $(LINUX_ELF)
+#BBL_CONFIG = --host=riscv64-unknown-linux-gnu --enable-logo
 BBL_CONFIG = --host=riscv64-unknown-linux-gnu --with-payload=$(BBL_PAYLOAD) --enable-logo
 BBL_CFLAGS = "-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks -DBBL_PAYLOAD=\\\"bbl_payload\\\" -mabi=lp64 -march=rv64imac"
 
