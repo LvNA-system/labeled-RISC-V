@@ -73,6 +73,13 @@ class TestHarness()(implicit p: Parameters) extends Module {
   l2_axi4.w .bits.data := dma.io.axi_wdata
   l2_axi4.w .bits.strb := UInt("h_ff", width = 8)
   l2_axi4.w .bits.last := Bool(true)
+
+  val mmio_axi4 = dut.io.mmio_axi4(0)
+  mmio_axi4.r.valid := Bool(false)
+  mmio_axi4.b.valid := Bool(false)
+  mmio_axi4.ar.ready := Bool(true)
+  mmio_axi4.aw.ready := Bool(true)
+  mmio_axi4.w.ready := Bool(true)
 }
 
 class SimDMA extends BlackBox {
