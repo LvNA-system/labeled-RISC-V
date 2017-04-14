@@ -26,6 +26,10 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dut.io.debug.get.dmi.req.valid := Bool(false)
   dut.io.debug.get.dmi.resp.ready := Bool(true)
 
+  // Make cores always runnable
+  dut.io.L1enable.foreach(_ := Bool(true))
+  dut.io.trafficGeneratorEnable := Bool(false)
+
   val channels = p(coreplex.BankedL2Config).nMemoryChannels
   if (channels > 0) Module(LazyModule(new SimAXIMem(channels)).module).io.axi4 <> dut.io.mem_axi4
     for (axi4 <- dut.io.mem_axi4) {
@@ -35,8 +39,9 @@ class TestHarness()(implicit p: Parameters) extends Module {
       when(axi4.aw.valid) {
    //     printf("axi4.aw.user = %x, axi4.aw.addr = %x\n", axi4.aw.bits.user, axi4.aw.bits.addr)
       }
-      assert(!axi4.ar.valid || axi4.ar.bits.user === UInt(0x1, width = 16))
-      assert(!axi4.aw.valid || axi4.aw.bits.user === UInt(0x1, width = 16))
+      // We can have traffic generator with different dsid here.
+      // assert(!axi4.ar.valid || axi4.ar.bits.user === UInt(0x1, width = 16))
+      // assert(!axi4.aw.valid || axi4.aw.bits.user === UInt(0x1, width = 16))
     }
 
   io.success := Bool(false)

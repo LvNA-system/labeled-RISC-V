@@ -68,14 +68,17 @@ abstract class BareCoreplexModule[+L <: BareCoreplex, +B <: BareCoreplexBundle[L
 
 abstract class BaseCoreplex(implicit p: Parameters) extends BareCoreplex
     with CoreplexNetwork
+    with HasTrafficGenerator
     with BankedL2CoherenceManagers {
   override lazy val module = new BaseCoreplexModule(this, () => new BaseCoreplexBundle(this))
 }
 
 class BaseCoreplexBundle[+L <: BaseCoreplex](_outer: L) extends BareCoreplexBundle(_outer)
     with CoreplexNetworkBundle
+    with HasTrafficGeneratorBundle
     with BankedL2CoherenceManagersBundle
 
 class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle[L]](_outer: L, _io: () => B) extends BareCoreplexModule(_outer, _io)
     with CoreplexNetworkModule
+    with HasTrafficGeneratorModule
     with BankedL2CoherenceManagersModule
