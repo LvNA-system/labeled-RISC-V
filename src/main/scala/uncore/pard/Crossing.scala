@@ -6,23 +6,15 @@ import config._
 import diplomacy._
 import uncore.tilelink2._
 
-case class ControlledCrossingNode() extends MixedNode(TLImp, TLImp)(
-  dFn = { case (1, s) => s },
-  uFn = { case (1, s) => s },
-  numPO = 1 to 1,
-  numPI = 1 to 1)
-
 class ControlledCrossing(implicit p: Parameters) extends LazyModule
 {
-  val node = ControlledCrossingNode()
-
-  val trafficEnable = Wire(true.B)
+  val node = new IdentityNode(TLImp)
 
   lazy val module = new LazyModuleImp(this) {
     val io = new Bundle {
-      val enable: Bool          = Input(trafficEnable)
-      val in:     Vec[TLBundle] = node.bundleIn
-      val out:    Vec[TLBundle] = node.bundleOut
+      val enable = Input(Bool())
+      val in = node.bundleIn
+      val out = node.bundleOut
     }
 
     (io.in zip io.out) foreach { case (in, out) =>
@@ -37,15 +29,5 @@ class ControlledCrossing(implicit p: Parameters) extends LazyModule
       out.a.valid := in.a.valid && io.enable
       in.a.ready := out.a.ready && io.enable
     }
-  }
-}
-
-object ControlledCrossing
-{
-  // applied to the TL source node; y.node := ControlledCrossing(x.node)
-  def apply(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): ControlledCrossing = {
-    val cross = LazyModule(new ControlledCrossing)
-    cross.node := x
-    cross
   }
 }

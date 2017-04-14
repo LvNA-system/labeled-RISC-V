@@ -29,7 +29,9 @@ trait RocketPlexMasterBundle extends HasTopLevelNetworksBundle {
   val tcrs = Vec(p(RocketTilesKey).size, new Bundle {
     val clock = Clock(INPUT)
     val reset = Bool(INPUT)
-    })
+  })
+  val L1enable = Vec(p(RocketTilesKey).size, Bool()).asInput
+  val trafficGeneratorEnable = Bool(INPUT)
 }
 
 trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
@@ -42,4 +44,6 @@ trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
     tcr.clock := io.tcrs(i).clock
     tcr.reset := io.tcrs(i).reset
   }
+  outer.coreplex.module.io.trafficEnables := io.L1enable
+  outer.coreplex.module.io.trafficGeneratorEnable := io.trafficGeneratorEnable
 }

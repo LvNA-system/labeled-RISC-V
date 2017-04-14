@@ -9,6 +9,7 @@ import tile.XLen
 import tile.TileInterrupts
 import uncore.tilelink2._
 import util._
+import uncore.pard._
 
 /** Widths of various points in the SoC */
 case class TLBusConfig(beatBytes: Int)

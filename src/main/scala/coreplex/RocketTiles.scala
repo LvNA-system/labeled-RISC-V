@@ -60,6 +60,7 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
           // leave clock as default (simpler for hierarchical PnR)
           wrapper.module.io.hartid := UInt(i)
           wrapper.module.io.resetVector := io.resetVector
+          wrapper.module.io.trafficEnable := io.trafficEnables(i)
         }
       }
       case Asynchronous(depth, sync) => {
@@ -78,6 +79,7 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
           wrapper.module.reset := io.tcrs(i).reset
           wrapper.module.io.hartid := UInt(i)
           wrapper.module.io.resetVector := io.resetVector
+          wrapper.module.io.trafficEnable := io.trafficEnables(i)
         }
       }
       case Rational => {
@@ -96,6 +98,7 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
           wrapper.module.reset := io.tcrs(i).reset
           wrapper.module.io.hartid := UInt(i)
           wrapper.module.io.resetVector := io.resetVector
+          wrapper.module.io.trafficEnable := io.trafficEnables(i)
         }
       }
     }
@@ -109,6 +112,7 @@ trait HasRocketTilesBundle extends CoreplexRISCVPlatformBundle {
     val clock = Clock(INPUT)
     val reset = Bool(INPUT)
   })
+  val trafficEnables = Vec(p(RocketTilesKey).size, Bool()).asInput
 }
 
 trait HasRocketTilesModule extends CoreplexRISCVPlatformModule {
