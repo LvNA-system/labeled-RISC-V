@@ -84,12 +84,29 @@ emu-clean:
 .PHONY: $(original_emu) emu run-emu emu-clean
 
 #--------------------------------------------------------------------
+# PARD Chisel-impl part building and implementation
+#--------------------------------------------------------------------
+CP_MIG = MigControlPlane
+CP_MIG_TARGET = $(fpga_dir)/srcs/rtl/control_plane/mig/$(CP_MIG).v
+PARD_CHISEL = $(CP_MIG_TARGET)
+
+$(CP_MIG_TARGET):
+	cd $(base_dir) && $(SBT) "runMain uncore.pard.MIG"
+	mv $(base_dir)/$(CP_MIG).v $(CP_MIG_TARGET)
+	rm $(base_dir)/$(CP_MIG).fir $(base_dir)/$(CP_MIG).anno
+
+pard-chisel-clean:
+	-rm $(CP_MIG_TARGET)
+
+.PHONY: $(PARD_CHISEL)
+
+#--------------------------------------------------------------------
 # Project building and implementation
 #--------------------------------------------------------------------
 
 PRJ_ROOT = $(build_dir)/$(PRJ)
 XPR_FILE = $(PRJ_ROOT)/$(PRJ).xpr
-$(XPR_FILE): | $(rocketchip_rtl)
+$(XPR_FILE): $(PARD_CHISEL) | $(rocketchip_rtl)
 	vivado $(VIVADO_FLAG) -mode batch -source $(fpga_script_dir)/setup.tcl -tclargs $(PRJ)
 
 project: $(XPR_FILE)
@@ -110,7 +127,7 @@ vivado: $(XPR_FILE)
 # Cleaning
 #--------------------------------------------------------------------
 
-clean:
+clean: pard-chisel-clean
 	-rm -rf $(generated_dir)
 
 .PHONY: default clean
