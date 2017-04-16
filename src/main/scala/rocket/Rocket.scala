@@ -680,6 +680,19 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
          wb_reg_inst, wb_reg_inst)
   }
 
+  io.ila.hartid := io.hartid
+  io.ila.csr_time := csr.io.time(31,0)
+  io.ila.pc := wb_reg_pc
+  io.ila.instr_valid := wb_valid
+  io.ila.instr := wb_reg_inst
+  io.ila.rd_wen := rf_wen
+  io.ila.rd_waddr := rf_waddr
+  io.ila.rd_wdata := rf_wdata
+  io.ila.rs_raddr := wb_reg_inst(19,15)
+  io.ila.rs_rdata := Reg(next=Reg(next=ex_rs(0)))
+  io.ila.rt_raddr := wb_reg_inst(24,20)
+  io.ila.rt_rdata := Reg(next=Reg(next=ex_rs(1)))
+
   def checkExceptions(x: Seq[(Bool, UInt)]) =
     (x.map(_._1).reduce(_||_), PriorityMux(x))
 

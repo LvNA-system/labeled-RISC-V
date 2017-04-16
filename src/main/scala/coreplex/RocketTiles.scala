@@ -78,6 +78,7 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
           wrapper.module.reset := io.tcrs(i).reset
           wrapper.module.io.hartid := UInt(i)
           wrapper.module.io.resetVector := io.resetVector
+          io.ila(i) <> wrapper.module.io.ila
         }
       }
       case Rational => {
@@ -109,6 +110,7 @@ trait HasRocketTilesBundle extends CoreplexRISCVPlatformBundle {
     val clock = Clock(INPUT)
     val reset = Bool(INPUT)
   })
+  val ila = Vec(p(RocketTilesKey).size, new ILABundle())
 }
 
 trait HasRocketTilesModule extends CoreplexRISCVPlatformModule {

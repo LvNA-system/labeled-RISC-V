@@ -30,6 +30,7 @@ trait RocketPlexMasterBundle extends HasTopLevelNetworksBundle {
     val clock = Clock(INPUT)
     val reset = Bool(INPUT)
     })
+  val ila = Vec(p(RocketTilesKey).size, new ILABundle())
 }
 
 trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
@@ -41,5 +42,9 @@ trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
   outer.coreplex.module.io.tcrs.zipWithIndex.map { case (tcr, i) =>
     tcr.clock := io.tcrs(i).clock
     tcr.reset := io.tcrs(i).reset
+  }
+
+  outer.coreplex.module.io.ila.zipWithIndex.map { case (ila, i) =>
+  io.ila(i) <> ila
   }
 }
