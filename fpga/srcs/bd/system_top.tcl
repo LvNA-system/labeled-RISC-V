@@ -1302,6 +1302,46 @@ CONFIG.C_S_AXI_ACLK_FREQ_HZ {50000000} \
 CONFIG.C_S_AXI_ACLK_FREQ_HZ.VALUE_SRC {DEFAULT} \
  ] $axi_uartlite_1
 
+  # Create instance: ila_core0, and set properties
+  set ila_core0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.1 ila_core0 ]
+  set_property -dict [ list \
+CONFIG.C_DATA_DEPTH {4096} \
+CONFIG.C_ENABLE_ILA_AXI_MON {false} \
+CONFIG.C_INPUT_PIPE_STAGES {2} \
+CONFIG.C_MONITOR_TYPE {Native} \
+CONFIG.C_NUM_OF_PROBES {12} \
+CONFIG.C_PROBE0_WIDTH {2} \
+CONFIG.C_PROBE10_WIDTH {5} \
+CONFIG.C_PROBE11_WIDTH {64} \
+CONFIG.C_PROBE1_WIDTH {32} \
+CONFIG.C_PROBE2_WIDTH {40} \
+CONFIG.C_PROBE4_WIDTH {32} \
+CONFIG.C_PROBE6_WIDTH {5} \
+CONFIG.C_PROBE7_WIDTH {64} \
+CONFIG.C_PROBE8_WIDTH {5} \
+CONFIG.C_PROBE9_WIDTH {64} \
+ ] $ila_core0
+
+  # Create instance: ila_core1, and set properties
+  set ila_core1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.1 ila_core1 ]
+  set_property -dict [ list \
+CONFIG.C_DATA_DEPTH {4096} \
+CONFIG.C_ENABLE_ILA_AXI_MON {false} \
+CONFIG.C_INPUT_PIPE_STAGES {2} \
+CONFIG.C_MONITOR_TYPE {Native} \
+CONFIG.C_NUM_OF_PROBES {12} \
+CONFIG.C_PROBE0_WIDTH {2} \
+CONFIG.C_PROBE10_WIDTH {5} \
+CONFIG.C_PROBE11_WIDTH {64} \
+CONFIG.C_PROBE1_WIDTH {32} \
+CONFIG.C_PROBE2_WIDTH {40} \
+CONFIG.C_PROBE4_WIDTH {32} \
+CONFIG.C_PROBE6_WIDTH {5} \
+CONFIG.C_PROBE7_WIDTH {64} \
+CONFIG.C_PROBE8_WIDTH {5} \
+CONFIG.C_PROBE9_WIDTH {64} \
+ ] $ila_core1
+
   # Create instance: rocketchip_top_0, and set properties
   set block_name rocketchip_top
   set block_cell_name rocketchip_top_0
@@ -1333,9 +1373,33 @@ CONFIG.CONST_VAL {0} \
   # Create port connections
   connect_bd_net -net L1enable_1 [get_bd_pins L1enable] [get_bd_pins rocketchip_top_0/L1enable]
   connect_bd_net -net clk_1 [get_bd_pins uncoreclk] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins axi_uartlite_1/s_axi_aclk] [get_bd_pins rocketchip_top_0/uncoreclk]
-  connect_bd_net -net coreclk_1 [get_bd_pins coreclk] [get_bd_pins rocketchip_top_0/coreclk0] [get_bd_pins rocketchip_top_0/coreclk1]
+  connect_bd_net -net coreclk_1 [get_bd_pins coreclk] [get_bd_pins ila_core0/clk] [get_bd_pins ila_core1/clk] [get_bd_pins rocketchip_top_0/coreclk0] [get_bd_pins rocketchip_top_0/coreclk1]
   connect_bd_net -net corerst0_1 [get_bd_pins corerst0] [get_bd_pins rocketchip_top_0/corerst0]
   connect_bd_net -net corerst1_1 [get_bd_pins corerst1] [get_bd_pins rocketchip_top_0/corerst1]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_csr_time [get_bd_pins ila_core0/probe1] [get_bd_pins rocketchip_top_0/io_ila_0_csr_time]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_hartid [get_bd_pins ila_core0/probe0] [get_bd_pins rocketchip_top_0/io_ila_0_hartid]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_instr [get_bd_pins ila_core0/probe4] [get_bd_pins rocketchip_top_0/io_ila_0_instr]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_instr_valid [get_bd_pins ila_core0/probe3] [get_bd_pins rocketchip_top_0/io_ila_0_instr_valid]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_pc [get_bd_pins ila_core0/probe2] [get_bd_pins rocketchip_top_0/io_ila_0_pc]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_rd_waddr [get_bd_pins ila_core0/probe6] [get_bd_pins rocketchip_top_0/io_ila_0_rd_waddr]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_rd_wdata [get_bd_pins ila_core0/probe7] [get_bd_pins rocketchip_top_0/io_ila_0_rd_wdata]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_rd_wen [get_bd_pins ila_core0/probe5] [get_bd_pins rocketchip_top_0/io_ila_0_rd_wen]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_rs_raddr [get_bd_pins ila_core0/probe8] [get_bd_pins rocketchip_top_0/io_ila_0_rs_raddr]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_rs_rdata [get_bd_pins ila_core0/probe9] [get_bd_pins rocketchip_top_0/io_ila_0_rs_rdata]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_rt_raddr [get_bd_pins ila_core0/probe10] [get_bd_pins rocketchip_top_0/io_ila_0_rt_raddr]
+  connect_bd_net -net rocketchip_top_0_io_ila_0_rt_rdata [get_bd_pins ila_core0/probe11] [get_bd_pins rocketchip_top_0/io_ila_0_rt_rdata]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_csr_time [get_bd_pins ila_core1/probe1] [get_bd_pins rocketchip_top_0/io_ila_1_csr_time]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_hartid [get_bd_pins ila_core1/probe0] [get_bd_pins rocketchip_top_0/io_ila_1_hartid]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_instr [get_bd_pins ila_core1/probe4] [get_bd_pins rocketchip_top_0/io_ila_1_instr]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_instr_valid [get_bd_pins ila_core1/probe3] [get_bd_pins rocketchip_top_0/io_ila_1_instr_valid]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_pc [get_bd_pins ila_core1/probe2] [get_bd_pins rocketchip_top_0/io_ila_1_pc]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_rd_waddr [get_bd_pins ila_core1/probe6] [get_bd_pins rocketchip_top_0/io_ila_1_rd_waddr]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_rd_wdata [get_bd_pins ila_core1/probe7] [get_bd_pins rocketchip_top_0/io_ila_1_rd_wdata]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_rd_wen [get_bd_pins ila_core1/probe5] [get_bd_pins rocketchip_top_0/io_ila_1_rd_wen]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_rs_raddr [get_bd_pins ila_core1/probe8] [get_bd_pins rocketchip_top_0/io_ila_1_rs_raddr]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_rs_rdata [get_bd_pins ila_core1/probe9] [get_bd_pins rocketchip_top_0/io_ila_1_rs_rdata]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_rt_raddr [get_bd_pins ila_core1/probe10] [get_bd_pins rocketchip_top_0/io_ila_1_rt_raddr]
+  connect_bd_net -net rocketchip_top_0_io_ila_1_rt_rdata [get_bd_pins ila_core1/probe11] [get_bd_pins rocketchip_top_0/io_ila_1_rt_rdata]
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins s_axi_aresetn1] [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins axi_uartlite_1/s_axi_aresetn]
   connect_bd_net -net s_axi_aresetn_1 [get_bd_pins s_axi_aresetn] [get_bd_pins axi_uartlite_0/s_axi_aresetn]
   connect_bd_net -net uncorerst_1 [get_bd_pins uncorerst] [get_bd_pins rocketchip_top_0/uncorerst]

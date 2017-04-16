@@ -32,6 +32,7 @@ trait RocketPlexMasterBundle extends HasTopLevelNetworksBundle {
   })
   val L1enable = Vec(p(RocketTilesKey).size, Bool()).asInput
   val trafficGeneratorEnable = Bool(INPUT)
+  val ila = Vec(p(RocketTilesKey).size, new ILABundle())
 }
 
 trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
@@ -46,4 +47,7 @@ trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
   }
   outer.coreplex.module.io.trafficEnables := io.L1enable
   outer.coreplex.module.io.trafficGeneratorEnable := io.trafficGeneratorEnable
+  outer.coreplex.module.io.ila.zipWithIndex.foreach { case (ila, i) =>
+    io.ila(i) <> ila
+  }
 }

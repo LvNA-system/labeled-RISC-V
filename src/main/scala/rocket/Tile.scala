@@ -131,6 +131,7 @@ class RocketTileModule(outer: RocketTile) extends BaseTileModule(outer, () => ne
   core.io.hartid := io.hartid // Pass through the hartid
   outer.frontend.module.io.cpu <> core.io.imem
   outer.frontend.module.io.resetVector := io.resetVector
+  io.ila <> core.io.ila
   dcachePorts += core.io.dmem // TODO outer.dcachePorts += () => module.core.io.dmem ??
   fpuOpt foreach { fpu => core.io.fpu <> fpu.io }
   core.io.ptw <> ptw.io.dpath
@@ -222,11 +223,15 @@ class AsyncRocketTile(rtp: RocketTileParams, hartid: Int)(implicit p: Parameters
       val hartid = UInt(INPUT, p(XLen))
       val resetVector = UInt(INPUT, p(XLen))
       val trafficEnable = Bool(INPUT)
+
+      val ila = new ILABundle()
     }
     // signals that do not change:
     rocket.module.io.hartid := io.hartid
     rocket.module.io.resetVector := io.resetVector
     rocket.module.io.trafficEnable := io.trafficEnable
+
+    io.ila <> rocket.module.io.ila
   }
 }
 

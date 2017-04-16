@@ -81,6 +81,7 @@ class BaseTileBundle[+L <: BaseTile](_outer: L) extends BareTileBundle(_outer)
     with HasExternalInterruptsBundle {
   val hartid = UInt(INPUT, p(XLen))
   val resetVector = UInt(INPUT, p(XLen))
+  val ila = new ILABundle()
 }
 
 class BaseTileModule[+L <: BaseTile, +B <: BaseTileBundle[L]](_outer: L, _io: () => B) extends BareTileModule(_outer, _io)

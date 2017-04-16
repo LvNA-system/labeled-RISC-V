@@ -1,2 +1,3 @@
 build/
 srcs/rtl/rocket/rocketchip.v
+scripts/*.bit
