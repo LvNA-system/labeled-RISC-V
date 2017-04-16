@@ -5,15 +5,18 @@ package coreplex
 import Chisel._
 import config._
 import diplomacy._
-import rocket.{TileInterrupts, XLen}
+import tile.XLen
+import tile.TileInterrupts
 import uncore.tilelink2._
-import uncore.util._
 import util._
 
 /** Widths of various points in the SoC */
 case class TLBusConfig(beatBytes: Int)
 case object CBusConfig extends Field[TLBusConfig]
 case object L1toL2Config extends Field[TLBusConfig]
+
+// These parameters apply to all caches, for now
+case object CacheBlockBytes extends Field[Int]
 
 /** L2 Broadcast Hub configuration */
 case class BroadcastConfig(
@@ -25,11 +28,13 @@ case object BroadcastConfig extends Field[BroadcastConfig]
 case class BankedL2Config(
   nMemoryChannels:  Int = 1,
   nBanksPerChannel: Int = 1,
-  coherenceManager: Parameters => (TLInwardNode, TLOutwardNode) = { case q =>
+  coherenceManager: (Parameters, CoreplexNetwork) => (TLInwardNode, TLOutwardNode) = { case (q, _) =>
     implicit val p = q
     val BroadcastConfig(nTrackers, bufferless) = p(BroadcastConfig)
     val bh = LazyModule(new TLBroadcast(p(CacheBlockBytes), nTrackers, bufferless))
-    (bh.node, TLWidthWidget(p(L1toL2Config).beatBytes)(bh.node))
+    val ww = LazyModule(new TLWidthWidget(p(L1toL2Config).beatBytes))
+    ww.node :*= bh.node
+    (bh.node, ww.node)
   }) {
   val nBanks = nMemoryChannels*nBanksPerChannel
 }
@@ -40,16 +45,16 @@ case object BootROMFile extends Field[String]
 
 trait HasCoreplexParameters {
   implicit val p: Parameters
+  lazy val tilesParams = p(RocketTilesKey)
   lazy val cbusConfig = p(CBusConfig)
   lazy val l1tol2Config = p(L1toL2Config)
-  lazy val nTiles = p(uncore.devices.NTiles)
-  lazy val hasSupervisor = p(rocket.UseVM)
+  lazy val nTiles = tilesParams.size
   lazy val l2Config = p(BankedL2Config)
 }
 
 case class CoreplexParameters(implicit val p: Parameters) extends HasCoreplexParameters
 
-abstract class BareCoreplex(implicit p: Parameters) extends LazyModule
+abstract class BareCoreplex(implicit p: Parameters) extends LazyModule with BindingScope
 
 abstract class BareCoreplexBundle[+L <: BareCoreplex](_outer: L) extends GenericParameterizedBundle(_outer) {
   val outer = _outer

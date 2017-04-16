@@ -5,17 +5,18 @@ package uncore.apb
 import Chisel._
 import config._
 import diplomacy._
+import util._
 
 class APBRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4)(implicit p: Parameters) extends LazyModule
 {
-  val node = APBSlaveNode(APBSlavePortParameters(
+  val node = APBSlaveNode(Seq(APBSlavePortParameters(
     Seq(APBSlaveParameters(
       address       = List(address),
       regionType    = RegionType.UNCACHED,
       executable    = executable,
       supportsRead  = true,
       supportsWrite = true)),
-    beatBytes  = beatBytes))
+    beatBytes  = beatBytes)))
 
   // We require the address range to include an entire beat (for the write mask)
   require ((address.mask & (beatBytes-1)) == beatBytes-1)
@@ -34,7 +35,6 @@ class APBRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4
 
     // Use single-ported memory with byte-write enable
     val mem = SeqMem(1 << mask.filter(b=>b).size, Vec(beatBytes, Bits(width = 8)))
-    def holdUnless[T <: Data](in : T, enable: Bool): T = Mux(!enable, RegEnable(in, enable), in)
 
     val read = in.psel && !in.penable && !in.pwrite
     when (in.psel && !in.penable && in.pwrite) {
@@ -43,6 +43,6 @@ class APBRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4
 
     in.pready  := Bool(true)
     in.pslverr := Bool(false)
-    in.prdata  := holdUnless(mem.read(paddr, read).asUInt, RegNext(read))
+    in.prdata  := mem.readAndHold(paddr, read).asUInt
   }
 }

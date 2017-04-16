@@ -57,7 +57,7 @@ class TLEdge(
     }
   }
 
-  def hasFollowUp(x: TLChannel): Bool = {
+  def isRequest(x: TLChannel): Bool = {
     x match {
       case a: TLBundleA => Bool(true)
       case b: TLBundleB => Bool(true)
@@ -68,6 +68,18 @@ class TLEdge(
         //    opcode === TLMessages.Grant     ||
         //    opcode === TLMessages.GrantData
       case e: TLBundleE => Bool(false)
+    }
+  }
+
+  def isResponse(x: TLChannel): Bool = {
+    x match {
+      case a: TLBundleA => Bool(false)
+      case b: TLBundleB => Bool(false)
+      case c: TLBundleC => !c.opcode(2) || !c.opcode(1)
+        //    opcode =/= TLMessages.Release &&
+        //    opcode =/= TLMessages.ReleaseData
+      case d: TLBundleD => Bool(true) // Grant isResponse + isRequest
+      case e: TLBundleE => Bool(true)
     }
   }
 
@@ -158,6 +170,15 @@ class TLEdge(
     }
   }
 
+  def source(x: TLDataChannel): UInt = {
+    x match {
+      case a: TLBundleA => a.source
+      case b: TLBundleB => b.source
+      case c: TLBundleC => c.source
+      case d: TLBundleD => d.source
+    }
+  }
+
   def addr_hi(x: UInt): UInt = x >> log2Ceil(manager.beatBytes)
   def addr_lo(x: UInt): UInt =
     if (manager.beatBytes == 1) UInt(0) else x(log2Ceil(manager.beatBytes)-1, 0)
@@ -214,6 +235,10 @@ class TLEdge(
   def last(bits: TLChannel, fire: Bool): Bool = firstlastHelper(bits, fire)._2
   def last(x: DecoupledIO[TLChannel]): Bool = last(x.bits, x.fire())
   def last(x: ValidIO[TLChannel]): Bool = last(x.bits, x.valid)
+
+  def done(bits: TLChannel, fire: Bool): Bool = firstlastHelper(bits, fire)._3
+  def done(x: DecoupledIO[TLChannel]): Bool = done(x.bits, x.fire())
+  def done(x: ValidIO[TLChannel]): Bool = done(x.bits, x.valid)
 
   def firstlast(bits: TLChannel, fire: Bool): (Bool, Bool, Bool) = {
     val r = firstlastHelper(bits, fire)

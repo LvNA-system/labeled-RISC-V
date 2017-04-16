@@ -19,8 +19,8 @@ object RegionType {
 // A non-empty half-open range; [start, end)
 case class IdRange(start: Int, end: Int)
 {
-  require (start >= 0)
-  require (start < end) // not empty
+  require (start >= 0, s"Ids cannot be negative, but got: $start.")
+  require (start < end, "Id ranges cannot be empty.")
 
   // This is a strict partial ordering
   def <(x: IdRange) = end <= x.start
@@ -39,6 +39,8 @@ case class IdRange(start: Int, end: Int)
 
   def shift(x: Int) = IdRange(start+x, end+x)
   def size = end - start
+  
+  def range = start until end
 }
 
 // An potentially empty inclusive range of 2-powers [min, max] (in bytes)
@@ -46,11 +48,11 @@ case class TransferSizes(min: Int, max: Int)
 {
   def this(x: Int) = this(x, x)
 
-  require (min <= max)
-  require (min >= 0 && max >= 0)
-  require (max == 0 || isPow2(max))
-  require (min == 0 || isPow2(min))
-  require (max == 0 || min != 0) // 0 is forbidden unless (0,0)
+  require (min <= max, s"Min transfer $min > max transfer $max")
+  require (min >= 0 && max >= 0, s"TransferSizes must be positive, got: ($min, $max)")
+  require (max == 0 || isPow2(max), s"TransferSizes must be a power of 2, got: $max")
+  require (min == 0 || isPow2(min), s"TransferSizes must be a power of 2, got: $min")
+  require (max == 0 || min != 0, s"TransferSize 0 is forbidden unless (0,0), got: ($min, $max)")
 
   def none = min == 0
   def contains(x: Int) = isPow2(x) && min <= x && x <= max
@@ -74,6 +76,32 @@ object TransferSizes {
   implicit def asBool(x: TransferSizes) = !x.none
 }
 
+// Use AddressSet instead -- this is just for pretty printing
+case class AddressRange(base: BigInt, size: BigInt) extends Ordered[AddressRange]
+{
+  val end = base + size
+
+  require (base >= 0, s"AddressRange base must be positive, got: $base")
+  require (size > 0, s"AddressRange size must be > 0, got: $size")
+
+  def compare(x: AddressRange) = {
+    val primary   = (this.base - x.base).signum
+    val secondary = (x.size - this.size).signum
+    if (primary != 0) primary else secondary
+  }
+
+  def contains(x: AddressRange) = base <= x.base && x.end <= end
+  def union(x: AddressRange): Option[AddressRange] = {
+    if (base > x.end || x.base > end) {
+      None
+    } else {
+      val obase = if (base < x.base) base else x.base
+      val oend  = if (end  > x.end)  end  else x.end
+      Some(AddressRange(obase, oend-obase))
+    }
+  }
+}
+
 // AddressSets specify the address space managed by the manager
 // Base is the base address, and mask are the bits consumed by the manager
 // e.g: base=0x200, mask=0xff describes a device managing 0x200-0x2ff
@@ -81,8 +109,8 @@ object TransferSizes {
 case class AddressSet(base: BigInt, mask: BigInt) extends Ordered[AddressSet]
 {
   // Forbid misaligned base address (and empty sets)
-  require ((base & mask) == 0)
-  require (base >= 0) // TL2 address widths are not fixed => negative is ambiguous
+  require ((base & mask) == 0, s"Mis-aligned AddressSets are forbidden, got: ($base, $mask)")
+  require (base >= 0, s"AddressSet negative base is ambiguous: $base") // TL2 address widths are not fixed => negative is ambiguous
   // We do allow negative mask (=> ignore all high bits)
 
   def contains(x: BigInt) = ((x ^ base) & ~mask) == 0
@@ -130,6 +158,32 @@ case class AddressSet(base: BigInt, mask: BigInt) extends Ordered[AddressSet]
       "AddressSet(0x%x, ~0x%x)".format(base, ~mask)
     }
   }
+
+  def toRanges = {
+    require (finite)
+    val size = alignment
+    val fragments = mask & ~(size-1)
+    val bits = bitIndexes(fragments)
+    (BigInt(0) until (BigInt(1) << bits.size)).map { i =>
+      val off = bitIndexes(i).foldLeft(base) { case (a, b) => a.setBit(bits(b)) }
+      AddressRange(off, size)
+    }
+  }
+}
+
+object AddressRange
+{
+  def fromSets(seq: Seq[AddressSet]): Seq[AddressRange] = unify(seq.flatMap(_.toRanges))
+  def unify(seq: Seq[AddressRange]): Seq[AddressRange] = {
+    if (seq.isEmpty) return Nil
+    val ranges = seq.sorted
+    ranges.tail.foldLeft(Seq(ranges.head)) { case (head :: tail, x) =>
+      head.union(x) match {
+        case Some(z) => z :: tail
+        case None => x :: head :: tail
+      }
+    }.reverse
+  }
 }
 
 object AddressSet
@@ -164,4 +218,21 @@ object AddressSet
     val out = (array zip filter) flatMap { case (a, f) => if (f) None else Some(a) }
     if (out.size != n) unify(out) else out.toList
   }
+}
+
+case class BufferParams(depth: Int, flow: Boolean, pipe: Boolean)
+{
+  require (depth >= 0)
+  def isDefined = depth > 0
+  def latency = if (isDefined && !flow) 1 else 0
+}
+
+object BufferParams
+{
+  implicit def apply(depth: Int): BufferParams = BufferParams(depth, false, false)
+
+  val default = BufferParams(2)
+  val none    = BufferParams(0)
+  val flow    = BufferParams(1, true, false)
+  val pipe    = BufferParams(1, false, true)
 }

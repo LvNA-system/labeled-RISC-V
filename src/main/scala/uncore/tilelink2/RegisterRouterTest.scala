@@ -214,7 +214,7 @@ trait RRTest0Module extends HasRegMap
   regmap(RRTest0Map.map:_*)
 }
 
-class RRTest0(address: BigInt)(implicit p: Parameters) extends TLRegisterRouter(address, 0, 32, 0, 4)(
+class RRTest0(address: BigInt)(implicit p: Parameters) extends TLRegisterRouter(address, "test0", Nil, 0, 32, 0, 4)(
   new TLRegBundle((), _)    with RRTest0Bundle)(
   new TLRegModule((), _, _) with RRTest0Module)
 
@@ -251,7 +251,7 @@ trait RRTest1Module extends Module with HasRegMap
   regmap(map:_*)
 }
 
-class RRTest1(address: BigInt)(implicit p: Parameters) extends TLRegisterRouter(address, 0, 32, 6, 4)(
+class RRTest1(address: BigInt)(implicit p: Parameters) extends TLRegisterRouter(address, "test1", Nil, 0, 32, 6, 4)(
   new TLRegBundle((), _)    with RRTest1Bundle)(
   new TLRegModule((), _, _) with RRTest1Module)
 
@@ -259,7 +259,7 @@ class FuzzRRTest0()(implicit p: Parameters) extends LazyModule {
   val fuzz = LazyModule(new TLFuzzer(5000))
   val rrtr = LazyModule(new RRTest0(0x400))
 
-  rrtr.node := TLFragmenter(4, 32)(TLBuffer()(fuzz.node))
+  rrtr.node := TLFragmenter(4, 32)(TLDelayer(0.1)(fuzz.node))
 
   lazy val module = new LazyModuleImp(this) with HasUnitTestIO {
     io.finished := fuzz.module.io.finished
@@ -274,7 +274,7 @@ class FuzzRRTest1()(implicit p: Parameters) extends LazyModule {
   val fuzz = LazyModule(new TLFuzzer(5000))
   val rrtr = LazyModule(new RRTest1(0x400))
 
-  rrtr.node := TLFragmenter(4, 32)(TLBuffer()(fuzz.node))
+  rrtr.node := TLFragmenter(4, 32)(TLDelayer(0.1)(fuzz.node))
 
   lazy val module = new LazyModuleImp(this) with HasUnitTestIO {
     io.finished := fuzz.module.io.finished

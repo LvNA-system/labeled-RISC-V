@@ -6,21 +6,16 @@ import Chisel._
 import config._
 import junctions._
 import diplomacy._
-import uncore.tilelink._
+import tile._
 import uncore.tilelink2._
-import uncore.coherence._
-import uncore.agents._
 import uncore.devices._
-import uncore.util._
-import uncore.converters._
-import rocket._
 import util._
 
 trait CoreplexRISCVPlatform extends CoreplexNetwork {
   val module: CoreplexRISCVPlatformModule
 
   val debug = LazyModule(new TLDebugModule())
-  val plic  = LazyModule(new TLPLIC(hasSupervisor, maxPriorities = 7))
+  val plic  = LazyModule(new TLPLIC(maxPriorities = 7))
   val clint = LazyModule(new CoreplexLocalInterrupter)
 
   debug.node := TLFragmenter(cbus_beatBytes, cbus_lineBytes)(cbus.node)
@@ -29,34 +24,38 @@ trait CoreplexRISCVPlatform extends CoreplexNetwork {
 
   plic.intnode := intBar.intnode
 
-  lazy val configString = {
-    val managers = l1tol2.node.edgesIn(0).manager.managers
-    // Use the existing config string if the user overrode it
-    ConfigStringOutput.contents.getOrElse(
-      rocketchip.GenerateConfigString(p, clint, plic, managers))
-  }
+  lazy val dts = DTS(bindingTree)
+  lazy val dtb = DTB(dts)
+  lazy val json = JSON(bindingTree)
 }
 
 trait CoreplexRISCVPlatformBundle extends CoreplexNetworkBundle {
   val outer: CoreplexRISCVPlatform
 
-  val debug = new AsyncDebugBusIO().flip
+  val debug = new ClockedDMIIO().flip
   val rtcToggle = Bool(INPUT)
   val resetVector = UInt(INPUT, p(XLen))
+  val ndreset = Bool(OUTPUT)
+  val dmactive = Bool(OUTPUT)
 }
 
 trait CoreplexRISCVPlatformModule extends CoreplexNetworkModule {
   val outer: CoreplexRISCVPlatform
   val io: CoreplexRISCVPlatformBundle
 
-  // Synchronize the debug bus into the coreplex
-  outer.debug.module.io.db <> FromAsyncDebugBus(io.debug)
+  outer.debug.module.io.dmi  <> io.debug
+  // TODO in inheriting traits: Set this to something meaningful, e.g. "component is in reset or powered down"
+  val nDebugComponents = outer.debug.intnode.bundleOut.size
+  outer.debug.module.io.ctrl.debugUnavail := Vec.fill(nDebugComponents){Bool(false)}
+  io.dmactive := outer.debug.module.io.ctrl.dmactive
+  io.ndreset := outer.debug.module.io.ctrl.ndreset
 
   // Synchronize the rtc into the coreplex
   val rtcSync = ShiftRegister(io.rtcToggle, 3)
   val rtcLast = Reg(init = Bool(false), next=rtcSync)
   outer.clint.module.io.rtcTick := Reg(init = Bool(false), next=(rtcSync & (~rtcLast)))
 
-  println(s"\nGenerated Configuration String\n${outer.configString}")
-  ConfigStringOutput.contents = Some(outer.configString)
+  println(outer.dts)
+  ElaborationArtefacts.add("dts", outer.dts)
+  ElaborationArtefacts.add("json", outer.json)
 }

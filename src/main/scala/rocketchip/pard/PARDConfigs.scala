@@ -5,15 +5,17 @@ package rocketchip
 import coreplex._
 import config._
 
-class PARDSimConfig extends Config(new WithBlockingL1
-  ++ new WithoutTLMonitors
+class PARDSimConfig extends Config(new WithNBigCores(1)
   ++ new WithoutFPU
-  ++ new WithExtMemSize(0x4000000L)
+  ++ new WithAynchronousRocketTiles(8, 3)
+  ++ new WithExtMemSize(0x1000000L)
   ++ new BaseConfig)
 
 class PARDFPGAConfig extends Config(new FPGAConfig
+  //++ new WithJtagDTM
   ++ new WithoutFPU
   ++ new WithExtMemSize(0x80000000L)
-  ++ new WithNCores(2)
-  ++ new WithRTCPeriod(5) // gives 10 MHz RTC assuming 50 MHz uncore clock
+  ++ new WithNBigCores(2)
+  ++ new WithAynchronousRocketTiles(8, 3)
+  ++ new WithRTCPeriod(50) // gives 10 MHz RTC assuming 50 MHz uncore clock
   ++ new BaseConfig)

@@ -37,9 +37,10 @@ of riscv-tools:
     $ cd rocket-chip/riscv-tools
     $ git submodule update --init --recursive
     $ export RISCV=/path/to/install/riscv/toolchain
+    $ export MAKEFLAGS="$MAKEFLAGS -jN" # Assuming you have N cores on your host system
     $ ./build.sh
     $ ./build-rv32ima.sh (if you are using RV32).
-   
+
 For more information (or if you run into any issues), please consult the
 [riscv-tools/README](https://github.com/riscv/riscv-tools/blob/master/README.md).
 
@@ -423,11 +424,11 @@ post, so please stay tuned.
 To override specific configuration items, such as the number of external interrupts,
 you can create your own Configuration(s) and compose them with Config's ++ operator
 
-    class WithNExtInterrupts extends Config (nExt: Int) {
-      (pname, site, here) => pname match {
-      case (NExtInterrupts => nExt)
-      }
-    } 
+    class WithNExtInterrupts(nExt: Int) extends Config {
+        (site, here, up) => {
+            case NExtInterrupts => nExt
+        }
+    }
     class MyConfig extends Config (new WithNExtInterrupts(16) ++ new DefaultSmallConfig)
 
 Then you can build as usual with CONFIG=MyConfig.

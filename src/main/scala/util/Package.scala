@@ -23,6 +23,14 @@ package object util {
     def asUInt(): UInt = Cat(x.map(_.asUInt).reverse)
   }
 
+  implicit class DataToAugmentedData[T <: Data](val x: T) extends AnyVal {
+    def holdUnless(enable: Bool): T = Mux(enable, x, RegEnable(x, enable))
+  }
+
+  implicit class SeqMemToAugmentedSeqMem[T <: Data](val x: SeqMem[T]) extends AnyVal {
+    def readAndHold(addr: UInt, enable: Bool): T = x.read(addr, enable) holdUnless RegNext(enable)
+  }
+
   implicit def uintToBitPat(x: UInt): BitPat = BitPat(x)
   implicit def wcToUInt(c: WideCounter): UInt = c.value
 
@@ -35,6 +43,8 @@ package object util {
       if (hi == lo-1) UInt(0)
       else x(hi, lo)
     }
+
+    def inRange(base: UInt, bounds: UInt) = x >= base && x < bounds
   }
 
   implicit class BooleanToAugmentedBoolean(val x: Boolean) extends AnyVal {

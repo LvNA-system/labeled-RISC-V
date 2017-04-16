@@ -1,19 +1,5 @@
 // See LICENSE.SiFive for license details.
 
-import "DPI-C" function int debug_tick
-(
-  output bit     debug_req_valid,
-  input  bit     debug_req_ready,
-  output int     debug_req_bits_addr,
-  output int     debug_req_bits_op,
-  output longint debug_req_bits_data,
-
-  input  bit        debug_resp_valid,
-  output bit        debug_resp_ready,
-  input  int        debug_resp_bits_resp,
-  input  longint    debug_resp_bits_data
-);
-
 module SimDMA(
   input clk,
   input reset,
