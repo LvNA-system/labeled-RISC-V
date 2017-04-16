@@ -37,7 +37,7 @@ BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
 BBL_PAYLOAD = $(LINUX_ELF)
 #BBL_CONFIG = --host=riscv64-unknown-linux-gnu --enable-logo
 BBL_CONFIG = --host=riscv64-unknown-linux-gnu --with-payload=$(BBL_PAYLOAD) --enable-logo
-BBL_CFLAGS = "-Wall -Werror -D__NO_INLINE__ -mcmodel=medany -O2 -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks -DBBL_PAYLOAD=\\\"bbl_payload\\\" -mabi=lp64 -march=rv64imac"
+BBL_CFLAGS = "-mabi=lp64 -march=rv64imac"
 
 BBL_ELF = $(build_dir)/bbl.elf
 BBL_BIN = $(build_dir)/bbl.bin
@@ -80,7 +80,7 @@ $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 $(BBL_ELF_BUILD): | $(BBL_BUILD_PATH)
 	cd $(@D) && \
 		git checkout $(BBL_BUILD_COMMIT) && \
-		($(MAKE) CFLAGS=$(BBL_CFLAGS) || (git checkout @{-1}; false)) && \
+		(CFLAGS=$(BBL_CFLAGS) $(MAKE) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 bbl-clean:
