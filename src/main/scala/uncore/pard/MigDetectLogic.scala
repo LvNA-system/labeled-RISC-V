@@ -3,12 +3,14 @@ package uncore.pard
 import chisel3._
 import chisel3.util._
 
-class BucketBundle(bucketSizeBits: Int, bucketFreqBits: Int) extends Bundle {
-  val size = UInt(bucketSizeBits.W)
-  val freq = UInt(bucketFreqBits.W)
-  val inc = UInt(bucketSizeBits.W)
+import config._
 
-  override def cloneType = new BucketBundle(bucketSizeBits, bucketFreqBits).asInstanceOf[this.type]
+class BucketBundle(implicit p: Parameters) extends Bundle {
+  val size = UInt(p(BucketBits).size.W)
+  val freq = UInt(p(BucketBits).freq.W)
+  val inc = UInt(p(BucketBits).size.W)
+
+  override def cloneType = (new BucketBundle).asInstanceOf[this.type]
 }
 
 /** Only view the ReadyValidIO protocol */
@@ -21,10 +23,8 @@ class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
 /**
   * @param tagBits The bit width of tag (dsid).
   * @param nEntries The number of entries.
-  * @param bucketSizeBits The bit width of bucket size and inc data.
-  * @param bucketFreqBits The bit width of bucket update freq data.
   */
-class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries: Int = 3, val bucketSizeBits: Int = 32, val bucketFreqBits: Int = 32) extends Module {
+class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries: Int = 3)(implicit p: Parameters) extends Module {
   val commDataBits = 128
   val rbackBits = 64
 
@@ -42,14 +42,14 @@ class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries
     val APM_VALID = Input(Bool())
     val dsids = Output(Vec(nEntries, UInt(tagBits.W)))
     val l1enables = Output(Vec(nEntries, Bool()))
-    val buckets = Output(Vec(nEntries, new BucketBundle(bucketSizeBits, bucketFreqBits)))
+    val buckets = Output(Vec(nEntries, new BucketBundle))
     val trigger_axis_tready = Input(Bool())  // TODO Bundle this using ReadyValidIO
     val trigger_axis_tvalid = Output(Bool())
     val trigger_axis_tdata = Output(UInt(16.W))
   })
 
   val common = Module(new detect_logic_common())
-  val ptab = Module(new MigPTab(nEntries, tagBits, addrBits, bucketSizeBits, bucketFreqBits))
+  val ptab = Module(new MigPTab(nEntries, tagBits, addrBits))
   val stab = Module(new mig_cp_stab)
   val ttab = Module(new ttab(CP_ID = 2))
 

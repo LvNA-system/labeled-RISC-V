@@ -3,6 +3,8 @@ package uncore.pard
 import chisel3.util._
 import chisel3.core._
 
+import config._
+
 /**
   * The common bundle to describe both read and write channel.
   * The default direction is in the view of ptab itself.
@@ -17,7 +19,9 @@ class TagBundle(tagWidth: Int, dataWidth: Int) extends Bundle {
 /**
   * MIG Control Plane Parameter Table
   */
-class MigPTab(nRows: Int, tagWidth: Int, addrBits: Int, sizeBits: Int, freqBits: Int) extends Module {
+class MigPTab(nRows: Int, tagWidth: Int, addrBits: Int)(implicit p: Parameters) extends Module {
+  val sizeBits = p(BucketBits).size
+  val freqBits = p(BucketBits).freq
   val dataBits = 64
   val posBits = 15  // Bit-width for position signals
   val io = IO(new Bundle {
@@ -30,7 +34,7 @@ class MigPTab(nRows: Int, tagWidth: Int, addrBits: Int, sizeBits: Int, freqBits:
     val rdata = Output(UInt(dataBits.W))
     // Control plane interface
     val l1enables = Output(Vec(nRows, Bool()))
-    val buckets = Output(Vec(nRows, new BucketBundle(sizeBits, freqBits)))
+    val buckets = Output(Vec(nRows, new BucketBundle))
     val dsids = Input(Vec(nRows, UInt(tagWidth.W)))
     val rTag = new TagBundle(tagWidth, addrBits)
     val wTag = new TagBundle(tagWidth, addrBits)

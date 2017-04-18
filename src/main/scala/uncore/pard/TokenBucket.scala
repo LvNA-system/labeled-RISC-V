@@ -3,26 +3,31 @@ package uncore.pard
 import chisel3._
 import chisel3.util._
 
-class TokenBucket(dataBits: Int, bucketSizeBits: Int, bucketFreqBits: Int) extends Module {
+import config._
+
+class TokenBucket(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
-    val read  = new ReadyValidMonitor(UInt(dataBits.W))
-    val write = new ReadyValidMonitor(UInt(dataBits.W))
-    val bucket = Input(new BucketBundle(bucketSizeBits, bucketFreqBits))
+    val read  = new ReadyValidMonitor(UInt(p(BucketBits).data.W))
+    val write = new ReadyValidMonitor(UInt(p(BucketBits).data.W))
+    val bucket = Input(new BucketBundle)
     val enable = Output(Bool())
   })
 
-  val nTokensNext = Wire(UInt(bucketSizeBits.W))
+  val sizeBits = p(BucketBits).size
+  val freqBits = p(BucketBits).freq
+
+  val nTokensNext = Wire(UInt(sizeBits.W))
   val nTokens = RegNext(
     Mux(nTokensNext < io.bucket.size, nTokensNext, io.bucket.size),
     io.bucket.size)
 
-  val counterNext = Wire(UInt(bucketFreqBits.W))
-  val counter = RegNext(counterNext, 0.U(bucketFreqBits.W))
-  counterNext := Mux(counter >= io.bucket.freq, 1.U(bucketFreqBits.W), counter + 1.U)
+  val counterNext = Wire(UInt(freqBits.W))
+  val counter = RegNext(counterNext, 0.U(freqBits.W))
+  counterNext := Mux(counter >= io.bucket.freq, 1.U(freqBits.W), counter + 1.U)
 
-  val tokenAdd = Mux(counter === 1.U(bucketFreqBits.W), io.bucket.inc, 0.U)
+  val tokenAdd = Mux(counter === 1.U(freqBits.W), io.bucket.inc, 0.U)
 
-  val bypass = io.bucket.freq === 0.U(bucketFreqBits.W)
+  val bypass = io.bucket.freq === 0.U(freqBits.W)
   val channelEnables = List(io.read, io.write).map { ch => ch.valid && ch.ready }
   val rTokenSub :: wTokenSub :: _ = List(io.read, io.write).zip(channelEnables).map {
     case (ch, en) => Mux(en && !bypass, ch.bits, 0.U)
@@ -36,7 +41,7 @@ class TokenBucket(dataBits: Int, bucketSizeBits: Int, bucketFreqBits: Int) exten
   nTokensNext := nTokens + tokenAdd - rTokenSubReal - wTokenSubReal
 
   // Throttle logic
-  val threshold = RegInit(0.U(bucketSizeBits.W))
+  val threshold = RegInit(0.U(sizeBits.W))
   val enable = RegInit(false.B)
   when (channelEnables.reduce(_ || _) && consumeUp) {
     enable := false.B
