@@ -20,13 +20,12 @@ class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
   val bits  = Input(gen.cloneType)
 }
 
-/**
-  * @param tagBits The bit width of tag (dsid).
-  * @param nEntries The number of entries.
-  */
-class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries: Int = 3)(implicit p: Parameters) extends Module {
-  val commDataBits = 128
-  val rbackBits = 64
+class MigDetectLogic(implicit p: Parameters) extends Module {
+  private val commDataBits = 128
+  private val rbackBits = 64
+  private val tagBits = p(TagBits)
+  private val nEntries = p(NEntries)
+
 
   val io = IO(new Bundle {
     val COMM_VALID = Input(Bool())  // TODO Bundle COMM
@@ -35,12 +34,12 @@ class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries
     val DATA_RBACK = Output(UInt(rbackBits.W))
     val DATA_MASK = Output(UInt(rbackBits.W))
     val DATA_OFFSET = Output(UInt(2.W))
-    val rTag = new TagBundle(tagBits, addrBits)
-    val wTag = new TagBundle(tagBits, addrBits)
+    val rTag = new TagBundle
+    val wTag = new TagBundle
     val APM_DATA = Input(UInt(32.W))  // TODO Bundle APM
     val APM_ADDR = Input(UInt(32.W))
     val APM_VALID = Input(Bool())
-    val dsids = Output(Vec(nEntries, UInt(tagBits.W)))
+    val dsids = Output(Vec(nEntries, UInt(p(TagBits).W)))
     val l1enables = Output(Vec(nEntries, Bool()))
     val buckets = Output(Vec(nEntries, new BucketBundle))
     val trigger_axis_tready = Input(Bool())  // TODO Bundle this using ReadyValidIO
@@ -49,12 +48,12 @@ class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries
   })
 
   val common = Module(new detect_logic_common())
-  val ptab = Module(new MigPTab(nEntries, tagBits, addrBits))
+  val ptab = Module(new MigPTab)
   val stab = Module(new mig_cp_stab)
   val ttab = Module(new ttab(CP_ID = 2))
 
   // The source of static dsids!
-  val dsids = Vec(Seq.tabulate(nEntries){ i => (i + 1).U(tagBits.W) })
+  val dsids = Vec((1 to nEntries).map(_.U(p(TagBits).W)))
   io.dsids := dsids
 
   // TODO Bundle this common interface

@@ -9,21 +9,22 @@ import config._
   * The common bundle to describe both read and write channel.
   * The default direction is in the view of ptab itself.
   */
-class TagBundle(tagWidth: Int, dataWidth: Int) extends Bundle {
-  val tag = Input(UInt(tagWidth.W))
-  val base = Output(UInt(dataWidth.W))
-  val mask = Output(UInt(dataWidth.W))
+class TagBundle(implicit p: Parameters) extends Bundle {
+  val tag = Input(UInt(p(TagBits).W))
+  val base = Output(UInt(p(AddrBits).W))
+  val mask = Output(UInt(p(AddrBits).W))
   val matched = Output(Bool())
 }
 
 /**
   * MIG Control Plane Parameter Table
   */
-class MigPTab(nRows: Int, tagWidth: Int, addrBits: Int)(implicit p: Parameters) extends Module {
+class MigPTab(implicit p: Parameters) extends Module {
   val sizeBits = p(BucketBits).size
   val freqBits = p(BucketBits).freq
   val dataBits = 64
   val posBits = 15  // Bit-width for position signals
+  val nRows = p(NEntries)
   val io = IO(new Bundle {
     // PRM interface
     val isThisTable = Input(Bool())
@@ -35,14 +36,14 @@ class MigPTab(nRows: Int, tagWidth: Int, addrBits: Int)(implicit p: Parameters) 
     // Control plane interface
     val l1enables = Output(Vec(nRows, Bool()))
     val buckets = Output(Vec(nRows, new BucketBundle))
-    val dsids = Input(Vec(nRows, UInt(tagWidth.W)))
-    val rTag = new TagBundle(tagWidth, addrBits)
-    val wTag = new TagBundle(tagWidth, addrBits)
+    val dsids = Input(Vec(nRows, UInt(p(TagBits).W)))
+    val rTag = new TagBundle
+    val wTag = new TagBundle
   })
 
-  val dsids   = RegNext(io.dsids, Vec(Seq.fill(nRows){ 0.U(tagWidth.W) }))
-  val bases   = RegInit(Vec(Seq.fill(nRows){ 0.U(addrBits.W) }))
-  val masks   = RegInit(Vec(Seq.fill(nRows){ 0.U(addrBits.W) }))
+  val dsids   = RegNext(io.dsids, Vec(Seq.fill(nRows){ 0.U(p(TagBits).W) }))
+  val bases   = RegInit(Vec(Seq.fill(nRows){ 0.U(p(AddrBits).W) }))
+  val masks   = RegInit(Vec(Seq.fill(nRows){ 0.U(p(AddrBits).W) }))
   val enables = RegInit(Vec(Seq.fill(nRows){ true.B }))
   val sizes   = RegInit(Vec(Seq.fill(nRows){ 0.U(sizeBits.W) }))
   val freqs   = RegInit(Vec(Seq.fill(nRows){ 0.U(freqBits.W) }))

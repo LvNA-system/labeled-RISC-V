@@ -15,18 +15,20 @@ class APMBundle extends Bundle {
   val data = UInt(32.W)
 }
 
-class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 3)(implicit p: Parameters) extends Module {
-  private val dataWidth = 64
+class MigControlPlane(implicit p: Parameters) extends Module {
+  private val dataBits = 64
+  private val addrBits = p(AddrBits)
+  private val nEntries = p(NEntries)
 
   val io = IO(new Bundle {
     val addr = Input(UInt(7.W))
-    val l1enable = Output(Vec(numEntries, Bool()))
+    val l1enable = Output(Vec(nEntries, Bool()))
     val i = Input(new I2CBundle)
     val t = Output(new I2CBundle)
     val o = Output(new I2CBundle)
     val apm = Output(new APMBundle)
-    val s_axi =  Flipped(AXI4Bundle(AXI4BundleParameters(addrWidth, dataWidth, 5)))
-    val m_axi = AXI4Bundle(AXI4BundleParameters(addrWidth, dataWidth, 5))
+    val s_axi =  Flipped(AXI4Bundle(AXI4BundleParameters(addrBits, dataBits, 5)))
+    val m_axi = AXI4Bundle(AXI4BundleParameters(addrBits, dataBits, 5))
   })
 
   val i2c = Module(new I2CInterface)
@@ -38,7 +40,7 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
     IDENT_HIGH = ident.substring(0, 8)
   ))
 
-  val detect = Module(new MigDetectLogic(addrBits = addrWidth, tagBits = tagWidth, nEntries = numEntries))
+  val detect = Module(new MigDetectLogic)
 
   // i2c <> outer
   i2c.io.RST := reset
@@ -89,7 +91,7 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
   }
 
   // Traffic control
-  val buckets = Seq.fill(numEntries){ Module(new TokenBucket) }
+  val buckets = Seq.fill(nEntries){ Module(new TokenBucket) }
   buckets.zipWithIndex.foreach { case (bucket, i) =>
     List((bucket.io.read, io.s_axi.ar), (bucket.io.write, io.s_axi.aw)).foreach { case (bktCh, axiCh) =>
       bktCh.valid := axiCh.valid && (detect.io.dsids(i) === axiCh.bits.user)
@@ -102,5 +104,5 @@ class MigControlPlane(tagWidth: Int = 16, addrWidth: Int = 32, numEntries: Int= 
 }
 
 object MIG extends App {
-  Driver.execute(args, () => new MigControlPlane()(new BucketConfig))
+  Driver.execute(args, () => new MigControlPlane()(MigConfig))
 }
