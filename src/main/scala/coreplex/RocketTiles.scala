@@ -113,11 +113,8 @@ trait HasRocketTilesBundle extends CoreplexRISCVPlatformBundle {
     val clock = Clock(INPUT)
     val reset = Bool(INPUT)
   })
-<<<<<<< HEAD
   val trafficEnables = Vec(p(RocketTilesKey).size, Bool()).asInput
-=======
   val ila = Vec(p(RocketTilesKey).size, new ILABundle())
->>>>>>> update_official2
 }
 
 trait HasRocketTilesModule extends CoreplexRISCVPlatformModule {
