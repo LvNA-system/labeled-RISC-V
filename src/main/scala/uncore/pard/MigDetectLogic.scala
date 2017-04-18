@@ -127,7 +127,3 @@ class MigDetectLogic(val addrBits: Int = 32, val tagBits: Int = 16, val nEntries
   stab.io.trigger_row := triggerRow
   ttab.io.trigger_dsid_valid := triggerDsidValid
 }
-
-object Detect extends App {
-  chisel3.Driver.execute(args, () => new MigDetectLogic(32, 16, 3, 32, 32))
-}

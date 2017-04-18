@@ -47,7 +47,3 @@ class TokenBucket(dataBits: Int, bucketSizeBits: Int, bucketFreqBits: Int) exten
   }
   io.enable := enable
 }
-
-object TokenBucket extends App {
-  Driver.execute(args, () => new TokenBucket(32, 32, 32))
-}
