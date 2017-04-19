@@ -71,7 +71,6 @@ set files [list \
  "[file normalize "$rtlRoot/control_plane/common/i2cintf.v"]"\
  "[file normalize "$rtlRoot/control_plane/common/regintf.v"]"\
  "[file normalize "$rtlRoot/control_plane/common/ttab.v"]"\
- "[file normalize "$rtlRoot/control_plane/common/token_bucket.v"]"\
  "[file normalize "$rtlRoot/control_plane/core/control_plane.v"]"\
  "[file normalize "$rtlRoot/control_plane/core/detec_logic.v"]"\
  "[file normalize "$rtlRoot/control_plane/core/ptab.v"]"\
