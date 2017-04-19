@@ -21,19 +21,11 @@ class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
 }
 
 class MigDetectLogic(implicit p: Parameters) extends Module {
-  private val commDataBits = 128
-  private val rbackBits = 64
   private val tagBits = p(TagBits)
   private val nEntries = p(NEntries)
 
-
   val io = IO(new Bundle {
-    val COMM_VALID = Input(Bool())  // TODO Bundle COMM
-    val COMM_DATA = Input(UInt(commDataBits.W))
-    val DATA_VALID = Output(Bool())
-    val DATA_RBACK = Output(UInt(rbackBits.W))
-    val DATA_MASK = Output(UInt(rbackBits.W))
-    val DATA_OFFSET = Output(UInt(2.W))
+    val reg = new RegisterInterfaceIO
     val rTag = new TagBundle
     val wTag = new TagBundle
     val APM_DATA = Input(UInt(32.W))  // TODO Bundle APM
@@ -47,7 +39,7 @@ class MigDetectLogic(implicit p: Parameters) extends Module {
     val trigger_axis_tdata = Output(UInt(16.W))
   })
 
-  val common = Module(new detect_logic_common())
+  val common = Module(new DetectLogicCommon)
   val ptab = Module(new MigPTab)
   val stab = Module(new mig_cp_stab)
   val ttab = Module(new ttab(CP_ID = 2))
@@ -56,39 +48,27 @@ class MigDetectLogic(implicit p: Parameters) extends Module {
   val dsids = Vec((1 to nEntries).map(_.U(p(TagBits).W)))
   io.dsids := dsids
 
-  // TODO Bundle this common interface
-
   // detect <> outer
-  (common.io, io) match { case (s, m) =>
-    s.SYS_CLK := clock
-    s.DETECT_RST := reset
-    s.COMM_DATA <> m.COMM_DATA
-    s.COMM_VALID <> m.COMM_VALID
-    s.DATA_VALID <> m.DATA_VALID
-    s.DATA_RBACK <> m.DATA_RBACK
-    s.DATA_MASK <> m.DATA_MASK
-    s.DATA_OFFSET <> m.DATA_OFFSET
-  }
+  common.io.reg <> io.reg
 
   // TODO Bundle this common interface
 
   // detect <> ptab
-  common.io.is_parameter_table <> ptab.io.isThisTable
-  common.io.parameter_table_rdata <> ptab.io.rdata
+  common.io.ptab <> ptab.io.table
   common.io.col <> ptab.io.col
   common.io.row <> ptab.io.row
   common.io.wdata <> ptab.io.wdata
   common.io.wen <> ptab.io.wen
 
   // detect <> stab
-  common.io.is_statistic_table <> stab.io.is_this_table
-  common.io.statistic_table_rdata <> stab.io.rdata
+  common.io.stab.enable <> stab.io.is_this_table
+  common.io.stab.data <> stab.io.rdata
   common.io.col <> stab.io.col
   common.io.row <> stab.io.row
 
   // detect <> ttab
-  common.io.is_trigger_table <> ttab.io.is_this_table
-  common.io.trigger_table_rdata <> ttab.io.rdata
+  common.io.ttab.enable <> ttab.io.is_this_table
+  common.io.ttab.data <> ttab.io.rdata
   common.io.col <> ttab.io.col
   common.io.row <> ttab.io.row
   common.io.wdata <> ttab.io.wdata

@@ -42,29 +42,6 @@ class RegisterInterface(TYPE: Int, IDENT_LOW: String, IDENT_HIGH: String) extend
   })
 }
 
-class detect_logic_common(val CMD_READ: BigInt = BigInt("0", 2), val CMD_WRITE: BigInt = BigInt("1", 2)) extends BlackBox(Map("CMD_READ" -> IntParam(CMD_READ), "CMD_WRITE" -> IntParam(CMD_WRITE))) {
-  val io = IO(new Bundle {
-    val SYS_CLK = Input(Clock())
-    val DETECT_RST = Input(Bool())
-    val COMM_VALID = Input(Bool())
-    val COMM_DATA = Input(UInt((128).W))
-    val parameter_table_rdata = Input(UInt((64).W))
-    val statistic_table_rdata = Input(UInt((64).W))
-    val trigger_table_rdata = Input(UInt((64).W))
-    val DATA_VALID = Output(Bool())
-    val DATA_RBACK = Output(UInt((64).W))
-    val DATA_MASK = Output(UInt((64).W))
-    val DATA_OFFSET = Output(UInt((2).W))
-    val is_parameter_table = Output(Bool())
-    val is_statistic_table = Output(Bool())
-    val is_trigger_table = Output(Bool())
-    val col = Output(UInt((15).W))
-    val row = Output(UInt((15).W))
-    val wdata = Output(UInt((64).W))
-    val wen = Output(Bool())
-  })
-}
-
 class mig_cp_stab extends BlackBox {
   val io = IO(new Bundle {
     val aclk = Input(Clock())

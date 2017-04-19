@@ -20,19 +20,18 @@ class TagBundle(implicit p: Parameters) extends Bundle {
   * MIG Control Plane Parameter Table
   */
 class MigPTab(implicit p: Parameters) extends Module {
-  val sizeBits = p(BucketBits).size
-  val freqBits = p(BucketBits).freq
-  val dataBits = 64
-  val posBits = 15  // Bit-width for position signals
-  val nRows = p(NEntries)
+  private val sizeBits = p(BucketBits).size
+  private val freqBits = p(BucketBits).freq
+  private val posBits = 15  // Bit-width for position signals
+  private val nRows = p(NEntries)
+
   val io = IO(new Bundle {
     // PRM interface
-    val isThisTable = Input(Bool())
+    val table = Flipped(new TableIO)
     val col = Input(UInt(posBits.W))
     val row = Input(UInt(posBits.W))
-    val wdata = Input(UInt(dataBits.W))
+    val wdata = Input(UInt(p(DataBits).W))
     val wen = Input(Bool())
-    val rdata = Output(UInt(dataBits.W))
     // Control plane interface
     val l1enables = Output(Vec(nRows, Bool()))
     val buckets = Output(Vec(nRows, new BucketBundle))
@@ -70,11 +69,11 @@ class MigPTab(implicit p: Parameters) extends Module {
 
   // Write table
   fields.zipWithIndex.foreach { case (field, c) =>
-    when (io.isThisTable && io.wen && io.col === c.U) {
+    when (io.table.enable && io.wen && io.col === c.U) {
       field(io.row) := io.wdata
     }
   }
 
   // Read table
-  io.rdata := MuxLookup(io.col, 0.U, fields.indices.map(_.U) zip fields.map(_(io.row)))
+  io.table.data := MuxLookup(io.col, 0.U, fields.indices.map(_.U) zip fields.map(_(io.row)))
 }

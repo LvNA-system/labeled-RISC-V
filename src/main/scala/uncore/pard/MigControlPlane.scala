@@ -66,14 +66,14 @@ class MigControlPlane(implicit p: Parameters) extends Module {
   reg.io.RECEIVE_BUFFER := i2c.io.RECEIVE_BUFFER
 
   // regIntf <> detect
-  reg.io.DATA_VALID := detect.io.DATA_VALID
-  reg.io.DATA_RBACK := detect.io.DATA_RBACK
-  reg.io.DATA_MASK := detect.io.DATA_MASK
-  reg.io.DATA_OFFSET := detect.io.DATA_OFFSET
+  reg.io.DATA_VALID := detect.io.reg.DATA_VALID
+  reg.io.DATA_RBACK := detect.io.reg.DATA_RBACK
+  reg.io.DATA_MASK := detect.io.reg.DATA_MASK
+  reg.io.DATA_OFFSET := detect.io.reg.DATA_OFFSET
+  detect.io.reg.COMM_VALID := reg.io.COMM_VALID && !reg.io.COMM_DATA(31)
+  detect.io.reg.COMM_DATA := reg.io.COMM_DATA
 
   // detect <> outer
-  detect.io.COMM_VALID := reg.io.COMM_VALID && !reg.io.COMM_DATA(31)
-  detect.io.COMM_DATA := reg.io.COMM_DATA
   (detect.io, io.apm) match { case (d, apm) =>
       d.APM_DATA := apm.data
       d.APM_VALID := apm.valid
