@@ -27,6 +27,8 @@ class RegisterInterfaceIO(implicit p: Parameters) extends Bundle {
   val DATA_RBACK = Output(UInt(p(DataBits).W))
   val DATA_MASK = Output(UInt(p(DataBits).W))
   val DATA_OFFSET = Output(UInt(2.W))
+
+  override def cloneType = (new RegisterInterfaceIO).asInstanceOf[this.type]
 }
 
 class DetectLogicCommon(implicit p: Parameters) extends Module {

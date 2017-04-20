@@ -23,25 +23,6 @@ class I2CInterface extends BlackBox {
   })
 }
 
-class RegisterInterface(TYPE: Int, IDENT_LOW: String, IDENT_HIGH: String) extends BlackBox(Map("TYPE" -> IntParam(TYPE), "IDENT_LOW" -> StringParam(IDENT_LOW), "IDENT_HIGH" -> StringParam(IDENT_HIGH))) {
-  val io = IO(new Bundle {
-    val RST = Input(Bool())
-    val SYS_CLK = Input(Clock())
-    val SCL_i = Input(Bool())
-    val STOP_DETECT = Input(Bool())
-    val INDEX_POINTER = Input(UInt((8).W))
-    val WRITE_ENABLE = Input(Bool())
-    val RECEIVE_BUFFER = Input(UInt((8).W))
-    val DATA_VALID = Input(Bool())
-    val DATA_RBACK = Input(UInt((64).W))
-    val DATA_MASK = Input(UInt((64).W))
-    val DATA_OFFSET = Input(UInt((2).W))
-    val COMM_VALID = Output(Bool())
-    val COMM_DATA = Output(UInt((128).W))
-    val SEND_BUFFER = Output(UInt((8).W))
-  })
-}
-
 class mig_cp_stab extends BlackBox {
   val io = IO(new Bundle {
     val aclk = Input(Clock())

@@ -33,12 +33,7 @@ class MigControlPlane(implicit p: Parameters) extends Module {
 
   val i2c = Module(new I2CInterface)
 
-  val ident = "PARDMig7CP".padTo((32 + 64) / 8, ' ').reverse
-  val reg = Module(new RegisterInterface(
-    TYPE = 0x4D,  // 'M'
-    IDENT_LOW = ident.substring(8, 12),
-    IDENT_HIGH = ident.substring(0, 8)
-  ))
+  val reg = Module(new RegInterface('M', "PARDMig7CP"))
 
   val detect = Module(new MigDetectLogic)
 
@@ -53,11 +48,6 @@ class MigControlPlane(implicit p: Parameters) extends Module {
   io.t.scl := i2c.io.SCL_t
   io.t.sda := i2c.io.SDA_t
 
-  // regIntf <> outer
-  reg.io.RST := reset
-  reg.io.SYS_CLK := clock
-  reg.io.SCL_i := io.i.scl
-
   // i2c <> regIntf
   i2c.io.SEND_BUFFER := reg.io.SEND_BUFFER
   reg.io.STOP_DETECT := i2c.io.STOP_DETECT_o
@@ -66,12 +56,8 @@ class MigControlPlane(implicit p: Parameters) extends Module {
   reg.io.RECEIVE_BUFFER := i2c.io.RECEIVE_BUFFER
 
   // regIntf <> detect
-  reg.io.DATA_VALID := detect.io.reg.DATA_VALID
-  reg.io.DATA_RBACK := detect.io.reg.DATA_RBACK
-  reg.io.DATA_MASK := detect.io.reg.DATA_MASK
-  reg.io.DATA_OFFSET := detect.io.reg.DATA_OFFSET
-  detect.io.reg.COMM_VALID := reg.io.COMM_VALID && !reg.io.COMM_DATA(31)
-  detect.io.reg.COMM_DATA := reg.io.COMM_DATA
+  reg.io.detect <> detect.io.reg
+  detect.io.reg.COMM_VALID := reg.io.detect.COMM_VALID && !reg.io.detect.COMM_DATA(31)
 
   // detect <> outer
   (detect.io, io.apm) match { case (d, apm) =>
