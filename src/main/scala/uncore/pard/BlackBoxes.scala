@@ -59,3 +59,27 @@ class ttab(val CP_ID: BigInt = BigInt("0", 10), val NR_ENTRY_WIDTH: BigInt = Big
     val fifo_wdata = Output(UInt((16).W))
   })
 }
+
+class core_cp_detect_logic extends BlackBox {
+  val io = IO(new Bundle {
+    val SYS_CLK = Input(Clock())
+    val RST = Input(UInt((1).W))
+    val COMM_VALID = Input(UInt((1).W))
+    val COMM_DATA = Input(UInt((0).W))
+    val DATA_VALID = Output(UInt((1).W))
+    val DATA_RBACK = Output(UInt((0).W))
+    val DATA_MASK = Output(UInt((0).W))
+    val DATA_OFFSET = Output(UInt((0).W))
+    val EXT_RESET_IN_CORE0 = Output(UInt((1).W))
+    val EXT_RESET_IN_CORE1 = Output(UInt((1).W))
+    val EXT_RESET_IN_CORE2 = Output(UInt((1).W))
+    val EXT_RESET_IN_CORE3 = Output(UInt((1).W))
+    val DS_ID_CORE0 = Output(UInt((0).W))
+    val DS_ID_CORE1 = Output(UInt((0).W))
+    val DS_ID_CORE2 = Output(UInt((0).W))
+    val DS_ID_CORE3 = Output(UInt((0).W))
+    val trigger_axis_tready = Input(UInt((1).W))
+    val trigger_axis_tvalid = Output(UInt((1).W))
+    val trigger_axis_tdata = Output(UInt((0).W))
+  })
+}

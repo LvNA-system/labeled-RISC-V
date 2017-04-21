@@ -5,6 +5,24 @@ import chisel3.util._
 
 import config._
 
+
+class BucketBundle(implicit p: Parameters) extends Bundle {
+  val size = UInt(p(BucketBits).size.W)
+  val freq = UInt(p(BucketBits).freq.W)
+  val inc = UInt(p(BucketBits).size.W)
+
+  override def cloneType = (new BucketBundle).asInstanceOf[this.type]
+}
+
+
+/** Only view the ReadyValidIO protocol */
+class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
+  val valid = Input(Bool())
+  val ready = Input(Bool())
+  val bits  = Input(gen.cloneType)
+}
+
+
 class TokenBucket(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val read  = new ReadyValidMonitor(UInt(p(BucketBits).data.W))

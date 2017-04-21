@@ -5,47 +5,27 @@ import chisel3.util._
 
 import config._
 
-class BucketBundle(implicit p: Parameters) extends Bundle {
-  val size = UInt(p(BucketBits).size.W)
-  val freq = UInt(p(BucketBits).freq.W)
-  val inc = UInt(p(BucketBits).size.W)
 
-  override def cloneType = (new BucketBundle).asInstanceOf[this.type]
-}
-
-/** Only view the ReadyValidIO protocol */
-class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
-  val valid = Input(Bool())
-  val ready = Input(Bool())
-  val bits  = Input(gen.cloneType)
-}
-
-class MigDetectLogic(implicit p: Parameters) extends Module {
-  private val tagBits = p(TagBits)
+class MigDetectLogicIO(implicit p: Parameters) extends DetectLogicIO {
   private val nEntries = p(NEntries)
+  val rTag = new TagBundle
+  val wTag = new TagBundle
+  val apm = new APMBundle
+  val dsids = Output(Vec(nEntries, UInt(p(TagBits).W)))
+  val l1enables = Output(Vec(nEntries, Bool()))
+  val buckets = Output(Vec(nEntries, new BucketBundle))
+}
 
-  val io = IO(new Bundle {
-    val reg = new RegisterInterfaceIO
-    val rTag = new TagBundle
-    val wTag = new TagBundle
-    val apm = new APMBundle
-    val dsids = Output(Vec(nEntries, UInt(p(TagBits).W)))
-    val l1enables = Output(Vec(nEntries, Bool()))
-    val buckets = Output(Vec(nEntries, new BucketBundle))
-    val trigger_axis = new DecoupledIO(UInt(16.W))
-  })
 
-  val common = Module(new DetectLogicCommon)
+class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLogicIO) {
+
   val ptab = Module(new MigPTab)
   val stab = Module(new mig_cp_stab)
   val ttab = Module(new ttab(CP_ID = 2))
 
   // The source of static dsids!
-  val dsids = Vec((1 to nEntries).map(_.U(p(TagBits).W)))
+  val dsids = Vec((1 to p(NEntries)).map(_.U(p(TagBits).W)))
   io.dsids := dsids
-
-  // detect <> outer
-  common.io.reg <> io.reg
 
   // TODO Bundle this common interface
 
