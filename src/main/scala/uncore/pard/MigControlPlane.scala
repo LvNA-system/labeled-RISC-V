@@ -1,6 +1,7 @@
 package uncore.pard
 
 import chisel3._
+import chisel3.util._
 import config._
 import uncore.axi4._
 
@@ -10,9 +11,9 @@ class I2CBundle extends Bundle {
 }
 
 class APMBundle extends Bundle {
-  val valid = Bool()
-  val addr = UInt(32.W)
-  val data = UInt(32.W)
+  val valid = Input(Bool())
+  val addr = Input(UInt(32.W))
+  val data = Input(UInt(32.W))
 }
 
 class MigControlPlane(implicit p: Parameters) extends Module {
@@ -26,9 +27,10 @@ class MigControlPlane(implicit p: Parameters) extends Module {
     val i = Input(new I2CBundle)
     val t = Output(new I2CBundle)
     val o = Output(new I2CBundle)
-    val apm = Output(new APMBundle)
+    val apm = new APMBundle
     val s_axi =  Flipped(AXI4Bundle(AXI4BundleParameters(addrBits, dataBits, 5)))
     val m_axi = AXI4Bundle(AXI4BundleParameters(addrBits, dataBits, 5))
+    val trigger_axis = new DecoupledIO(UInt(16.W))
   })
 
   val i2c = Module(new I2CInterface)
@@ -60,11 +62,8 @@ class MigControlPlane(implicit p: Parameters) extends Module {
   detect.io.reg.COMM_VALID := reg.io.detect.COMM_VALID && !reg.io.detect.COMM_DATA(31)
 
   // detect <> outer
-  (detect.io, io.apm) match { case (d, apm) =>
-      d.APM_DATA := apm.data
-      d.APM_VALID := apm.valid
-      d.APM_ADDR := apm.addr
-  }
+  detect.io.trigger_axis <> io.trigger_axis
+  detect.io.apm <> io.apm
 
   // Bypass
   io.s_axi <> io.m_axi

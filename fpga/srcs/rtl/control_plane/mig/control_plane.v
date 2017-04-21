@@ -50,6 +50,9 @@ module mig_control_plane(
     .io_apm_valid(APM_VALID),
     .io_apm_addr(APM_ADDR),
     .io_apm_data(APM_DATA),
+    .io_trigger_axis_ready(trigger_axis_tready),
+    .io_trigger_axis_valid(trigger_axis_tvalid),
+    .io_trigger_axis_bits(trigger_axis_tdata),
     `axi_connect_interface(io_s_axi, s_axi),
     `axi_connect_interface(io_m_axi, m_axi)
   );

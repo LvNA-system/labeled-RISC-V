@@ -28,15 +28,11 @@ class MigDetectLogic(implicit p: Parameters) extends Module {
     val reg = new RegisterInterfaceIO
     val rTag = new TagBundle
     val wTag = new TagBundle
-    val APM_DATA = Input(UInt(32.W))  // TODO Bundle APM
-    val APM_ADDR = Input(UInt(32.W))
-    val APM_VALID = Input(Bool())
+    val apm = new APMBundle
     val dsids = Output(Vec(nEntries, UInt(p(TagBits).W)))
     val l1enables = Output(Vec(nEntries, Bool()))
     val buckets = Output(Vec(nEntries, new BucketBundle))
-    val trigger_axis_tready = Input(Bool())  // TODO Bundle this using ReadyValidIO
-    val trigger_axis_tvalid = Output(Bool())
-    val trigger_axis_tdata = Output(UInt(16.W))
+    val trigger_axis = new DecoupledIO(UInt(16.W))
   })
 
   val common = Module(new DetectLogicCommon)
@@ -84,9 +80,9 @@ class MigDetectLogic(implicit p: Parameters) extends Module {
   // stab <> outer
   stab.io.aclk := clock
   stab.io.areset := reset
-  stab.io.wdata := io.APM_DATA
-  stab.io.wen := io.APM_VALID
-  stab.io.apm_axi_araddr := io.APM_ADDR
+  stab.io.wdata := io.apm.data
+  stab.io.wen := io.apm.valid
+  stab.io.apm_axi_araddr := io.apm.addr
 
   // stab <> ttab
   ttab.io.trigger_rdata := stab.io.trigger_rdata
@@ -95,9 +91,9 @@ class MigDetectLogic(implicit p: Parameters) extends Module {
   // ttab <> outer
   ttab.io.SYS_CLK := clock
   ttab.io.DETECT_RST := reset
-  ttab.io.fifo_wready <> io.trigger_axis_tready
-  ttab.io.fifo_wvalid <> io.trigger_axis_tvalid
-  ttab.io.fifo_wdata <> io.trigger_axis_tdata
+  ttab.io.fifo_wready <> io.trigger_axis.ready
+  ttab.io.fifo_wvalid <> io.trigger_axis.valid
+  ttab.io.fifo_wdata <> io.trigger_axis.bits
 
   // Look up dsid
   val triggerDsidMatch = dsids.map{_ === ttab.io.trigger_dsid}
