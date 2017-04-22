@@ -86,19 +86,17 @@ emu-clean:
 #--------------------------------------------------------------------
 # PARD Chisel-impl part building and implementation
 #--------------------------------------------------------------------
-CP_MIG = MigControlPlane
-CP_MIG_TARGET = $(fpga_dir)/srcs/rtl/control_plane/mig/$(CP_MIG).v
-PARD_CHISEL = $(CP_MIG_TARGET)
+PARD_CP = ControlPlanes
+PARD_CP_TARGET = $(fpga_dir)/srcs/rtl/control_plane/$(PARD_CP).v
+PARD_CP_SRC_DIR = $(base_dir)/src/main/scala/uncore/pard/controlplane
 
-$(CP_MIG_TARGET):
-	cd $(base_dir) && $(SBT) "runMain uncore.pard.MIG"
-	mv $(base_dir)/$(CP_MIG).v $(CP_MIG_TARGET)
-	rm $(base_dir)/$(CP_MIG).fir $(base_dir)/$(CP_MIG).anno
+$(PARD_CP_TARGET): $(shell find $(PARD_CP_SRC_DIR) -type f -name "*.scala")
+	cd $(base_dir) && $(SBT) "runMain uncore.pard.CP"
+	mv $(base_dir)/$(PARD_CP).v $(PARD_CP_TARGET)
+	rm $(base_dir)/$(PARD_CP).fir $(base_dir)/$(PARD_CP).anno
 
-pard-chisel-clean:
-	-rm $(CP_MIG_TARGET)
-
-.PHONY: $(PARD_CHISEL)
+pard-cp-clean:
+	-rm $(PARD_CP_TARGET)
 
 #--------------------------------------------------------------------
 # Project building and implementation
@@ -106,7 +104,7 @@ pard-chisel-clean:
 
 PRJ_ROOT = $(build_dir)/$(PRJ)
 XPR_FILE = $(PRJ_ROOT)/$(PRJ).xpr
-$(XPR_FILE): $(PARD_CHISEL) | $(rocketchip_rtl)
+$(XPR_FILE): $(PARD_CP_TARGET) | $(rocketchip_rtl)
 	vivado $(VIVADO_FLAG) -mode batch -source $(fpga_script_dir)/setup.tcl -tclargs $(PRJ)
 
 project: $(XPR_FILE)
@@ -127,7 +125,7 @@ vivado: $(XPR_FILE)
 # Cleaning
 #--------------------------------------------------------------------
 
-clean: pard-chisel-clean
+clean: pard-cp-clean
 	-rm -rf $(generated_dir)
 
 .PHONY: default clean

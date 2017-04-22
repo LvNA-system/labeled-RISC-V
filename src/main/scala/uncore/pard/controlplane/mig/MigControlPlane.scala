@@ -49,8 +49,3 @@ class MigControlPlane(implicit p: Parameters)
     io.l1enable(i) := detect.io.l1enables(i) && bucket.io.enable
   }
 }
-
-
-object MIG extends App {
-  Driver.execute(args, () => new MigControlPlane()(MigConfig))
-}

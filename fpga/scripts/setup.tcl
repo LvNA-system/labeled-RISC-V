@@ -67,20 +67,18 @@ add_files -norecurse -fileset $fileset $files
 
 # Add files for control planes
 set files [list \
+ "[file normalize "$rtlRoot/control_plane/ControlPlanes.v"]"\
  "[file normalize "$rtlRoot/control_plane/common/detec_logic_common.v"]"\
  "[file normalize "$rtlRoot/control_plane/common/i2cintf.v"]"\
  "[file normalize "$rtlRoot/control_plane/common/regintf.v"]"\
  "[file normalize "$rtlRoot/control_plane/common/ttab.v"]"\
  "[file normalize "$rtlRoot/control_plane/core/control_plane.v"]"\
- "[file normalize "$rtlRoot/control_plane/core/detec_logic.v"]"\
- "[file normalize "$rtlRoot/control_plane/core/ptab.v"]"\
  "[file normalize "$rtlRoot/control_plane/cache/control_plane.v"]"\
  "[file normalize "$rtlRoot/control_plane/cache/detec_logic.v"]"\
  "[file normalize "$rtlRoot/control_plane/cache/ptab.v"]"\
  "[file normalize "$rtlRoot/control_plane/cache/stab.v"]"\
  "[file normalize "$rtlRoot/control_plane/cache/stab_calc.v"]"\
  "[file normalize "$rtlRoot/control_plane/mig/control_plane.v"]"\
- "[file normalize "$rtlRoot/control_plane/mig/MigControlPlane.v"]"\
  "[file normalize "$rtlRoot/control_plane/mig/stab.v"]"\
 ]
 add_files -norecurse -fileset $fileset $files
