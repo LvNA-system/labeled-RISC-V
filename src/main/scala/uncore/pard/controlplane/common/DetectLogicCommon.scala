@@ -15,9 +15,35 @@ class Command(implicit p: Parameters) extends Bundle {
   override def cloneType = (new Command).asInstanceOf[this.type]
 }
 
-class TableIO(implicit p: Parameters) extends Bundle {
-  val data = Input(UInt(64.W))  // Data from table
-  val enable = Output(Bool())   // Table write enable
+/**
+ * IO bundle to wrap exclusive ports for each table.
+ */
+class ExclusiveTableBundle(implicit p: Parameters) extends Bundle {
+  val data = Input(UInt(p(DataBits).W))  // Data from table
+  val sel  = Output(Bool())              // Table write enable
+
+  override def cloneType = (new ExclusiveTableBundle).asInstanceOf[this.type]
+}
+
+/**
+ * IO bundle to wrap common ports for tables.
+ */
+class CommonTableBundle(implicit p: Parameters) extends Bundle {
+  val col = Output(UInt(15.W))
+  val row = Output(UInt(15.W))
+  val wdata = Output(UInt(p(DataBits).W))
+  val wen = Output(Bool())
+
+  override def cloneType = (new CommonTableBundle).asInstanceOf[this.type]
+}
+
+/**
+ * IO bundle used by individual tables,
+ * combining common ports and exclusive ports.
+ */
+class TableBundle(implicit p: Parameters) extends Bundle {
+  val cmd   = Flipped(new CommonTableBundle)
+  val table = Flipped(new ExclusiveTableBundle)
 }
 
 class RegisterInterfaceIO(implicit p: Parameters) extends Bundle {
@@ -38,16 +64,13 @@ class DetectLogicCommon(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val reg = new RegisterInterfaceIO
     // Table Interface
-    val col = Output(UInt(15.W))
-    val row = Output(UInt(15.W))
-    val wdata = Output(UInt(p(DataBits).W))
-    val wen = Output(Bool())
-    val ptab = new TableIO
-    val stab = new TableIO
-    val ttab = new TableIO
+    val cmd = new CommonTableBundle
+    val ptab = new ExclusiveTableBundle
+    val stab = new ExclusiveTableBundle
+    val ttab = new ExclusiveTableBundle
     // Helpers
     def tables = List(ptab, stab, ttab)
-    def tables_en = tables.map(_.enable)
+    def tables_en = tables.map(_.sel)
     def tables_data = tables.map(_.data)
   })
 
@@ -66,10 +89,10 @@ class DetectLogicCommon(implicit p: Parameters) extends Module {
 
   val slave_wen = data_valid_flag && is_write_cmd
   val last_slave_wen = RegNext(slave_wen, true.B)
-  io.col := cmd.col
-  io.row := cmd.row
-  io.wdata := cmd.wdata
-  io.wen := !last_slave_wen && slave_wen
+  io.cmd.col := cmd.col
+  io.cmd.row := cmd.row
+  io.cmd.wdata := cmd.wdata
+  io.cmd.wen := !last_slave_wen && slave_wen
 
   io.tables_en.zipWithIndex.foreach { case (en, i) =>
     en := cmd.table_sel === i.U

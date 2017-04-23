@@ -31,24 +31,21 @@ class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLo
 
   // detect <> ptab
   common.io.ptab <> ptab.io.table
-  common.io.col <> ptab.io.col
-  common.io.row <> ptab.io.row
-  common.io.wdata <> ptab.io.wdata
-  common.io.wen <> ptab.io.wen
+  common.io.cmd  <> ptab.io.cmd
 
   // detect <> stab
-  common.io.stab.enable <> stab.io.is_this_table
+  common.io.stab.sel <> stab.io.is_this_table
   common.io.stab.data <> stab.io.rdata
-  common.io.col <> stab.io.col
-  common.io.row <> stab.io.row
+  common.io.cmd.col <> stab.io.col
+  common.io.cmd.row <> stab.io.row
 
   // detect <> ttab
-  common.io.ttab.enable <> ttab.io.is_this_table
+  common.io.ttab.sel <> ttab.io.is_this_table
   common.io.ttab.data <> ttab.io.rdata
-  common.io.col <> ttab.io.col
-  common.io.row <> ttab.io.row
-  common.io.wdata <> ttab.io.wdata
-  common.io.wen <> ttab.io.wen
+  common.io.cmd.col <> ttab.io.col
+  common.io.cmd.row <> ttab.io.row
+  common.io.cmd.wdata <> ttab.io.wdata
+  common.io.cmd.wen <> ttab.io.wen
 
   // ptab <> outer
   io.l1enables := ptab.io.l1enables

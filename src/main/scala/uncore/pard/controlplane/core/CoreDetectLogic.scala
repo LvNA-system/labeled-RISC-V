@@ -18,11 +18,8 @@ class CoreDetectLogic(implicit p: Parameters)
 
   // TODO Abstract this common part
   // detect <> ptab
-  common.io.ptab  <> ptab.io.table
-  common.io.col   <> ptab.io.col
-  common.io.row   <> ptab.io.row
-  common.io.wdata <> ptab.io.wdata
-  common.io.wen   <> ptab.io.wen
+  common.io.ptab <> ptab.io.table
+  common.io.cmd  <> ptab.io.cmd
 
   // ptab <> outer
   ptab.io.extReset <> io.extReset
