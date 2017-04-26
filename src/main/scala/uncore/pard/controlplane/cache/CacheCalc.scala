@@ -11,7 +11,8 @@ import config._
  * Pipeline lookup, update_tag, and lru from outer to stab.
  * And select the first matched dsid
  */
-class CacheCalc(implicit p: Parameters) extends Module {
+class CacheCalc(implicit p: Parameters) extends Module
+  with HasPipeline {
   val io = IO(new Bundle {
     val from_outer = new Bundle {
       val lookup = Input(new LookupBundle)
@@ -25,22 +26,6 @@ class CacheCalc(implicit p: Parameters) extends Module {
 
   val outer = io.from_outer
   val stab  = io.to_stab
-
-  def zeroInit[D <: Data](data: D) = {
-    val init = 0.U(data.getWidth.W).asTypeOf(data)
-    require(init.isWidthKnown)
-    init
-  }
-
-  // from_outer => ... => to_stab
-  def pipelined[D <: Data](from: D, deep: Int) = {
-    val regs = from +: Seq.fill(deep){ Reg(from.cloneType) }
-    for (i <- 1 until regs.size) {
-      when (reset) { regs(i) := zeroInit(from) }
-      .otherwise   { regs(i) := regs(i - 1)    }
-    }
-    regs.last
-  }
 
   val old_dsids = pipelined(outer.update_tag.old_dsids, 1)
   val new_dsids = pipelined(outer.update_tag.new_dsids, 2)
