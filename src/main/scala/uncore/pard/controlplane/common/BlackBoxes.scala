@@ -59,3 +59,28 @@ class ttab(val CP_ID: BigInt = BigInt("0", 10), val NR_ENTRY_WIDTH: BigInt = Big
     val fifo_wdata = Output(UInt((16).W))
   })
 }
+
+class cache_cp_stab(val CACHE_ASSOCIATIVITY: BigInt = BigInt("16", 10), val DSID_WIDTH: BigInt = BigInt("16", 10), val ENTRY_SIZE: BigInt = BigInt("32", 10), val NUM_ENTRIES: BigInt = BigInt("4", 10)) extends BlackBox(Map("CACHE_ASSOCIATIVITY" -> IntParam(CACHE_ASSOCIATIVITY), "DSID_WIDTH" -> IntParam(DSID_WIDTH), "ENTRY_SIZE" -> IntParam(ENTRY_SIZE), "NUM_ENTRIES" -> IntParam(NUM_ENTRIES))) {
+  val io = IO(new Bundle {
+    val SYS_CLK = Input(Clock())
+    val DETECT_RST = Input(Bool())
+    val is_this_table = Input(Bool())
+    val wdata = Input(UInt((64).toInt.W))
+    val wen = Input(Bool())
+    val col = Input(UInt((15).toInt.W))
+    val row = Input(UInt((15).toInt.W))
+    val rdata = Output(UInt((64).toInt.W))
+    val DSid_storage = Input(UInt((NUM_ENTRIES*DSID_WIDTH-1 + 1).toInt.W))
+    val trigger_row = Input(UInt((15).toInt.W))
+    val trigger_metric = Input(UInt((3).toInt.W))
+    val trigger_rdata = Output(UInt((32).toInt.W))
+    val lookup_valid_from_calc_to_stab = Input(Bool())
+    val lookup_DSid_from_calc_to_stab = Input(UInt((DSID_WIDTH-1 + 1).toInt.W))
+    val lookup_hit_from_calc_to_stab = Input(Bool())
+    val lookup_miss_from_calc_to_stab = Input(Bool())
+    val update_tag_en_from_calc_to_stab = Input(Bool())
+    val update_tag_we_from_calc_to_stab = Input(UInt((CACHE_ASSOCIATIVITY-1 + 1).toInt.W))
+    val update_tag_old_DSid_from_calc_to_stab = Input(UInt((DSID_WIDTH-1 + 1).toInt.W))
+    val update_tag_new_DSid_from_calc_to_stab = Input(UInt((DSID_WIDTH-1 + 1).toInt.W))
+  })
+}

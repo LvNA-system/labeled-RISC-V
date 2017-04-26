@@ -7,6 +7,7 @@ package uncore.pard
 import config._
 
 object TopConfig extends Config(new MigConfig
+  ++ new CacheConfig
   ++ new BucketConfig)
 
 case object TagBits extends Field[Int]
@@ -21,6 +22,14 @@ class MigConfig extends Config((site, here, next) => {
   case DataBits => 64
   case CmdBits => 128
   case NEntries => 3
+})
+
+case object CacheAssoc extends Field[Int]
+case object CacheBlockSize extends Field[Int]
+
+class CacheConfig extends Config((site, here, next) => {
+  case CacheAssoc => 16
+  case CacheBlockSize => 64
 })
 
 case class BucketBitsParams(data: Int, size: Int, freq: Int)
