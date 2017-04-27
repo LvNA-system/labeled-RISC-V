@@ -19,10 +19,10 @@ trait HasPipeline {
 
   // from_outer => ... => to_stab
   def pipelined[D <: Data](from: D, deep: Int) = {
-    val regs = from +: Seq.fill(deep){ Reg(from.cloneType) }
+    val init = zeroInit(from)
+    val regs = from +: Seq.fill(deep){ RegInit(from.cloneType, init) }
     for (i <- 1 until regs.size) {
-      when (reset) { regs(i) := zeroInit(from) }
-      .otherwise   { regs(i) := regs(i - 1)    }
+      regs(i) := regs(i - 1)
     }
     regs.last
   }
