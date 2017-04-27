@@ -10,7 +10,7 @@ class TTab(implicit p: Parameters) extends Module {
   val io = IO(new TableBundle {
     val trigger_dsid = Output(UInt(p(TagBits).W))
     val trigger_rdata = Input(UInt(p(DataBits).W))
-    val trigger_metric = Output(Bool())  // FIXME
+    val trigger_metric = Output(UInt(3.W))  // FIXME
     val trigger_dsid_valid = Input(Bool())
     val fifo = new DecoupledIO(UInt(16.W))
   })

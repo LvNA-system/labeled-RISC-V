@@ -29,7 +29,7 @@ class CacheSTab(implicit p: Parameters) extends Module
   def matchId(check: UInt => Bool) = {
     val sel = dsids.map(check(_))
     val index = OHToUInt(PriorityEncoderOH(sel))
-    Mux(sel.reduce(_ || _), index, (sel.size - 1).U)
+    return Mux(sel.reduce(_ || _), index, (sel.size - 1).U)
   }
 
   val lookup_hit    = pipelined(io.lookup.hit, 1)
@@ -56,12 +56,19 @@ class CacheSTab(implicit p: Parameters) extends Module
     field
   }
   
-  def makeRead() = {
+  def makeRead = {
     readGenerated = true
     io.table.data := MuxLookup(io.cmd.col, 0.U,
       fields.zipWithIndex.map { case (field: Vec[_], i) =>
-        nReadPorts += 1
         (i.U, field(io.cmd.row))
+      })
+  }
+
+  def makeTriggerRead = {
+    readGenerated = true
+    io.trigger_rdata := MuxLookup(io.trigger_metric, 0.U,
+      fields.zipWithIndex.map { case (field: Vec[_], i) =>
+        (i.U, field(io.trigger_row))
       })
   }
 
@@ -80,5 +87,26 @@ class CacheSTab(implicit p: Parameters) extends Module
     vec(sel_new) := vec(sel_new) + 1.U
   }
 
-  makeRead()
+  // Hit rate
+  val win_hit_counters = RegInit(Vec(Seq.fill(p(NEntries)){ 0.U(32.W) }))
+  val win_total_counters = RegInit(Vec(Seq.fill(p(NEntries)){ 0.U(32.W) }))
+  val win_hit_rates_in_percent = makeField(UInt(32.W), lookup_miss || lookup_hit) { vec =>
+    val win_hit_counter = win_hit_counters(sel_lookup)
+    val win_total_counter = win_total_counters(sel_lookup)
+    val win_hit_rate_in_percent = vec(sel_lookup)
+    when (win_total_counter === (1600 - 1).U) {
+      win_hit_counter := 0.U
+      win_total_counter := 0.U
+      win_hit_rate_in_percent := Cat(0.U(4.W), win_hit_counter(31, 4))  // hit_counter / 16
+    }
+    .otherwise {
+      win_total_counters(sel_lookup) := win_total_counters(sel_lookup) + 1.U
+      when (lookup_hit) {
+        win_hit_counters(sel_lookup) := win_hit_counters(sel_lookup) + 1.U
+      }
+    }
+  }
+
+  makeRead
+  makeTriggerRead
 }
