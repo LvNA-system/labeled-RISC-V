@@ -19,11 +19,17 @@ trait HasPipeline {
   }
 
   // from_outer => ... => to_stab
-  def pipelined[D <: Data](from: D, deep: Int) = {
+  def pipelined[D <: Data](from: D, deep: Int, enable: Bool = null) = {
     val init = zeroInit(from)
     val regs = from +: Seq.fill(deep){ RegInit(from.cloneType, init) }
     for (i <- 1 until regs.size) {
-      regs(i) := regs(i - 1)
+      if (enable != null) {
+        when (enable) {
+          regs(i) := regs(i - 1)
+        }
+      } else {
+        regs(i) := regs(i - 1)
+      }
     }
     regs.last
   }
@@ -59,12 +65,16 @@ trait HasTable {
     val field = RegInit(Vec(Seq.fill(nEntries) {
       0.U(gen.getWidth.W).asTypeOf(gen)
     }))
-    val context = when (io.cmd.wen && io.table.sel && (io.cmd.col === fields.size.U)) {
-      field(io.cmd.row) := io.cmd.wdata
-    }
+    val write_enable = io.cmd.wen && io.table.sel && (io.cmd.col === fields.size.U)
     if (update_en != null) {
-      context.elsewhen (update_en) {
+      when (update_en) {
         update_block.apply(field)
+      } .elsewhen(write_enable) {
+        field(io.cmd.row) := io.cmd.wdata
+      }
+    } else {
+      when (write_enable) {
+        field(io.cmd.row) := io.cmd.wdata
       }
     }
     fields += field

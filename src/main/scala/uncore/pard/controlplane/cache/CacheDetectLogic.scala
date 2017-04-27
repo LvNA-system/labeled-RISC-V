@@ -18,7 +18,7 @@ class CacheDetectLogic(implicit p: Parameters) extends DetectLogic(new CacheDete
   val ptab = Module(new CachePTab)
   val stab = Module(new CacheSTab)
   val calc = Module(new CacheCalc)
-  val ttab = Module(new TTab)
+  val ttab = Module(new TTab(1))
 
   val dsids = Vec((1 to p(NEntries)).map(_.U(p(TagBits).W)))
 
