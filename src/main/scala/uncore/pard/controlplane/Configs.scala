@@ -8,7 +8,16 @@ import config._
 
 object TopConfig extends Config(new MigConfig
   ++ new CacheConfig
+  ++ new TriggerConfig
   ++ new BucketConfig)
+
+case object TriggerRDataBits extends Field[Int]
+case object TriggerMetricBits extends Field[Int]
+
+class TriggerConfig extends Config((site, here, next) => {
+  case TriggerRDataBits => 32
+  case TriggerMetricBits => 3
+})
 
 case object TagBits extends Field[Int]
 case object AddrBits extends Field[Int]
