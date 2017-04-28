@@ -21,7 +21,7 @@ class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLo
 
   val ptab = Module(new MigPTab)
   val stab = Module(new mig_cp_stab)
-  val ttab = Module(new ttab(CP_ID = 2))
+  val ttab = Module(new TTab(2))
 
   // The source of static dsids!
   val dsids = Vec((1 to p(NEntries)).map(_.U(p(TagBits).W)))
@@ -40,12 +40,8 @@ class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLo
   common.io.cmd.row <> stab.io.row
 
   // detect <> ttab
-  common.io.ttab.sel <> ttab.io.is_this_table
-  common.io.ttab.data <> ttab.io.rdata
-  common.io.cmd.col <> ttab.io.col
-  common.io.cmd.row <> ttab.io.row
-  common.io.cmd.wdata <> ttab.io.wdata
-  common.io.cmd.wen <> ttab.io.wen
+  common.io.ttab <> ttab.io.table
+  common.io.cmd <> ttab.io.cmd
 
   // ptab <> outer
   io.l1enables := ptab.io.l1enables
@@ -66,11 +62,7 @@ class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLo
   stab.io.trigger_metric := ttab.io.trigger_metric
 
   // ttab <> outer
-  ttab.io.SYS_CLK := clock
-  ttab.io.DETECT_RST := reset
-  ttab.io.fifo_wready <> io.trigger_axis.ready
-  ttab.io.fifo_wvalid <> io.trigger_axis.valid
-  ttab.io.fifo_wdata <> io.trigger_axis.bits
+  ttab.io.fifo <> io.trigger_axis
 
   // Look up dsid
   val triggerDsidMatch = dsids.map{_ === ttab.io.trigger_dsid}
