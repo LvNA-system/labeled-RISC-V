@@ -12,8 +12,8 @@ class CachePTabIO(implicit p: Parameters) extends TableBundle {
 }
 
 class CachePTab(implicit p: Parameters) extends PTab(new CachePTabIO) {
-  val waymasks = RegInit(Vec(Seq.fill(p(NEntries)){ (-1).S(p(CacheAssoc).W).asTypeOf(UInt(p(CacheAssoc).W)) }))
-  makeTable(waymasks)
+  val waymasks = makeField((-1).S(p(CacheAssoc).W).asTypeOf(UInt(p(CacheAssoc).W)))()
+  makeRead(io.table.data, io.cmd.row, io.cmd.col)
 
   // We consider that echo row has a distinguished dsid.
   val sel = io.dsids.map{dsid => io.lru.dsid_valid && (io.lru.dsid === dsid)}

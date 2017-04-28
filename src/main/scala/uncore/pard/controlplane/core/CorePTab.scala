@@ -12,13 +12,9 @@ class CorePTabIO(implicit val p: Parameters)
 
 
 class CorePTab(implicit p: Parameters) extends PTab(new CorePTabIO) {
-  val nRows = p(NEntries)
-
-  val dsids = RegInit(Vec(Seq.fill(nRows)(0.U(p(TagBits).W))))
-  val states = RegInit(Vec(Seq.fill(nRows)(false.B)))
-
+  val dsids = makeField(0.U(p(TagBits).W))()
+  val states = makeField(false.B)()
   io.dsid := dsids
   io.extReset := states
-
-  makeTable(dsids, states)
+  makeRead(io.table.data, io.cmd.row, io.cmd.col)
 }

@@ -34,13 +34,12 @@ class MigPTab(implicit p: Parameters) extends PTab(new MigPTabBundle) {
   private val nRows = p(NEntries)
 
   val dsids   = RegNext(io.dsids, Vec(Seq.fill(nRows){ 0.U(p(TagBits).W) }))
-  val bases   = RegInit(Vec(Seq.fill(nRows){ 0.U(p(AddrBits).W) }))
-  val masks   = RegInit(Vec(Seq.fill(nRows){ 0.U(p(AddrBits).W) }))
-  val enables = RegInit(Vec(Seq.fill(nRows){ true.B }))
-  val sizes   = RegInit(Vec(Seq.fill(nRows){ 0.U(sizeBits.W) }))
-  val freqs   = RegInit(Vec(Seq.fill(nRows){ 0.U(freqBits.W) }))
-  val incs    = RegInit(Vec(Seq.fill(nRows){ 0.U(sizeBits.W) }))
-
+  val bases   = makeField(0.U(p(AddrBits).W))()
+  val masks   = makeField(0.U(p(AddrBits).W))()
+  val enables = makeField(true.B)()
+  val sizes   = makeField(0.U(sizeBits.W))()
+  val freqs   = makeField(0.U(freqBits.W))()
+  val incs    = makeField(0.U(sizeBits.W))()
 
   io.l1enables := enables
 
@@ -59,5 +58,5 @@ class MigPTab(implicit p: Parameters) extends PTab(new MigPTabBundle) {
     tag.mask := masks(index)
   }
 
-  makeTable(bases, masks, enables, sizes, freqs, incs)
+  makeRead(io.table.data, io.cmd.row, io.cmd.col)
 }
