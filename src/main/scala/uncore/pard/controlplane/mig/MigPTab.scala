@@ -58,5 +58,5 @@ class MigPTab(implicit p: Parameters) extends PTab(new MigPTabBundle) {
     tag.mask := masks(index)
   }
 
-  makeRead(io.table.data, io.cmd.row, io.cmd.col)
+  io.table.data := makeRead(io.cmd.row, io.cmd.col)
 }

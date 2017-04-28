@@ -46,7 +46,7 @@ class TTab(cpid: Int)(implicit p: Parameters) extends Module
   val vals        = makeField(0.U(p(TriggerRDataBits).W))()
   val ops         = makeField(0.U(2.W))()
 
-  makeRead(io.table.data, io.cmd.row, io.cmd.col)
+  io.table.data := makeRead(io.cmd.row, io.cmd.col)
 
   when (!stall) {
     trigger_idx := trigger_idx + 1.U

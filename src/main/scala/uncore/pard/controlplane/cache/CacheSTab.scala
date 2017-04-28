@@ -73,6 +73,6 @@ class CacheSTab(implicit p: Parameters) extends STab(new CacheSTabIO)
     }
   }
 
-  makeRead(io.table.data, io.cmd.row, io.cmd.col)
-  makeRead(io.trigger_rdata, io.trigger_row, io.trigger_metric)
+  io.table.data    := makeRead(io.cmd.row, io.cmd.col)
+  io.trigger_rdata := makeRead(io.trigger_row, io.trigger_metric)
 }

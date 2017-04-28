@@ -98,9 +98,9 @@ trait HasTable {
   /**
    * Bind fields to common read ports.
    */
-  def makeRead(port: Data, row: UInt, col: UInt) = {
+  def makeRead(row: UInt, col: UInt) = {
     readGenerated = true
-    port := MuxLookup(col, 0.U, fields.zipWithIndex.map {
+    MuxLookup(col, 0.U, fields.zipWithIndex.map {
       case (field: Vec[_], i) => (i.U, field(row))
     })
   }

@@ -16,5 +16,5 @@ class CorePTab(implicit p: Parameters) extends PTab(new CorePTabIO) {
   val states = makeField(false.B)()
   io.dsid := dsids
   io.extReset := states
-  makeRead(io.table.data, io.cmd.row, io.cmd.col)
+  io.table.data := makeRead(io.cmd.row, io.cmd.col)
 }
