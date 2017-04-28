@@ -5,9 +5,10 @@ import chisel3.util._
 
 import config._
 
+class PTabIO(implicit p: Parameters) extends TableBundle
 
-abstract class PTab[+TB <: TableBundle](_io: => TB)(implicit p: Parameters)
+class PTab[+B <: PTabIO](_io: => B)(implicit p: Parameters)
   extends Module with HasTable {
   val io = IO(_io)
-  val params = p
+  override val params = p
 }

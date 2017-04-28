@@ -5,7 +5,7 @@ import chisel3.util._
 
 import config._
 
-class CachePTabIO(implicit p: Parameters) extends TableBundle {
+class CachePTabIO(implicit p: Parameters) extends PTabIO {
   val dsids   = Input(Vec(p(NEntries), UInt(p(TagBits).W)))
   val lru     = Input(new LRUBundle)
   val waymask = Output(UInt(p(CacheAssoc).W))

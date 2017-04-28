@@ -7,7 +7,7 @@ import config._
 
 
 class CorePTabIO(implicit val p: Parameters)
-  extends TableBundle
+  extends PTabIO
   with HasCoreIO
 
 

@@ -17,24 +17,13 @@ class CacheDetectLogicIO(implicit p: Parameters) extends DetectLogicIO {
 class CacheDetectLogic(implicit p: Parameters) extends DetectLogic(new CacheDetectLogicIO) {
   val ptab = Module(new CachePTab)
   val stab = Module(new CacheSTab)
-  val calc = Module(new CacheCalc)
   val ttab = Module(new TTab(1))
-
+  val calc = Module(new CacheCalc)
   val dsids = Vec((1 to p(NEntries)).map(_.U(p(TagBits).W)))
 
-  // TODO Common parts!
-  // detect <> ptab
-  common.io.ptab <> ptab.io.table
-  common.io.cmd <> ptab.io.cmd
-
-  // detect <> stab
-  common.io.stab <> stab.io.table
-  common.io.cmd <> stab.io.cmd
-
-  // detect <> ttab
-  common.io.ttab <> ttab.io.table
-  common.io.cmd <> ttab.io.cmd
-
+  bindPTab(ptab)
+  bindSTab(stab)
+  bindTTab(ttab)(stab, dsids)
 
   ptab.io.dsids := dsids
   ptab.io.lru := io.lru
@@ -55,20 +44,4 @@ class CacheDetectLogic(implicit p: Parameters) extends DetectLogic(new CacheDete
   stab.io.update_tag.new_dsid  := calc.io.to_stab.update_tag.new_dsid
   calc.io.from_outer.update_tag.old_dsids := io.update_tag.old_dsids
   calc.io.from_outer.update_tag.new_dsids := io.update_tag.new_dsids
-
-
-  // TODO Copied from MigDetectLogic!
-  // stab <> ttab
-  ttab.io.trigger_rdata := stab.io.trigger_rdata
-  stab.io.trigger_metric := ttab.io.trigger_metric
-
-  // ttab <> outer
-  ttab.io.fifo <> io.trigger_axis
-
-  // Look up dsid
-  val triggerDsidMatch = dsids.map{_ === ttab.io.trigger_dsid}
-  val triggerRow = Mux1H(triggerDsidMatch, dsids.indices.map(_.U))
-  val triggerDsidValid = triggerDsidMatch.map(_.asUInt).reduce(_ + _) === 1.U  // Naive one-hot check
-  stab.io.trigger_row := triggerRow
-  ttab.io.trigger_dsid_valid := triggerDsidValid
 }

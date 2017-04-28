@@ -16,7 +16,7 @@ class TagBundle(implicit p: Parameters) extends Bundle {
   val matched = Output(Bool())
 }
 
-class MigPTabBundle(implicit p: Parameters) extends TableBundle {
+class MigPTabIO(implicit p: Parameters) extends PTabIO {
   private val nRows = p(NEntries)
   val l1enables = Output(Vec(nRows, Bool()))
   val buckets = Output(Vec(nRows, new BucketBundle))
@@ -28,7 +28,7 @@ class MigPTabBundle(implicit p: Parameters) extends TableBundle {
 /**
   * MIG Control Plane Parameter Table
   */
-class MigPTab(implicit p: Parameters) extends PTab(new MigPTabBundle) {
+class MigPTab(implicit p: Parameters) extends PTab(new MigPTabIO) {
   private val sizeBits = p(BucketBits).size
   private val freqBits = p(BucketBits).freq
   private val nRows = p(NEntries)
