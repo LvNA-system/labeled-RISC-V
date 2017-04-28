@@ -30,7 +30,7 @@ class MigConfig extends Config((site, here, next) => {
   case AddrBits => 32
   case DataBits => 64
   case CmdBits => 128
-  case NEntries => 3
+  case NEntries => 4
 })
 
 case object CacheAssoc extends Field[Int]
