@@ -20,7 +20,7 @@ class MigDetectLogicIO(implicit p: Parameters) extends DetectLogicIO {
 class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLogicIO) {
 
   val ptab = Module(new MigPTab)
-  val stab = Module(new mig_cp_stab)
+  val stab = Module(new MigSTab)
   val ttab = Module(new TTab(2))
 
   // The source of static dsids!
@@ -34,10 +34,8 @@ class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLo
   common.io.cmd  <> ptab.io.cmd
 
   // detect <> stab
-  common.io.stab.sel <> stab.io.is_this_table
-  common.io.stab.data <> stab.io.rdata
-  common.io.cmd.col <> stab.io.col
-  common.io.cmd.row <> stab.io.row
+  common.io.stab <> stab.io.table
+  common.io.cmd  <> stab.io.cmd    // read only
 
   // detect <> ttab
   common.io.ttab <> ttab.io.table
@@ -51,11 +49,7 @@ class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLo
   io.buckets := ptab.io.buckets
 
   // stab <> outer
-  stab.io.aclk := clock
-  stab.io.areset := reset
-  stab.io.wdata := io.apm.data
-  stab.io.wen := io.apm.valid
-  stab.io.apm_axi_araddr := io.apm.addr
+  stab.io.apm <> io.apm
 
   // stab <> ttab
   ttab.io.trigger_rdata := stab.io.trigger_rdata
