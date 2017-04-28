@@ -24,7 +24,3 @@ class CachePTab(implicit p: Parameters) extends PTab(new CachePTabIO) {
   }
   io.waymask := ~waymask
 }
-
-object CachePTab extends App {
-  Driver.execute(args, () => new CachePTab()(TopConfig))
-}

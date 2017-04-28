@@ -50,8 +50,3 @@ class CacheCalc(implicit p: Parameters) extends Module
   stab.update_tag.old_dsid     := pipelined(old_dsids(sel),     1)
   stab.update_tag.new_dsid     := pipelined(new_dsids(sel),     1)
 }
-
-
-object CALC extends App {
-  Driver.execute(args, () => new CacheCalc()(TopConfig))
-}
