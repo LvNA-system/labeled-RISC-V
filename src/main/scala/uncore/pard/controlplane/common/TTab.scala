@@ -37,14 +37,14 @@ class TTab(cpid: Int)(implicit p: Parameters) extends Module
   val trigger_dsid_valid_piped = pipelined(io.trigger_dsid_valid, 1, !stall)
 
   // Field Declarations
-  val trigger_ids = makeField(UInt(8.W))()
-  val valids      = makeField(Bool(), io.fifo.valid && io.fifo.ready, SetLast) { valid =>
+  val trigger_ids = makeField(0.U(8.W))()
+  val valids      = makeField(false.B, io.fifo.valid && io.fifo.ready, SetLast) { valid =>
     valid(trigger_idx_piped) := false.B
   }
-  val dsids       = makeField(UInt(p(TagBits).W))()
-  val metrics     = makeField(UInt(p(TriggerMetricBits).W))()
-  val vals        = makeField(UInt(p(TriggerRDataBits).W))()
-  val ops         = makeField(UInt(2.W))()
+  val dsids       = makeField(0.U(p(TagBits).W))()
+  val metrics     = makeField(0.U(p(TriggerMetricBits).W))()
+  val vals        = makeField(0.U(p(TriggerRDataBits).W))()
+  val ops         = makeField(0.U(2.W))()
 
   makeRead(io.table.data, io.cmd.row, io.cmd.col)
 

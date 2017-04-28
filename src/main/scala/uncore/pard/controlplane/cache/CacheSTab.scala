@@ -43,20 +43,20 @@ class CacheSTab(implicit p: Parameters) extends STab(new CacheSTabIO)
 
   // Field declarations
   // hit_counters
-  makeField(UInt(32.W), lookup_hit) { vec =>
+  makeField(0.U(32.W), lookup_hit) { vec =>
     vec(sel_lookup) := vec(sel_lookup) + 1.U
   }
   // total_counters
-  makeField(UInt(32.W), lookup_hit || lookup_miss) { vec =>
+  makeField(0.U(32.W), lookup_hit || lookup_miss) { vec =>
     vec(sel_lookup) := vec(sel_lookup) - 1.U
   }
   // capacity_counters
-  makeField(UInt(32.W), capacity_update_en) { vec =>
+  makeField(0.U(32.W), capacity_update_en) { vec =>
     vec(sel_old) := vec(sel_old) - 1.U
     vec(sel_new) := vec(sel_new) + 1.U
   }
   // win_hit_rate_in_percent
-  makeField(UInt(32.W), lookup_miss || lookup_hit, NoSet) { vec =>
+  makeField(0.U(32.W), lookup_miss || lookup_hit, NoSet) { vec =>
     val win_hit_counter = win_hit_counters(sel_lookup)
     val win_total_counter = win_total_counters(sel_lookup)
     val win_hit_rate_in_percent = vec(sel_lookup)

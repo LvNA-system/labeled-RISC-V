@@ -70,9 +70,7 @@ trait HasTable {
   def makeField[T >: Bool <: UInt](gen: T, update_en: Bool = false.B, option: FieldOption = SetFirst)
        (update_block: Vec[T] => Unit = (vec: Vec[T]) => {}) = {
     require(!readGenerated, "Generate read ports before all fields declared!")
-    val field = RegInit(Vec(Seq.fill(params(NEntries)) {
-      0.U(gen.getWidth.W).asTypeOf(gen)
-    }))
+    val field = RegInit(Vec(Seq.fill(params(NEntries))(gen)))
 
     lazy val write_enable = io.cmd.wen && io.table.sel && (io.cmd.col === fields.size.U)
     option match {
