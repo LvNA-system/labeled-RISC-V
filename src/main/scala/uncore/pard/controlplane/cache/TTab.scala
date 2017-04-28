@@ -18,7 +18,9 @@ object OP {
 class TTab(cpid: Int)(implicit p: Parameters) extends Module
   with HasPipeline
   with HasTable {
-  val nEntries = p(NEntries)
+
+  override val params = p
+
   val io = IO(new TableBundle {
     val trigger_dsid       = Output(UInt(p(TagBits).W))
     val trigger_rdata      = Input(UInt(p(TriggerRDataBits).W))
@@ -29,7 +31,7 @@ class TTab(cpid: Int)(implicit p: Parameters) extends Module
 
   val trigger_ok = Wire(Bool())
   val stall = trigger_ok && !io.fifo.ready
-  val trigger_idx = RegInit(UInt(log2Ceil(nEntries).W), 0.U)
+  val trigger_idx = RegInit(UInt(log2Ceil(p(NEntries)).W), 0.U)
   val trigger_idx_piped = pipelined(trigger_idx, 1, !stall)
   val trigger_rdata_piped = pipelined(io.trigger_rdata, 1, !stall)
   val trigger_dsid_valid_piped = pipelined(io.trigger_dsid_valid, 1, !stall)

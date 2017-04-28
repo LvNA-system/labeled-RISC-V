@@ -6,29 +6,22 @@ import chisel3.util._
 import config._
 
 
-class CacheSTab(implicit p: Parameters) extends Module
-  with HasTable
+class CacheSTabIO(implicit p: Parameters) extends STabIO {
+  val lookup = Input(new LookupBundle)
+  val update_tag = Input(new UpdateTagSelectedBundle)
+  val dsids = Input(Vec(p(NEntries), UInt(p(TagBits).W)))
+}
+
+
+class CacheSTab(implicit p: Parameters) extends STab(new CacheSTabIO)
   with HasPipeline {
-  val io = IO(new TableBundle {
-    val lookup = Input(new LookupBundle)
-    val update_tag = Input(new UpdateTagSelectedBundle)
-    val trigger_rdata = Output(UInt(p(TriggerRDataBits).W))
-    val trigger_metric = Input(UInt(p(TriggerMetricBits).W))
-    val trigger_row = Input(UInt(15.W))
-    val dsids = Input(Vec(p(NEntries), UInt(p(TagBits).W)))
-  })
-  val nEntries = p(NEntries)
-
-  // Prepare inputs
-  val dsids = io.dsids
-
   /**
    * Return the index of the first dsid that
    * satisfies given predication.
    * If none, the last index is returned.
    */
   def matchId(check: UInt => Bool) = {
-    val sel = dsids.map(check(_))
+    val sel = io.dsids.map(check(_))
     val index = OHToUInt(PriorityEncoderOH(sel))
     Mux(sel.reduce(_ || _), index, (sel.size - 1).U)
   }

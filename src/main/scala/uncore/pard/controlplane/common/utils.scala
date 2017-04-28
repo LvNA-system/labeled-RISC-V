@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import scala.collection.mutable.ListBuffer
 
+import config._
 
 
 /**
@@ -50,7 +51,7 @@ trait HasTable {
     val io: TableBundle
   } =>
 
-  val nEntries: Int
+  val params: Parameters
 
   /**
    * We use a mutable container to collect
@@ -69,7 +70,7 @@ trait HasTable {
   def makeField[T >: Bool <: UInt](gen: T, update_en: Bool = false.B, option: FieldOption = SetFirst)
        (update_block: Vec[T] => Unit = (vec: Vec[T]) => {}) = {
     require(!readGenerated, "Generate read ports before all fields declared!")
-    val field = RegInit(Vec(Seq.fill(nEntries) {
+    val field = RegInit(Vec(Seq.fill(params(NEntries)) {
       0.U(gen.getWidth.W).asTypeOf(gen)
     }))
 
