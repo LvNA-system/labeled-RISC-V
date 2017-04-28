@@ -5,6 +5,7 @@ import chisel3.util._
 import scala.collection.mutable.ListBuffer
 
 
+
 /**
  * Provide generic method to construct
  * pipeline with given depth.
@@ -36,6 +37,11 @@ trait HasPipeline {
 }
 
 
+class FieldOption
+case object NoSet extends FieldOption
+case object SetFirst extends FieldOption
+case object SetLast extends FieldOption
+
 /**
  * Provide helper method to abstract definition of table fields
  */
@@ -60,27 +66,36 @@ trait HasTable {
   /**
    * Create a field instance with write logic.
    */
-  def makeField[T >: Bool <: UInt](gen: T, update_en: Bool = null)(update_block: Vec[T] => Unit = null) = {
+  def makeField[T >: Bool <: UInt](gen: T, update_en: Bool = false.B, option: FieldOption = SetFirst)
+       (update_block: Vec[T] => Unit = (vec: Vec[T]) => {}) = {
     require(!readGenerated, "Generate read ports before all fields declared!")
     val field = RegInit(Vec(Seq.fill(nEntries) {
       0.U(gen.getWidth.W).asTypeOf(gen)
     }))
-    val write_enable = io.cmd.wen && io.table.sel && (io.cmd.col === fields.size.U)
-    if (update_en != null) {
-      when (update_en) {
-        update_block.apply(field)
-      } .elsewhen(write_enable) {
-        field(io.cmd.row) := io.cmd.wdata
-      }
-    } else {
-      when (write_enable) {
-        field(io.cmd.row) := io.cmd.wdata
-      }
+
+    lazy val write_enable = io.cmd.wen && io.table.sel && (io.cmd.col === fields.size.U)
+    option match {
+      case SetFirst =>
+        when(write_enable) {
+          field(io.cmd.row) := io.cmd.wdata
+        } .elsewhen(update_en) {
+          update_block.apply(field)
+        }
+      case SetLast =>
+        when(update_en) {
+          update_block.apply(field)
+        } .elsewhen(write_enable) {
+          field(io.cmd.row) := io.cmd.wdata
+        }
+      case NoSet =>
+        when(update_en) {
+          update_block.apply(field)
+        }
     }
     fields += field
     field
   }
-  
+
   /**
    * Bind fields to common read ports.
    */

@@ -63,7 +63,7 @@ class CacheSTab(implicit p: Parameters) extends Module
     vec(sel_new) := vec(sel_new) + 1.U
   }
   // win_hit_rate_in_percent
-  makeField(UInt(32.W), lookup_miss || lookup_hit) { vec =>
+  makeField(UInt(32.W), lookup_miss || lookup_hit, NoSet) { vec =>
     val win_hit_counter = win_hit_counters(sel_lookup)
     val win_total_counter = win_total_counters(sel_lookup)
     val win_hit_rate_in_percent = vec(sel_lookup)

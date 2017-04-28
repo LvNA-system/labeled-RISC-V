@@ -36,7 +36,7 @@ class TTab(cpid: Int)(implicit p: Parameters) extends Module
 
   // Field Declarations
   val trigger_ids = makeField(UInt(8.W))()
-  val valids      = makeField(Bool(), io.fifo.valid && io.fifo.ready) { valid =>
+  val valids      = makeField(Bool(), io.fifo.valid && io.fifo.ready, SetLast) { valid =>
     valid(trigger_idx_piped) := false.B
   }
   val dsids       = makeField(UInt(p(TagBits).W))()
