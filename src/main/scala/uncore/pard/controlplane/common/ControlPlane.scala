@@ -45,17 +45,22 @@ abstract class DetectLogic[+B <: DetectLogicIO](_io: => B)(implicit p: Parameter
   val common = Module(new DetectLogicCommon)
   common.io.reg <> io.reg_interface
 
-  def bindPTab(ptab: PTab[PTabIO]) = {
+  def createPTab[T <: PTab[PTabIO]](gen: => T): T = {
+    val ptab = Module(gen)
     common.io.ptab <> ptab.io.table
     common.io.cmd  <> ptab.io.cmd
+    ptab
   }
 
-  def bindSTab(stab: STab[STabIO]) = {
+  def createSTab[T <: STab[STabIO]](gen: => T): T = {
+    val stab = Module(gen)
     common.io.stab <> stab.io.table
     common.io.cmd  <> stab.io.cmd
+    stab
   }
 
-  def bindTTab(ttab: TTab)(stab: STab[STabIO], dsids: Vec[UInt]) = {
+  def createTTab(cpid: Int, stab: STab[STabIO], dsids: Vec[UInt]): TTab = {
+    val ttab = Module(new TTab(cpid))
     ttab.io.fifo <> io.trigger_axis
     common.io.ttab <> ttab.io.table
     common.io.cmd <> ttab.io.cmd
@@ -67,6 +72,7 @@ abstract class DetectLogic[+B <: DetectLogicIO](_io: => B)(implicit p: Parameter
     val triggerDsidValid = triggerDsidMatch.map(_.asUInt).reduce(_ + _) === 1.U
     stab.io.trigger_row := triggerRow
     ttab.io.trigger_dsid_valid := triggerDsidValid
+    ttab
   }
 }
 

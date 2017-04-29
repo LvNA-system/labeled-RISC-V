@@ -15,15 +15,11 @@ class CacheDetectLogicIO(implicit p: Parameters) extends DetectLogicIO {
 
 
 class CacheDetectLogic(implicit p: Parameters) extends DetectLogic(new CacheDetectLogicIO) {
-  val ptab = Module(new CachePTab)
-  val stab = Module(new CacheSTab)
-  val ttab = Module(new TTab(1))
-  val calc = Module(new CacheCalc)
   val dsids = Vec((1 to p(NEntries)).map(_.U(p(TagBits).W)))
-
-  bindPTab(ptab)
-  bindSTab(stab)
-  bindTTab(ttab)(stab, dsids)
+  val ptab = createPTab(new CachePTab)
+  val stab = createSTab(new CacheSTab)
+  val ttab = createTTab(1, stab, dsids)
+  val calc = Module(new CacheCalc)
 
   ptab.io.dsids := dsids
   ptab.io.lru := io.lru

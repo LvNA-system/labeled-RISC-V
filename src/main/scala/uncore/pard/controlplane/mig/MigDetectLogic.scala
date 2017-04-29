@@ -18,14 +18,10 @@ class MigDetectLogicIO(implicit p: Parameters) extends DetectLogicIO {
 
 
 class MigDetectLogic(implicit p: Parameters) extends DetectLogic(new MigDetectLogicIO) {
-  val ptab = Module(new MigPTab)
-  val stab = Module(new MigSTab)
-  val ttab = Module(new TTab(2))
   val dsids = Vec((1 to p(NEntries)).map(_.U(p(TagBits).W)))
-
-  bindPTab(ptab)
-  bindSTab(stab)
-  bindTTab(ttab)(stab, dsids)
+  val ptab = createPTab(new MigPTab)
+  val stab = createSTab(new MigSTab)
+  val ttab = createTTab(2, stab, dsids)
 
   // The source of static dsids!
   io.dsids := dsids

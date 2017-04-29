@@ -13,15 +13,7 @@ class CoreDetectLogicIO(implicit val p: Parameters)
 
 class CoreDetectLogic(implicit p: Parameters)
   extends DetectLogic(new CoreDetectLogicIO) {
-
-  val ptab = Module(new CorePTab)
-
-  // TODO Abstract this common part
-  // detect <> ptab
-  common.io.ptab <> ptab.io.table
-  common.io.cmd  <> ptab.io.cmd
-
-  // ptab <> outer
+  val ptab = createPTab(new CorePTab)
   ptab.io.extReset <> io.extReset
   ptab.io.dsid     <> io.dsid
 }
