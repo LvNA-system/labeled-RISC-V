@@ -84,12 +84,27 @@ emu-clean:
 .PHONY: $(original_emu) emu run-emu emu-clean
 
 #--------------------------------------------------------------------
+# PARD Chisel-impl part building and implementation
+#--------------------------------------------------------------------
+PARD_CP = ControlPlanes
+PARD_CP_TARGET = $(fpga_dir)/srcs/rtl/control_plane/$(PARD_CP).v
+PARD_CP_SRC_DIR = $(base_dir)/src/main/scala/uncore/pard/controlplane
+
+$(PARD_CP_TARGET): $(shell find $(PARD_CP_SRC_DIR) -type f -name "*.scala")
+	cd $(base_dir) && $(SBT) "runMain uncore.pard.CP"
+	mv $(base_dir)/$(PARD_CP).v $(PARD_CP_TARGET)
+	rm $(base_dir)/$(PARD_CP).fir $(base_dir)/$(PARD_CP).anno
+
+pard-cp-clean:
+	-rm $(PARD_CP_TARGET)
+
+#--------------------------------------------------------------------
 # Project building and implementation
 #--------------------------------------------------------------------
 
 PRJ_ROOT = $(build_dir)/$(PRJ)
 XPR_FILE = $(PRJ_ROOT)/$(PRJ).xpr
-$(XPR_FILE): | $(rocketchip_rtl)
+$(XPR_FILE): $(PARD_CP_TARGET) | $(rocketchip_rtl)
 	vivado $(VIVADO_FLAG) -mode batch -source $(fpga_script_dir)/setup.tcl -tclargs $(PRJ)
 
 project: $(XPR_FILE)
@@ -110,7 +125,7 @@ vivado: $(XPR_FILE)
 # Cleaning
 #--------------------------------------------------------------------
 
-clean:
+clean: pard-cp-clean
 	-rm -rf $(generated_dir)
 
 .PHONY: default clean

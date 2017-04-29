@@ -8,6 +8,7 @@ import diplomacy._
 import rocket._
 import uncore.tilelink2._
 import util._
+import uncore.pard._
 
 case object SharedMemoryTLEdge extends Field[TLEdgeOut]
 case object TileKey extends Field[TileParams]
@@ -51,17 +52,22 @@ abstract class BareTileModule[+L <: BareTile, +B <: BareTileBundle[L]](_outer: L
 trait HasTileLinkMasterPort extends HasTileParameters {
   implicit val p: Parameters
   val module: HasTileLinkMasterPortModule
+  val controlledCrossing = LazyModule(new ControlledCrossing)
+  val masterNodeInner = controlledCrossing.node
   val masterNode = TLOutputNode()
+  masterNode :=* masterNodeInner
 }
 
 trait HasTileLinkMasterPortBundle {
   val outer: HasTileLinkMasterPort
   val master = outer.masterNode.bundleOut
+  val trafficEnable = Bool(INPUT)
 }
 
 trait HasTileLinkMasterPortModule {
   val outer: HasTileLinkMasterPort
   val io: HasTileLinkMasterPortBundle
+  outer.controlledCrossing.module.io.enable := io.trafficEnable
 }
 
 abstract class BaseTile(tileParams: TileParams)(implicit p: Parameters) extends BareTile

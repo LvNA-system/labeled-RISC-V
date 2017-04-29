@@ -67,17 +67,11 @@ add_files -norecurse -fileset $fileset $files
 
 # Add files for control planes
 set files [list \
- "[file normalize "$rtlRoot/control_plane/common/detec_logic_common.v"]"\
+ "[file normalize "$rtlRoot/control_plane/ControlPlanes.v"]"\
  "[file normalize "$rtlRoot/control_plane/common/i2cintf.v"]"\
- "[file normalize "$rtlRoot/control_plane/common/regintf.v"]"\
- "[file normalize "$rtlRoot/control_plane/common/ttab.v"]"\
  "[file normalize "$rtlRoot/control_plane/core/control_plane.v"]"\
- "[file normalize "$rtlRoot/control_plane/core/detec_logic.v"]"\
- "[file normalize "$rtlRoot/control_plane/core/ptab.v"]"\
+ "[file normalize "$rtlRoot/control_plane/cache/control_plane.v"]"\
  "[file normalize "$rtlRoot/control_plane/mig/control_plane.v"]"\
- "[file normalize "$rtlRoot/control_plane/mig/detec_logic.v"]"\
- "[file normalize "$rtlRoot/control_plane/mig/ptab.v"]"\
- "[file normalize "$rtlRoot/control_plane/mig/stab.v"]"\
 ]
 add_files -norecurse -fileset $fileset $files
 
@@ -87,6 +81,39 @@ set files [list \
  "[file normalize "$rtlRoot/vc709_sfp/clock_control_program_125M.vhd"]"\
  "[file normalize "$rtlRoot/vc709_sfp/clock_control.vhd"]"\
  "[file normalize "$rtlRoot/vc709_sfp/vc709_sfp.v"]"\
+]
+add_files -norecurse -fileset $fileset $files
+
+# Add files for Xilinx AXI4 cache
+set files [list \
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_s_axi_a_channel.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_arbiter.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_access.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_m_axi_interface.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/system_cache_pkg.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_stat_counter.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_s_axi_opt_interface.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_s_axi_gen_interface.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_s_axi_r_channel.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_lru_module.v"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/xlnx_cache_pard_ooc.xdc"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/xlnx_cache_pard.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_lookup.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_s_axi_length_generation.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_s_axi_ctrl_interface.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_stat_latency.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_back_end.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_front_end.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/system_cache.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_stat_event.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_update.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_statistics_counters.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_cache_core.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_srl_fifo_counter.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_primitives.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_s_axi_w_channel.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_s_axi_b_channel.vhd"]"\
+ "[file normalize "$rtlRoot/xlnx_cache_pard/sc_ram_module.vhd"]"\
 ]
 add_files -norecurse -fileset $fileset $files
 
