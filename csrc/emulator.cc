@@ -18,10 +18,16 @@ extern dtm_t* dtm;
 static uint64_t trace_count = 0;
 bool verbose;
 bool done_reset;
+volatile int enable = 0;
 
 void handle_sigterm(int sig)
 {
   dtm->stop();
+}
+
+void flip_enable(int sig)
+{
+  enable = !enable;
 }
 
 double sc_time_stamp()
@@ -170,8 +176,10 @@ done_processing:
   dtm = new dtm_t(to_dtm);
 
   signal(SIGTERM, handle_sigterm);
+  signal(SIGUSR1, flip_enable);
 
   // reset for several cycles to handle pipelined reset
+  tile->io_en = 0;
   for (int i = 0; i < 10; i++) {
     tile->reset = 1;
     tile->clock = 0;
@@ -183,6 +191,8 @@ done_processing:
   done_reset = true;
 
   while (!dtm->done() && !tile->io_success && trace_count < max_cycles) {
+    tile->io_en = enable;
+
     tile->clock = 0;
     tile->eval();
 #if VM_TRACE
