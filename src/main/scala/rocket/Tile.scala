@@ -143,8 +143,6 @@ class RocketTileModule(outer: RocketTile) extends BaseTileModule(outer, () => ne
     core.io.rocc.interrupt := lr.module.io.core.interrupt
   }
 
-  outer.controlledCrossing.module.io.enable := io.trafficEnable
-
   val dsid = UInt(0x1, width = 16) + io.hartid
   (io.master).foreach { x => {
       x.a.bits.dsid := dsid
@@ -188,12 +186,10 @@ class SyncRocketTile(rtp: RocketTileParams, hartid: Int)(implicit p: Parameters)
       val interrupts = intNode.bundleIn
       val hartid = UInt(INPUT, p(XLen))
       val resetVector = UInt(INPUT, p(XLen))
-      val trafficEnable = Bool(INPUT)
     }
     // signals that do not change:
     rocket.module.io.hartid := io.hartid
     rocket.module.io.resetVector := io.resetVector
-    rocket.module.io.trafficEnable := io.trafficEnable
   }
 }
 
@@ -222,14 +218,12 @@ class AsyncRocketTile(rtp: RocketTileParams, hartid: Int)(implicit p: Parameters
       val interrupts = intNode.bundleIn
       val hartid = UInt(INPUT, p(XLen))
       val resetVector = UInt(INPUT, p(XLen))
-      val trafficEnable = Bool(INPUT)
 
       val ila = new ILABundle()
     }
     // signals that do not change:
     rocket.module.io.hartid := io.hartid
     rocket.module.io.resetVector := io.resetVector
-    rocket.module.io.trafficEnable := io.trafficEnable
 
     io.ila <> rocket.module.io.ila
   }
@@ -264,11 +258,9 @@ class RationalRocketTile(rtp: RocketTileParams, hartid: Int)(implicit p: Paramet
       val interrupts = intNode.bundleIn
       val hartid = UInt(INPUT, p(XLen))
       val resetVector = UInt(INPUT, p(XLen))
-      val trafficEnable = Bool(INPUT)
     }
     // signals that do not change:
     rocket.module.io.hartid := io.hartid
     rocket.module.io.resetVector := io.resetVector
-    rocket.module.io.trafficEnable := io.trafficEnable
   }
 }

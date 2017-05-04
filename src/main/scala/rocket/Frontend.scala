@@ -174,7 +174,7 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
 trait HasICacheFrontend extends CanHavePTW with HasTileLinkMasterPort {
   val module: HasICacheFrontendModule
   val frontend = LazyModule(new Frontend)
-  masterNodeInner := frontend.node
+  masterNode := frontend.node
   nPTWPorts += 1
 }
 
