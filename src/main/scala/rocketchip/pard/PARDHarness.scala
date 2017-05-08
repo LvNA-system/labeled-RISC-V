@@ -19,6 +19,7 @@ class PARDFPGAHarness()(implicit p: Parameters) extends Module {
 class TestHarness()(implicit p: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
+    val en = Bool(INPUT)
   }
   val dut = Module(LazyModule(new PARDSimTop).module)
 
@@ -27,7 +28,7 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dut.io.debug.get.dmi.resp.ready := Bool(true)
 
   // Make cores always runnable
-  dut.io.L1enable.foreach(_ := Bool(true))
+  dut.io.L1enable.foreach(_ := io.en)
   dut.io.trafficGeneratorEnable := Bool(false)
 
   val channels = p(coreplex.BankedL2Config).nMemoryChannels

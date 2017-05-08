@@ -8,6 +8,7 @@ import diplomacy._
 import rocket._
 import tile._
 import uncore.tilelink2._
+import uncore.pard._
 import util._
 
 sealed trait ClockCrossing
@@ -51,16 +52,18 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
         val wrapper = LazyModule(new SyncRocketTile(c, i)(pWithExtra))
         val buffer = LazyModule(new TLBuffer)
         val fixer = LazyModule(new TLFIFOFixer)
+        val ctrlXing = LazyModule(new ControlledCrossing)
         buffer.node :=* wrapper.masterNode
         fixer.node :=* buffer.node
-        l1tol2.node :=* fixer.node
+        ctrlXing.node :=* fixer.node
+        l1tol2.node :=* ctrlXing.node
         wrapper.slaveNode :*= cbus.node
         wrapper.intNode := intBar.intnode
         (io: HasRocketTilesBundle) => {
           // leave clock as default (simpler for hierarchical PnR)
           wrapper.module.io.hartid := UInt(i)
           wrapper.module.io.resetVector := io.resetVector
-          wrapper.module.io.trafficEnable := io.trafficEnables(i)
+          ctrlXing.module.io.enable := io.trafficEnables(i)
         }
       }
       case Asynchronous(depth, sync) => {
@@ -68,9 +71,11 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
         val sink = LazyModule(new TLAsyncCrossingSink(depth, sync))
         val source = LazyModule(new TLAsyncCrossingSource(sync))
         val fixer = LazyModule(new TLFIFOFixer)
+        val ctrlXing = LazyModule(new ControlledCrossing)
         sink.node :=* wrapper.masterNode
         fixer.node :=* sink.node
-        l1tol2.node :=* fixer.node
+        ctrlXing.node :=* fixer.node
+        l1tol2.node :=* ctrlXing.node
         wrapper.slaveNode :*= source.node
         wrapper.intNode := intBar.intnode
         source.node :*= cbus.node
@@ -79,7 +84,7 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
           wrapper.module.reset := io.tcrs(i).reset
           wrapper.module.io.hartid := UInt(i)
           wrapper.module.io.resetVector := io.resetVector
-          wrapper.module.io.trafficEnable := io.trafficEnables(i)
+          ctrlXing.module.io.enable := io.trafficEnables(i)
           io.ila(i) <> wrapper.module.io.ila
         }
       }
@@ -88,9 +93,11 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
         val sink = LazyModule(new TLRationalCrossingSink(util.FastToSlow))
         val source = LazyModule(new TLRationalCrossingSource)
         val fixer = LazyModule(new TLFIFOFixer)
+        val ctrlXing = LazyModule(new ControlledCrossing)
         sink.node :=* wrapper.masterNode
         fixer.node :=* sink.node
-        l1tol2.node :=* fixer.node
+        ctrlXing.node :=* fixer.node
+        l1tol2.node :=* ctrlXing.node
         wrapper.slaveNode :*= source.node
         wrapper.intNode := intBar.intnode
         source.node :*= cbus.node
@@ -99,7 +106,7 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
           wrapper.module.reset := io.tcrs(i).reset
           wrapper.module.io.hartid := UInt(i)
           wrapper.module.io.resetVector := io.resetVector
-          wrapper.module.io.trafficEnable := io.trafficEnables(i)
+          ctrlXing.module.io.enable := io.trafficEnables(i)
         }
       }
     }
