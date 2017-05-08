@@ -25,7 +25,9 @@ module mig_control_plane(
     input wire  [31:0] APM_DATA,
 
     /* Enables for cores' L1 traffic */
+	input uncoreclk,
     output [2:0] L1enable,
+
     input trigger_axis_tready,
     output trigger_axis_tvalid,
     output [15:0] trigger_axis_tdata,
@@ -34,13 +36,25 @@ module mig_control_plane(
     `axi_out_interface(M_AXI, m_axi, 5)
   );
 
+  /* Enables for cores' L1 traffic */
+  wire [2:0] L1enable_mig_domain;
+
+  Signal_CrossDomain #(
+	  .C_SIGNAL_WIDTH(3)
+  ) cross_i (
+	  .clkA(aclk),
+	  .clkB(uncoreclk),
+	  .SignalIn_clkA(L1enable_mig_domain),
+	  .SignalOut_clkB(L1enable)
+  );
+
   MigControlPlane mig (
     .clock(aclk),
     .reset(~aresetn),
     .io_addr(ADDR),
-    .io_l1enable_0(L1enable[0]),
-    .io_l1enable_1(L1enable[1]),
-    .io_l1enable_2(L1enable[2]),
+    .io_l1enable_0(L1enable_mig_domain[0]),
+    .io_l1enable_1(L1enable_mig_domain[1]),
+    .io_l1enable_2(L1enable_mig_domain[2]),
     .io_i2c_i_scl(SCL_i),
     .io_i2c_i_sda(SDA_i),
     .io_i2c_t_scl(SCL_t),
