@@ -69,7 +69,7 @@ abstract class DetectLogic[+B <: DetectLogicIO](_io: => B)(implicit p: Parameter
     // Look up dsid
     val triggerDsidMatch = dsids.map{_ === ttab.io.trigger_dsid}
     val triggerRow = Mux1H(triggerDsidMatch, dsids.indices.map(_.U))
-    val triggerDsidValid = triggerDsidMatch.map(_.asUInt).reduce(_ + _) === 1.U
+    val triggerDsidValid = PopCount(triggerDsidMatch) === 1.U  // Promise one hot
     stab.io.trigger_row := triggerRow
     ttab.io.trigger_dsid_valid := triggerDsidValid
     ttab
