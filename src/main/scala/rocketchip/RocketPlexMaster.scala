@@ -3,17 +3,14 @@
 package rocketchip
 
 import Chisel._
-import config._
-import diplomacy._
-import uncore.tilelink2._
-import uncore.devices._
-import util._
-import coreplex._
+import coreplex.RocketPlex
+import diplomacy.{LazyModule, LazyMultiIOModuleImp}
 
-trait RocketPlexMaster extends HasTopLevelNetworks {
-  val module: RocketPlexMasterModule
+/** Add a RocketPlex to the system */
+trait HasRocketPlexMaster extends HasSystemNetworks with HasCoreplexRISCVPlatform {
+  val module: HasRocketPlexMasterModuleImp
 
-  val coreplex = LazyModule(new DefaultCoreplex)
+  val coreplex = LazyModule(new RocketPlex)
 
   coreplex.l2in :=* fsb.node
   bsb.node :*= coreplex.l2out
@@ -24,22 +21,19 @@ trait RocketPlexMaster extends HasTopLevelNetworks {
   (mem zip coreplex.mem) foreach { case (xbar, channel) => xbar.node :=* channel }
 }
 
-trait RocketPlexMasterBundle extends HasTopLevelNetworksBundle {
-  val outer: RocketPlexMaster
-  val tcrs = Vec(p(RocketTilesKey).size, new Bundle {
-    val clock = Clock(INPUT)
-    val reset = Bool(INPUT)
-  })
-  val L1enable = Vec(p(RocketTilesKey).size, Bool()).asInput
-  val trafficGeneratorEnable = Bool(INPUT)
-  val ila = Vec(p(RocketTilesKey).size, new ILABundle())
-}
 
-trait RocketPlexMasterModule extends HasTopLevelNetworksModule {
-  val outer: RocketPlexMaster
-  val io: RocketPlexMasterBundle
-  val clock: Clock
-  val reset: Bool
+trait HasRocketPlexMasterModuleImp extends LazyMultiIOModuleImp {
+  val outer: HasRocketPlexMaster
+
+  val io = IO(new Bundle {
+    val tcrs = Vec(p(RocketTilesKey).size, new Bundle {
+      val clock = Clock(INPUT)
+      val reset = Bool(INPUT)
+    })
+    val L1enable = Vec(p(RocketTilesKey).size, Bool()).asInput
+    val trafficGeneratorEnable = Bool(INPUT)
+    val ila = Vec(p(RocketTilesKey).size, new ILABundle())
+  })
 
   outer.coreplex.module.io.tcrs.zipWithIndex.map { case (tcr, i) =>
     tcr.clock := io.tcrs(i).clock

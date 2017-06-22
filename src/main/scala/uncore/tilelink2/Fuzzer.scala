@@ -82,9 +82,12 @@ class TLFuzzer(
                   (wide: Int, increment: Bool, abs_values: Int) =>
                    LFSRNoiseMaker(wide=wide, increment=increment)
                   },
-    noModify: Boolean = false)(implicit p: Parameters) extends LazyModule
+    noModify: Boolean = false,
+    overrideAddress: Option[AddressSet] = None)(implicit p: Parameters) extends LazyModule
 {
-  val node = TLClientNode(TLClientParameters(sourceId = IdRange(0,inFlight)))
+  val node = TLClientNode(TLClientParameters(
+    name = "Fuzzer",
+    sourceId = IdRange(0,inFlight)))
 
   lazy val module = new LazyModuleImp(this) {
     val io = new Bundle {
@@ -96,11 +99,10 @@ class TLFuzzer(
     val edge = node.edgesOut(0)
 
     // Extract useful parameters from the TL edge
-    val endAddress   = edge.manager.maxAddress + 1
     val maxTransfer  = edge.manager.maxTransfer
     val beatBytes    = edge.manager.beatBytes
     val maxLgBeats   = log2Up(maxTransfer/beatBytes)
-    val addressBits  = log2Up(endAddress)
+    val addressBits  = log2Up(overrideAddress.map(_.max).getOrElse(edge.manager.maxAddress))
     val sizeBits     = edge.bundle.sizeBits
     val dataBits     = edge.bundle.dataBits
 
@@ -136,7 +138,8 @@ class TLFuzzer(
     val log_op    = noiseMaker(2, inc, 0)
     val amo_size  = UInt(2) + noiseMaker(1, inc, 0) // word or dword
     val size      = noiseMaker(sizeBits, inc, 0)
-    val addr      = noiseMaker(addressBits, inc, 2) & ~UIntToOH1(size, addressBits)
+    val rawAddr   = noiseMaker(addressBits, inc, 2)
+    val addr      = overrideAddress.map(_.legalize(rawAddr)).getOrElse(rawAddr) & ~UIntToOH1(size, addressBits)
     val mask      = noiseMaker(beatBytes, inc_beat, 2) & edge.mask(addr, size)
     val data      = noiseMaker(dataBits, inc_beat, 2)
 
@@ -210,7 +213,7 @@ class TLFuzzer(
 /** Synthesizeable integration test */
 import unittest._
 
-class TLFuzzRAM()(implicit p: Parameters) extends LazyModule
+class TLFuzzRAM(txns: Int)(implicit p: Parameters) extends LazyModule
 {
   val model = LazyModule(new TLRAMModel("TLFuzzRAM"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x800, 0x7ff)))
@@ -218,7 +221,7 @@ class TLFuzzRAM()(implicit p: Parameters) extends LazyModule
   val gpio = LazyModule(new RRTest1(0x400))
   val xbar = LazyModule(new TLXbar)
   val xbar2= LazyModule(new TLXbar)
-  val fuzz = LazyModule(new TLFuzzer(5000))
+  val fuzz = LazyModule(new TLFuzzer(txns))
   val cross = LazyModule(new TLAsyncCrossing)
 
   model.node := fuzz.node
@@ -250,7 +253,7 @@ class TLFuzzRAM()(implicit p: Parameters) extends LazyModule
   }
 }
 
-class TLFuzzRAMTest()(implicit p: Parameters) extends UnitTest(500000) {
-  val dut = Module(LazyModule(new TLFuzzRAM).module)
+class TLFuzzRAMTest(txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
+  val dut = Module(LazyModule(new TLFuzzRAM(txns)).module)
   io.finished := dut.io.finished
 }

@@ -14,6 +14,7 @@ class TLCacheCork(unsafe: Boolean = false)(implicit p: Parameters) extends LazyM
   val node = TLAdapterNode(
     clientFn  = { case cp =>
       cp.copy(clients = cp.clients.map { c => c.copy(
+        supportsProbe = TransferSizes.none,
         sourceId = IdRange(c.sourceId.start*2, c.sourceId.end*2))})},
     managerFn = { case mp =>
       mp.copy(
@@ -33,9 +34,9 @@ class TLCacheCork(unsafe: Boolean = false)(implicit p: Parameters) extends LazyM
       val clients = edgeIn.client.clients
       val caches = clients.filter(_.supportsProbe)
       require (clients.size == 1 || caches.size == 0 || unsafe, "Only one client can safely use a TLCacheCork")
-      require (caches.size <= 1, "Only one caching client allowed")
+      require (caches.size <= 1 || unsafe, "Only one caching client allowed")
       edgeOut.manager.managers.foreach { case m =>
-        require (!m.supportsAcquireB, "Cannot support caches beyond the Cork")
+        require (!m.supportsAcquireB || unsafe, "Cannot support caches beyond the Cork")
       }
 
       // The Cork turns [Acquire=>Get] => [AccessAckData=>GrantData]

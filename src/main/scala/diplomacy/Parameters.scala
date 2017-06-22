@@ -3,7 +3,6 @@
 package diplomacy
 
 import Chisel._
-import scala.math.max
 
 /** Options for memory regions */
 object RegionType {
@@ -17,14 +16,16 @@ object RegionType {
 }
 
 // A non-empty half-open range; [start, end)
-case class IdRange(start: Int, end: Int)
+case class IdRange(start: Int, end: Int) extends Ordered[IdRange]
 {
   require (start >= 0, s"Ids cannot be negative, but got: $start.")
   require (start < end, "Id ranges cannot be empty.")
 
-  // This is a strict partial ordering
-  def <(x: IdRange) = end <= x.start
-  def >(x: IdRange) = x < this
+  def compare(x: IdRange) = {
+    val primary   = (this.start - x.start).signum
+    val secondary = (x.end - this.end).signum
+    if (primary != 0) primary else secondary
+  }
 
   def overlaps(x: IdRange) = start < x.end && x.start < end
   def contains(x: IdRange) = start <= x.start && x.end <= end
@@ -32,15 +33,33 @@ case class IdRange(start: Int, end: Int)
 
   def contains(x: Int)  = start <= x && x < end
   def contains(x: UInt) =
-    if (start+1 == end) { UInt(start) === x }
-    else if (isPow2(end-start) && ((end | start) & (end-start-1)) == 0)
-    { ~(~(UInt(start) ^ x) | UInt(end-start-1)) === UInt(0) }
-    else { UInt(start) <= x && x < UInt(end) }
+    if (size == 1) { // simple comparison
+      x === UInt(start)
+    } else {
+      // find index of largest different bit
+      val largestDeltaBit = log2Floor(start ^ (end-1))
+      val smallestCommonBit = largestDeltaBit + 1 // may not exist in x
+      val uncommonMask = (1 << smallestCommonBit) - 1
+      val uncommonBits = (x | UInt(0, width=smallestCommonBit))(largestDeltaBit, 0)
+      // the prefix must match exactly (note: may shift ALL bits away)
+      (x >> smallestCommonBit) === UInt(start >> smallestCommonBit) &&
+      // firrtl constant prop range analysis can eliminate these two:
+      UInt(start & uncommonMask) <= uncommonBits &&
+      uncommonBits <= UInt((end-1) & uncommonMask)
+    }
 
   def shift(x: Int) = IdRange(start+x, end+x)
   def size = end - start
   
   def range = start until end
+}
+
+object IdRange
+{
+  def overlaps(s: Seq[IdRange]) = if (s.isEmpty) None else {
+    val ranges = s.sorted
+    (ranges.tail zip ranges.init) find { case (a, b) => a overlaps b }
+  }
 }
 
 // An potentially empty inclusive range of 2-powers [min, max] (in bytes)
@@ -100,6 +119,14 @@ case class AddressRange(base: BigInt, size: BigInt) extends Ordered[AddressRange
       Some(AddressRange(obase, oend-obase))
     }
   }
+
+  private def helper(base: BigInt, end: BigInt) =
+    if (base < end) Seq(AddressRange(base, end-base)) else Nil
+  def subtract(x: AddressRange) =
+    helper(base, end min x.base) ++ helper(base max x.end, end)
+
+  // We always want to see things in hex
+  override def toString() = "AddressRange(0x%x, 0x%x)".format(base, size)
 }
 
 // AddressSets specify the address space managed by the manager
@@ -116,6 +143,9 @@ case class AddressSet(base: BigInt, mask: BigInt) extends Ordered[AddressSet]
   def contains(x: BigInt) = ((x ^ base) & ~mask) == 0
   def contains(x: UInt) = ((x ^ UInt(base)).zext() & SInt(~mask)) === SInt(0)
 
+  // turn x into an address contained in this set
+  def legalize(x: UInt): UInt = base.U | (mask.U & x)
+
   // overlap iff bitwise: both care (~mask0 & ~mask1) => both equal (base0=base1)
   def overlaps(x: AddressSet) = (~(mask | x.mask) & (base ^ x.base)) == 0
   // contains iff bitwise: x.mask => mask && contains(x.base)
@@ -127,7 +157,7 @@ case class AddressSet(base: BigInt, mask: BigInt) extends Ordered[AddressSet]
   def contiguous = alignment == mask+1
 
   def finite = mask >= 0
-  def max = { require (finite); base | mask }
+  def max = { require (finite, "Max cannot be calculated on infinite mask"); base | mask }
 
   // Widen the match function to ignore all bits in imask
   def widen(imask: BigInt) = AddressSet(base & ~imask, mask | imask)
@@ -160,7 +190,7 @@ case class AddressSet(base: BigInt, mask: BigInt) extends Ordered[AddressSet]
   }
 
   def toRanges = {
-    require (finite)
+    require (finite, "Ranges cannot be calculated on infinite mask")
     val size = alignment
     val fragments = mask & ~(size-1)
     val bits = bitIndexes(fragments)
@@ -184,6 +214,9 @@ object AddressRange
       }
     }.reverse
   }
+  // Set subtraction... O(n*n) b/c I am lazy
+  def subtract(from: Seq[AddressRange], take: Seq[AddressRange]): Seq[AddressRange] =
+    take.foldLeft(from) { case (left, r) => left.flatMap { _.subtract(r) } }
 }
 
 object AddressSet
@@ -222,9 +255,13 @@ object AddressSet
 
 case class BufferParams(depth: Int, flow: Boolean, pipe: Boolean)
 {
-  require (depth >= 0)
+  require (depth >= 0, "Buffer depth must be >= 0")
   def isDefined = depth > 0
   def latency = if (isDefined && !flow) 1 else 0
+
+  def apply[T <: Data](x: DecoupledIO[T]) =
+    if (isDefined) Queue(x, depth, flow=flow, pipe=pipe)
+    else x
 }
 
 object BufferParams

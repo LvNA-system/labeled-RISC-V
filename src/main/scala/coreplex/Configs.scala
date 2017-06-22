@@ -19,10 +19,14 @@ class BaseCoreplexConfig extends Config ((site, here, up) => {
   case PgLevels => if (site(XLen) == 64) 3 /* Sv39 */ else 2 /* Sv32 */
   case ASIdBits => 0
   case XLen => 64 // Applies to all cores
+  case ResetVectorBits => site(PAddrBits)
+  case MaxHartIdBits => log2Up(site(NTiles))
   case BuildCore => (p: Parameters) => new Rocket()(p)
-  case RocketCrossing => Synchronous
+  case RocketCrossing => SynchronousCrossing()
   case RocketTilesKey =>  Nil
-  case DMKey => new DefaultDebugModuleConfig(site(XLen))
+  case DMKey => DefaultDebugModuleConfig(site(XLen))
+  case PLICKey => PLICParams()
+  case ClintKey => ClintParams()
   case NTiles => site(RocketTilesKey).size
   case CBusConfig => TLBusConfig(beatBytes = site(XLen)/8)
   case L1toL2Config => TLBusConfig(beatBytes = site(XLen)/8) // increase for more PCIe bandwidth
@@ -160,18 +164,20 @@ class WithNBreakpoints(hwbp: Int) extends Config ((site, here, up) => {
 })
 
 class WithRoccExample extends Config((site, here, up) => {
-  case BuildRoCC => Seq(
-    RoCCParams(
-      opcodes = OpcodeSet.custom0,
-      generator = (p: Parameters) => Module(new AccumulatorExample()(p))),
-    RoCCParams(
-      opcodes = OpcodeSet.custom1,
-      generator = (p: Parameters) => Module(new TranslatorExample()(p)),
-      nPTWPorts = 1),
-    RoCCParams(
-      opcodes = OpcodeSet.custom2,
-      generator = (p: Parameters) => Module(new CharacterCountExample()(p))))
-
+  case RocketTilesKey => up(RocketTilesKey, site) map { r =>
+    r.copy(rocc = Seq(
+      RoCCParams(
+        opcodes = OpcodeSet.custom0,
+        generator = (p: Parameters) => Module(new AccumulatorExample()(p))),
+      RoCCParams(
+         opcodes = OpcodeSet.custom1,
+         generator = (p: Parameters) => Module(new TranslatorExample()(p)),
+         nPTWPorts = 1),
+      RoCCParams(
+         opcodes = OpcodeSet.custom2,
+         generator = (p: Parameters) => Module(new CharacterCountExample()(p)))
+    ))
+  }
   case RoccMaxTaggedMemXacts => 1
 })
 
@@ -211,13 +217,14 @@ class WithBootROMFile(bootROMFile: String) extends Config((site, here, up) => {
 })
 
 class WithSynchronousRocketTiles extends Config((site, here, up) => {
-  case RocketCrossing => Synchronous
+  case RocketCrossing => SynchronousCrossing()
 })
 
 class WithAynchronousRocketTiles(depth: Int, sync: Int) extends Config((site, here, up) => {
-  case RocketCrossing => Asynchronous(depth, sync)
+  case RocketCrossing => AsynchronousCrossing(depth, sync)
 })
 
 class WithRationalRocketTiles extends Config((site, here, up) => {
-  case RocketCrossing => Rational
+  case RocketCrossing => RationalCrossing()
 })
+

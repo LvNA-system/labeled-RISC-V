@@ -12,9 +12,9 @@ import uncore.pard._
 import util._
 
 sealed trait ClockCrossing
-case object Synchronous extends ClockCrossing
-case object Rational extends ClockCrossing
-case class Asynchronous(depth: Int, sync: Int = 2) extends ClockCrossing
+case class SynchronousCrossing(params: BufferParams = BufferParams.default) extends ClockCrossing
+case class RationalCrossing(direction: RationalDirection = FastToSlow) extends ClockCrossing
+case class AsynchronousCrossing(depth: Int, sync: Int = 2) extends ClockCrossing
 
 case object RocketTilesKey extends Field[Seq[RocketTileParams]]
 case object RocketCrossing extends Field[ClockCrossing]
@@ -37,28 +37,41 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
     val pWithExtra = p.alterPartial {
       case TileKey => c
       case BuildRoCC => c.rocc
-      case SharedMemoryTLEdge => l1tol2.node.edgesIn(0)
+      case SharedMemoryTLEdge => tile_splitter.node.edgesIn(0)
     }
 
-    val intBar = LazyModule(new IntXbar)
-    intBar.intnode := debug.intnode                  // debug
-    intBar.intnode := clint.intnode                  // msip+mtip
-    intBar.intnode := plic.intnode                   // meip
-    if (c.core.useVM) intBar.intnode := plic.intnode // seip
-    lip.foreach { intBar.intnode := _ }              // lip
+    val asyncIntXbar  = LazyModule(new IntXbar)
+    val periphIntXbar = LazyModule(new IntXbar)
+    val coreIntXbar   = LazyModule(new IntXbar)
+
+    // Local Interrupts must be synchronized to the core clock
+    // before being passed into this module.
+    // This allows faster latency for interrupts which are already synchronized.
+    // The CLINT and PLIC outputs interrupts that are synchronous to the periphery clock,
+    // so may or may not need to be synchronized depending on the Tile's
+    // synchronization type.
+    // Debug interrupt is definitely asynchronous in all cases.
+
+    asyncIntXbar.intnode  := debug.intnode                  // debug
+    periphIntXbar.intnode := clint.intnode                  // msip+mtip
+    periphIntXbar.intnode := plic.intnode                   // meip
+    if (c.core.useVM) periphIntXbar.intnode := plic.intnode // seip
+    lip.foreach { coreIntXbar.intnode := _ }                // lip
 
     crossing match {
-      case Synchronous => {
+      case SynchronousCrossing(params) => {
         val wrapper = LazyModule(new SyncRocketTile(c, i)(pWithExtra))
-        val buffer = LazyModule(new TLBuffer)
+        val buffer = LazyModule(new TLBuffer(params))
         val fixer = LazyModule(new TLFIFOFixer)
         val ctrlXing = LazyModule(new ControlledCrossing)
         buffer.node :=* wrapper.masterNode
         fixer.node :=* buffer.node
         ctrlXing.node :=* fixer.node
-        l1tol2.node :=* ctrlXing.node
-        wrapper.slaveNode :*= cbus.node
-        wrapper.intNode := intBar.intnode
+        tile_splitter.node :=* ctrlXing.node
+        wrapper.slaveNode :*= pbus.node
+        wrapper.asyncIntNode  := asyncIntXbar.intnode
+        wrapper.periphIntNode := periphIntXbar.intnode
+        wrapper.coreIntNode   := coreIntXbar.intnode
         (io: HasRocketTilesBundle) => {
           // leave clock as default (simpler for hierarchical PnR)
           wrapper.module.io.hartid := UInt(i)
@@ -66,7 +79,7 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
           ctrlXing.module.io.enable := io.trafficEnables(i)
         }
       }
-      case Asynchronous(depth, sync) => {
+      case AsynchronousCrossing(depth, sync) => {
         val wrapper = LazyModule(new AsyncRocketTile(c, i)(pWithExtra))
         val sink = LazyModule(new TLAsyncCrossingSink(depth, sync))
         val source = LazyModule(new TLAsyncCrossingSource(sync))
@@ -75,10 +88,12 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
         sink.node :=* wrapper.masterNode
         fixer.node :=* sink.node
         ctrlXing.node :=* fixer.node
-        l1tol2.node :=* ctrlXing.node
+        tile_splitter.node :=* ctrlXing.node
         wrapper.slaveNode :*= source.node
-        wrapper.intNode := intBar.intnode
-        source.node :*= cbus.node
+        wrapper.asyncIntNode  := asyncIntXbar.intnode
+        wrapper.periphIntNode := periphIntXbar.intnode
+        wrapper.coreIntNode   := coreIntXbar.intnode
+        source.node :*= pbus.node
         (io: HasRocketTilesBundle) => {
           wrapper.module.clock := io.tcrs(i).clock
           wrapper.module.reset := io.tcrs(i).reset
@@ -88,19 +103,21 @@ trait HasRocketTiles extends CoreplexRISCVPlatform {
           io.ila(i) <> wrapper.module.io.ila
         }
       }
-      case Rational => {
+      case RationalCrossing(direction) => {
         val wrapper = LazyModule(new RationalRocketTile(c, i)(pWithExtra))
-        val sink = LazyModule(new TLRationalCrossingSink(util.FastToSlow))
+        val sink = LazyModule(new TLRationalCrossingSink(direction))
         val source = LazyModule(new TLRationalCrossingSource)
         val fixer = LazyModule(new TLFIFOFixer)
         val ctrlXing = LazyModule(new ControlledCrossing)
         sink.node :=* wrapper.masterNode
         fixer.node :=* sink.node
         ctrlXing.node :=* fixer.node
-        l1tol2.node :=* ctrlXing.node
+        tile_splitter.node :=* ctrlXing.node
         wrapper.slaveNode :*= source.node
-        wrapper.intNode := intBar.intnode
-        source.node :*= cbus.node
+        wrapper.asyncIntNode := asyncIntXbar.intnode
+        wrapper.periphIntNode := periphIntXbar.intnode
+        wrapper.coreIntNode   := coreIntXbar.intnode
+        source.node :*= pbus.node
         (io: HasRocketTilesBundle) => {
           wrapper.module.clock := io.tcrs(i).clock
           wrapper.module.reset := io.tcrs(i).reset

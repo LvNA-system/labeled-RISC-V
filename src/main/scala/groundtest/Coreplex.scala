@@ -24,7 +24,7 @@ class GroundTestCoreplex(implicit p: Parameters) extends BaseCoreplex {
       case TileId => i
       case CacheBlockOffsetBits => log2Up(site(CacheBlockBytes))
       case AmoAluOperandBits => site(XLen)
-      case SharedMemoryTLEdge => l1tol2.node.edgesIn(0)
+      case SharedMemoryTLEdge => tile_splitter.node.edgesIn(0)
       case TLId => "L1toL2"
       case TLKey("L1toL2") =>
         TileLinkParameters(
@@ -41,11 +41,11 @@ class GroundTestCoreplex(implicit p: Parameters) extends BaseCoreplex {
   }
 
   val fixer = LazyModule(new TLFIFOFixer)
-  l1tol2.node :=* fixer.node
+  tile_splitter.node :=* fixer.node
   tiles.foreach { fixer.node :=* _.masterNode }
 
-  val cbusRAM = LazyModule(new TLRAM(AddressSet(testRamAddr, 0xffff), false, cbus_beatBytes))
-  cbusRAM.node := TLFragmenter(cbus_beatBytes, cbus_lineBytes)(cbus.node)
+  val pbusRAM = LazyModule(new TLRAM(AddressSet(testRamAddr, 0xffff), false, pbusBeatBytes))
+  pbusRAM.node := TLFragmenter(pbusBeatBytes, pbusBlockBytes)(pbus.node)
 
   override lazy val module = new GroundTestCoreplexModule(this, () => new GroundTestCoreplexBundle(this))
 }

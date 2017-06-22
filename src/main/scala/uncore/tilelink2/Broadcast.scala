@@ -15,6 +15,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
   val node = TLAdapterNode(
     clientFn  = { cp =>
       cp.copy(clients = Seq(TLClientParameters(
+        name     = "TLBroadcast",
         sourceId = IdRange(0, 1 << log2Ceil(cp.endSourceId*4)))))
     },
     managerFn = { mp =>
@@ -227,7 +228,8 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
 
   // Only one operation can be inflight per line, because we need to be sure
   // we send the request after all the probes we sent and before all the next probes
-  val idle    = RegInit(Bool(true))
+  val got_e   = RegInit(Bool(true))
+  val sent_d  = RegInit(Bool(true))
   val opcode  = Reg(io.in_a.bits.opcode)
   val param   = Reg(io.in_a.bits.param)
   val size    = Reg(io.in_a.bits.size)
@@ -235,10 +237,12 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
   val address = RegInit(UInt(id << lineShift, width = io.in_a.bits.address.getWidth))
   val dsid    = Reg(io.in_a.bits.dsid)
   val count   = Reg(UInt(width = probeCountBits))
+  val idle    = got_e && sent_d
 
   when (io.in_a.fire() && io.in_a_first) {
     assert (idle)
-    idle    := Bool(false)
+    sent_d  := Bool(false)
+    got_e   := io.in_a.bits.opcode =/= TLMessages.Acquire
     opcode  := io.in_a.bits.opcode
     param   := io.in_a.bits.param
     size    := io.in_a.bits.size
@@ -248,12 +252,12 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
     count   := io.probe
   }
   when (io.d_last) {
-    assert (!idle)
-    idle := opcode =/= TLMessages.Acquire
+    assert (!sent_d)
+    sent_d := Bool(true)
   }
   when (io.e_last) {
-    assert (!idle)
-    idle := Bool(true)
+    assert (!got_e)
+    got_e := Bool(true)
   }
 
   when (io.probenack || io.probedack) {

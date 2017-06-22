@@ -7,7 +7,7 @@ import config._
 import diplomacy._
 import util._
 
-class AHBRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4)(implicit p: Parameters) extends LazyModule
+class AHBRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4, fuzzHreadyout: Boolean = false)(implicit p: Parameters) extends LazyModule
 {
   val node = AHBSlaveNode(Seq(AHBSlavePortParameters(
     Seq(AHBSlaveParameters(
@@ -63,7 +63,7 @@ class AHBRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4
     // Use single-ported memory with byte-write enable
     val mem = SeqMem(1 << mask.filter(b=>b).size, Vec(beatBytes, Bits(width = 8)))
 
-    // Decide is the SRAM port is used for reading or (potentially) writing
+    // Decide if the SRAM port is used for reading or (potentially) writing
     val read = a_request && !a_write
     // In case we choose to stall, we need to hold the read data
     val d_rdata = mem.readAndHold(a_address, read)
@@ -95,7 +95,7 @@ class AHBRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4
     when (a_request)  { d_request := Bool(true) }
 
     // Finally, the outputs
-    in.hreadyout := !d_request || LFSR16(Bool(true))(0) // Bool(true)
+    in.hreadyout := (if(fuzzHreadyout) { !d_request || LFSR16(Bool(true))(0) } else { Bool(true) })
     in.hresp     := AHBParameters.RESP_OKAY
     in.hrdata    := Mux(in.hreadyout, muxdata.asUInt, UInt(0))
   }

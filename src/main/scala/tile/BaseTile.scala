@@ -11,6 +11,8 @@ import util._
 
 case object SharedMemoryTLEdge extends Field[TLEdgeOut]
 case object TileKey extends Field[TileParams]
+case object ResetVectorBits extends Field[Int]
+case object MaxHartIdBits extends Field[Int]
 
 trait TileParams {
   val core: CoreParams
@@ -31,6 +33,7 @@ trait HasTileParameters {
   val usingBTB = tileParams.btb.isDefined && tileParams.btb.get.nEntries > 0
   val usingPTW = usingVM
   val usingDataScratchpad = tileParams.dcache.flatMap(_.scratch).isDefined
+  val hartIdLen = p(MaxHartIdBits)
 
   def dcacheArbPorts = 1 + usingVM.toInt + usingDataScratchpad.toInt + tileParams.rocc.size
 }
@@ -47,11 +50,13 @@ abstract class BareTileModule[+L <: BareTile, +B <: BareTileBundle[L]](_outer: L
   val io = _io ()
 }
 
-// Uses TileLink master port to connect caches and accelerators to the coreplex
-trait HasTileLinkMasterPort extends HasTileParameters {
+/** Uses TileLink master port to connect caches and accelerators to the coreplex */
+trait HasTileLinkMasterPort {
   implicit val p: Parameters
   val module: HasTileLinkMasterPortModule
   val masterNode = TLOutputNode()
+  val tileBus = LazyModule(new TLXbar) // TileBus xbar for cache backends to connect to
+  masterNode := tileBus.node
 }
 
 trait HasTileLinkMasterPortBundle {
@@ -64,6 +69,14 @@ trait HasTileLinkMasterPortModule {
   val io: HasTileLinkMasterPortBundle
 }
 
+/** Some other standard inputs */
+trait HasExternallyDrivenTileConstants extends Bundle {
+  implicit val p: Parameters
+  val hartid = UInt(INPUT, p(MaxHartIdBits))
+  val resetVector = UInt(INPUT, p(ResetVectorBits))
+}
+
+/** Base class for all Tiles that use TileLink */
 abstract class BaseTile(tileParams: TileParams)(implicit p: Parameters) extends BareTile
     with HasTileLinkMasterPort
     with HasExternalInterrupts {
@@ -71,12 +84,12 @@ abstract class BaseTile(tileParams: TileParams)(implicit p: Parameters) extends 
 }
 
 class BaseTileBundle[+L <: BaseTile](_outer: L) extends BareTileBundle(_outer)
+    with HasTileParameters
     with HasTileLinkMasterPortBundle
-    with HasExternalInterruptsBundle {
-  val hartid = UInt(INPUT, p(XLen))
-  val resetVector = UInt(INPUT, p(XLen))
-  val ila = new ILABundle()
-}
+    with HasExternalInterruptsBundle
+    with HasExternallyDrivenTileConstants {
+      val ila = new ILABundle()
+    }
 
 class BaseTileModule[+L <: BaseTile, +B <: BaseTileBundle[L]](_outer: L, _io: () => B) extends BareTileModule(_outer, _io)
     with HasTileLinkMasterPortModule

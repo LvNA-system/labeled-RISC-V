@@ -14,13 +14,17 @@ import scala.math.{min,max}
 // Fragmenter modifies: PutFull, PutPartial, LogicalData, Get, Hint
 // Fragmenter passes: ArithmeticData (truncated to minSize if alwaysMin)
 // Fragmenter cannot modify acquire (could livelock); thus it is unsafe to put caches on both sides
-class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = false)(implicit p: Parameters) extends LazyModule
+class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = false, val earlyAck: Boolean = false)(implicit p: Parameters) extends LazyModule
 {
   require (isPow2 (maxSize))
   require (isPow2 (minSize))
   require (minSize < maxSize)
 
+  // EarlyAck means that 1.999 transactions can be inflight at a time
+  // Thus, we need an extra toggle bit to prevent source collisions
   val fragmentBits = log2Ceil(maxSize / minSize)
+  val toggleBits = if (earlyAck) 1 else 0
+  val addedBits = fragmentBits + toggleBits
 
   def expandTransfer(x: TransferSizes) = if (!x) x else {
     require (x.max >= minSize) // validate that we can apply the fragmenter correctly
@@ -37,11 +41,14 @@ class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = 
     supportsPutFull    = expandTransfer(m.supportsPutFull),
     supportsPutPartial = expandTransfer(m.supportsPutPartial),
     supportsHint       = expandTransfer(m.supportsHint))
-  def mapClient(c: TLClientParameters) = c.copy(
-    sourceId = IdRange(c.sourceId.start << fragmentBits, c.sourceId.end << fragmentBits))
 
   val node = TLAdapterNode(
-    clientFn  = { c => c.copy(clients = c.clients.map(mapClient)) },
+    // We require that all the responses are mutually FIFO
+    // Thus we need to compact all of the masters into one big master
+    clientFn  = { c => c.copy(clients = Seq(TLClientParameters(
+      name        = "TLFragmenter",
+      sourceId    = IdRange(0, c.endSourceId << addedBits),
+      requestFifo = true))) },
     managerFn = { m => m.copy(managers = m.managers.map(mapManager)) })
 
   lazy val module = new LazyModuleImp(this) {
@@ -57,6 +64,7 @@ class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = 
       val beatBytes = manager.beatBytes
       val fifoId = managers(0).fifoId
       require (fifoId.isDefined && managers.map(_.fifoId == fifoId).reduce(_ && _))
+      require (manager.endSinkId <= 1)
 
       // We don't support fragmenting to sub-beat accesses
       require (minSize >= beatBytes)
@@ -136,6 +144,7 @@ class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = 
       val dOrig = Reg(UInt())
       val dFragnum = out.d.bits.source(fragmentBits-1, 0)
       val dFirst = acknum === UInt(0)
+      val dLast = dFragnum === UInt(0)
       val dsizeOH  = UIntToOH (out.d.bits.size, log2Ceil(maxDownSize)+1)
       val dsizeOH1 = UIntToOH1(out.d.bits.size, log2Up(maxDownSize))
       val dHasData = edgeOut.hasData(out.d.bits)
@@ -155,19 +164,26 @@ class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = 
       }
 
       // Swallow up non-data ack fragments
-      val drop = !dHasData && (dFragnum =/= UInt(0))
+      val drop = !dHasData && !(if (earlyAck) dFirst else dLast)
       out.d.ready := in.d.ready || drop
       in.d.valid  := out.d.valid && !drop
       in.d.bits   := out.d.bits // pass most stuff unchanged
       in.d.bits.addr_lo := out.d.bits.addr_lo & ~dsizeOH1
-      in.d.bits.source := out.d.bits.source >> fragmentBits
+      in.d.bits.source := out.d.bits.source >> addedBits
       in.d.bits.size   := Mux(dFirst, dFirst_size, dOrig)
 
-      // Combine the error flag
-      val r_error = RegInit(Bool(false))
-      val d_error = r_error | out.d.bits.error
-      when (out.d.fire()) { r_error := Mux(drop, d_error, UInt(0)) }
-      in.d.bits.error := d_error
+      if (earlyAck) {
+        // If you do early Ack, errors may not be dropped
+        // ... which roughly means: Puts may not fail
+        assert (!out.d.valid || !out.d.bits.error || !drop)
+        in.d.bits.error := out.d.bits.error
+      } else {
+        // Combine the error flag
+        val r_error = RegInit(Bool(false))
+        val d_error = r_error | out.d.bits.error
+        when (out.d.fire()) { r_error := Mux(drop, d_error, UInt(0)) }
+        in.d.bits.error := d_error
+      }
 
       // What maximum transfer sizes do downstream devices support?
       val maxArithmetics = managers.map(_.supportsArithmetic.max)
@@ -221,13 +237,23 @@ class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = 
       val old_gennum1 = Mux(aFirst, aOrigOH1 >> log2Ceil(beatBytes), gennum - UInt(1))
       val new_gennum = ~(~old_gennum1 | (aMask >> log2Ceil(beatBytes))) // ~(~x|y) is width safe
       val aFragnum = ~(~(old_gennum1 >> log2Ceil(minSize/beatBytes)) | (aFragOH1 >> log2Ceil(minSize)))
+      val aLast = aFragnum === UInt(0)
 
       when (out.a.fire()) { gennum := new_gennum }
+
+      // We need to alternate bits by source to handle the 1.999 txns inflight per Id
+      val toggleBitOpt = if (!earlyAck) None else {
+        val state = Reg(UInt(width = edgeIn.client.endSourceId))
+        val toggle = Wire(init = UInt(0, width = edgeIn.client.endSourceId))
+        when (in_a.fire() && aLast) { toggle := UIntToOH(in_a.bits.source) }
+        state := state ^ toggle
+        Some(state(in_a.bits.source))
+      }
 
       repeater.io.repeat := !aHasData && aFragnum =/= UInt(0)
       out.a <> in_a
       out.a.bits.address := in_a.bits.address | ~(old_gennum1 << log2Ceil(beatBytes) | ~aOrigOH1 | aFragOH1 | UInt(minSize-1))
-      out.a.bits.source := Cat(in_a.bits.source, aFragnum)
+      out.a.bits.source := Cat(Seq(in_a.bits.source) ++ toggleBitOpt.toList ++ Seq(aFragnum))
       out.a.bits.size := aFrag
 
       // Optimize away some of the Repeater's registers
@@ -251,8 +277,8 @@ class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = 
 object TLFragmenter
 {
   // applied to the TL source node; y.node := TLFragmenter(x.node, 256, 4)
-  def apply(minSize: Int, maxSize: Int, alwaysMin: Boolean = false)(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
-    val fragmenter = LazyModule(new TLFragmenter(minSize, maxSize, alwaysMin))
+  def apply(minSize: Int, maxSize: Int, alwaysMin: Boolean = false, earlyAck: Boolean = false)(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
+    val fragmenter = LazyModule(new TLFragmenter(minSize, maxSize, alwaysMin, earlyAck))
     fragmenter.node := x
     fragmenter.node
   }
@@ -261,9 +287,9 @@ object TLFragmenter
 /** Synthesizeable unit tests */
 import unittest._
 
-class TLRAMFragmenter(ramBeatBytes: Int, maxSize: Int)(implicit p: Parameters) extends LazyModule {
-  val fuzz = LazyModule(new TLFuzzer(5000))
-  val model = LazyModule(new TLRAMModel)
+class TLRAMFragmenter(ramBeatBytes: Int, maxSize: Int, txns: Int)(implicit p: Parameters) extends LazyModule {
+  val fuzz = LazyModule(new TLFuzzer(txns))
+  val model = LazyModule(new TLRAMModel("Fragmenter"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x3ff), beatBytes = ramBeatBytes))
 
   model.node := fuzz.node
@@ -271,7 +297,7 @@ class TLRAMFragmenter(ramBeatBytes: Int, maxSize: Int)(implicit p: Parameters) e
     TLDelayer(0.1)(
     TLBuffer(BufferParams.flow)(
     TLDelayer(0.1)(
-    TLFragmenter(ramBeatBytes, maxSize)(
+    TLFragmenter(ramBeatBytes, maxSize, earlyAck = true)(
     TLDelayer(0.1)(
     TLBuffer(BufferParams.flow)(
     TLFragmenter(ramBeatBytes, maxSize/2)(
@@ -284,6 +310,6 @@ class TLRAMFragmenter(ramBeatBytes: Int, maxSize: Int)(implicit p: Parameters) e
   }
 }
 
-class TLRAMFragmenterTest(ramBeatBytes: Int, maxSize: Int)(implicit p: Parameters) extends UnitTest(timeout = 500000) {
-  io.finished := Module(LazyModule(new TLRAMFragmenter(ramBeatBytes,maxSize)).module).io.finished
+class TLRAMFragmenterTest(ramBeatBytes: Int, maxSize: Int, txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
+  io.finished := Module(LazyModule(new TLRAMFragmenter(ramBeatBytes,maxSize,txns)).module).io.finished
 }
