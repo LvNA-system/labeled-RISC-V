@@ -14,6 +14,10 @@ class PARDFPGAHarness()(implicit p: Parameters) extends Module {
     val success = Bool(OUTPUT)
   }
   val dut = Module(LazyModule(new PARDFPGATop).module)
+
+  dut.connectSimAXIMem()
+  dut.connectSimAXIMMIO()
+  dut.tieOffAXI4SlavePort()
 }
 
 class TestHarness()(implicit p: Parameters) extends Module {
@@ -23,17 +27,17 @@ class TestHarness()(implicit p: Parameters) extends Module {
   }
   val dut = Module(LazyModule(new PARDSimTop).module)
 
-  dut.io.interrupts := UInt(0)
-  dut.io.debug.get.dmi.req.valid := Bool(false)
-  dut.io.debug.get.dmi.resp.ready := Bool(true)
+  dut.interrupts := UInt(0)
+  dut.debug.clockeddmi.get.dmi.req.valid := Bool(false)
+  dut.debug.clockeddmi.get.dmi.resp.ready := Bool(true)
 
   // Make cores always runnable
-  dut.io.L1enable.foreach(_ := io.en)
-  dut.io.trafficGeneratorEnable := Bool(false)
+  dut.L1enable.foreach(_ := io.en)
+  dut.trafficGeneratorEnable := Bool(false)
 
   val channels = p(coreplex.BankedL2Config).nMemoryChannels
-  if (channels > 0) Module(LazyModule(new SimAXIMem(channels)).module).io.axi4 <> dut.io.mem_axi4
-    for (axi4 <- dut.io.mem_axi4) {
+  if (channels > 0) Module(LazyModule(new SimAXIMem(channels)).module).io.axi4 <> dut.mem_axi4
+    for (axi4 <- dut.mem_axi4) {
       when(axi4.ar.valid) {
   //      printf("axi4.ar.user = %x, axi4.ar.addr = %x\n", axi4.ar.bits.user, axi4.ar.bits.addr)
       }
@@ -51,12 +55,12 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dma.io.clk := clock
   dma.io.reset := reset
 
-  for (tcr <- dut.io.tcrs) {
+  for (tcr <- dut.tcrs) {
     tcr.reset := reset || dma.io.intr
     tcr.clock := clock
   }
 
-  val l2_axi4 = dut.io.l2_frontend_bus_axi4(0)
+  val l2_axi4 = dut.l2_frontend_bus_axi4(0)
   l2_axi4.ar.valid := Bool(false)
   l2_axi4.r .ready := Bool(true)
   l2_axi4.b .ready := Bool(true)
@@ -72,7 +76,7 @@ class TestHarness()(implicit p: Parameters) extends Module {
   l2_axi4.aw.bits.cache := UInt(0, width = 4)
   l2_axi4.aw.bits.prot := AXI4Parameters.PROT_PRIVILEDGED
   l2_axi4.aw.bits.qos := UInt(0, width = 4)
-  l2_axi4.aw.bits.user := dma.io.axi_awuser
+//  l2_axi4.aw.bits.user.get := dma.io.axi_awuser
 
   dma.io.axi_wready := l2_axi4.w.ready
   l2_axi4.w .valid := dma.io.axi_wvalid
@@ -80,7 +84,7 @@ class TestHarness()(implicit p: Parameters) extends Module {
   l2_axi4.w .bits.strb := UInt("h_ff", width = 8)
   l2_axi4.w .bits.last := Bool(true)
 
-  val mmio_axi4 = dut.io.mmio_axi4(0)
+  val mmio_axi4 = dut.mmio_axi4(0)
   mmio_axi4.r.valid := Bool(false)
   mmio_axi4.b.valid := Bool(false)
   mmio_axi4.ar.ready := Bool(true)

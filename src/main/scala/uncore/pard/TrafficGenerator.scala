@@ -24,7 +24,7 @@ class TrafficGenerator(
     }
   )(implicit p: Parameters) extends LazyModule
 {
-  val node = TLClientNode(TLClientParameters(sourceId = IdRange(0, inFlight)))
+  val node = TLClientNode(TLClientParameters(name = "TrafficGenerator", sourceId = IdRange(0, inFlight)))
 
   lazy val module = new LazyModuleImp(this) {
     val io = new Bundle {
@@ -36,7 +36,7 @@ class TrafficGenerator(
     val edge = node.edgesOut(0)
 
     // Extract useful parameters from the TL edge
-    val addressBits  = log2Up(edge.manager.maxAddress + 1)
+    val addressBits  = log2Ceil(edge.manager.maxAddress + 1)
     val sizeBits     = edge.bundle.sizeBits
 
     // Progress within each operation
@@ -85,10 +85,10 @@ object TrafficGenerator {
 }
 
 trait HasTrafficGenerator extends coreplex.HasCoreplexParameters {
-  val l1tol2: TLXbar
+  val sbus: TLXbar
   // TODO Make it configured
   val trafficGenerator = TrafficGenerator(nTiles + 1, "h80000000", "h3ffffff")
-  l1tol2.node := trafficGenerator.node
+  sbus.node := trafficGenerator.node
 }
 
 trait HasTrafficGeneratorBundle {

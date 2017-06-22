@@ -4,12 +4,12 @@ package sifive.blocks.devices.uart
 import Chisel._
 import uncore.tilelink2._
 import config.Field
-import diplomacy.LazyModule
+import diplomacy.{LazyModule, LazyMultiIOModuleImp}
 import rocketchip._
 
 //case object PeripheryUARTKey extends Field[Seq[UARTParams]]
 
-trait HasPeripheryUART extends HasTopLevelNetworks {
+trait HasPeripheryUART extends HasSystemNetworks {
   val uartParams = Seq(UARTParams(address = BigInt(0x1000L))) //p(PeripheryUARTKey)
   val uarts = uartParams map { params =>
     val uart = LazyModule(new TLUART(peripheryBusBytes, params))
@@ -19,14 +19,11 @@ trait HasPeripheryUART extends HasTopLevelNetworks {
   }
 }
 
-trait HasPeripheryUARTBundle extends HasTopLevelNetworksBundle {
+trait HasPeripheryUARTModuleImp extends LazyMultiIOModuleImp {
   val outer: HasPeripheryUART
-  val uarts = Vec(outer.uartParams.size, new UARTPortIO)
-}
-
-trait HasPeripheryUARTModule extends HasTopLevelNetworksModule {
-  val outer: HasPeripheryUART
-  val io: HasPeripheryUARTBundle
+  val io = IO(new Bundle {
+    val uarts = Vec(outer.uartParams.size, new UARTPortIO)
+  })
   (io.uarts zip outer.uarts).foreach { case (io, device) =>
     io <> device.module.io.port
   }
