@@ -13,10 +13,15 @@ package object util {
     def apply(idx: UInt): T = {
       if (x.size == 1) {
         x.head
+      } else if (!isPow2(x.size)) {
+        // For non-power-of-2 seqs, reflect elements to simplify decoder
+        (x ++ x.takeRight(x.size & -x.size)).toSeq(idx)
       } else {
-        val half = 1 << (log2Ceil(x.size) - 1)
-        val newIdx = idx & UInt(half - 1)
-        Mux(idx >= UInt(half), x.drop(half)(newIdx), x.take(half)(newIdx))
+        // Ignore MSBs of idx
+        val truncIdx =
+          if (idx.isWidthKnown && idx.getWidth <= log2Ceil(x.size)) idx
+          else (idx | UInt(0, log2Ceil(x.size)))(log2Ceil(x.size)-1, 0)
+        (x.head /: x.zipWithIndex.tail) { case (prev, (cur, i)) => Mux(truncIdx === i.U, cur, prev) }
       }
     }
 
@@ -35,9 +40,17 @@ package object util {
   implicit def wcToUInt(c: WideCounter): UInt = c.value
 
   implicit class UIntToAugmentedUInt(val x: UInt) extends AnyVal {
-    def sextTo(n: Int): UInt =
+    def sextTo(n: Int): UInt = {
+      require(x.getWidth <= n)
       if (x.getWidth == n) x
       else Cat(Fill(n - x.getWidth, x(x.getWidth-1)), x)
+    }
+
+    def padTo(n: Int): UInt = {
+      require(x.getWidth <= n)
+      if (x.getWidth == n) x
+      else Cat(UInt(0, n - x.getWidth), x)
+    }
 
     def extract(hi: Int, lo: Int): UInt = {
       if (hi == lo-1) UInt(0)

@@ -21,7 +21,9 @@ class MStatus extends Bundle {
   val dprv = UInt(width = PRV.SZ) // effective privilege for data accesses
   val prv = UInt(width = PRV.SZ) // not truly part of mstatus, but convenient
   val sd = Bool()
-  val zero2 = UInt(width = 31)
+  val zero2 = UInt(width = 27)
+  val sxl = UInt(width = 2)
+  val uxl = UInt(width = 2)
   val sd_rv32 = Bool()
   val zero1 = UInt(width = 8)
   val tsr = Bool()
@@ -140,6 +142,7 @@ object CSR
   val firstHPM = 3
   val nCtr = 32
   val nHPM = nCtr - firstHPM
+  val hpmWidth = 40
 
   val maxPMPs = 16
 }
@@ -153,7 +156,7 @@ class PerfCounterIO(implicit p: Parameters) extends CoreBundle
 class CSRFileIO(implicit p: Parameters) extends CoreBundle
     with HasRocketCoreParameters {
   val interrupts = new TileInterrupts().asInput
-  val hartid = UInt(INPUT, xLen)
+  val hartid = UInt(INPUT, hartIdLen)
   val rw = new Bundle {
     val addr = UInt(INPUT, CSR.ADDRSZ)
     val cmd = Bits(INPUT, CSR.SZ)
@@ -288,7 +291,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   val reg_cycle = if (enableCommitLog) reg_instret else WideCounter(64)
   val reg_hpmevent = io.counters.map(c => Reg(init = UInt(0, xLen)))
   (io.counters zip reg_hpmevent) foreach { case (c, e) => c.eventSel := e }
-  val reg_hpmcounter = io.counters.map(c => WideCounter(40, c.inc, reset = false))
+  val reg_hpmcounter = io.counters.map(c => WideCounter(CSR.hpmWidth, c.inc, reset = false))
   val hpm_mask = reg_mcounteren & Mux((!usingVM).B || reg_mstatus.prv === PRV.S, delegable_counters.U, reg_scounteren)
 
   val mip = Wire(init=reg_mip)
@@ -300,10 +303,10 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   val pending_interrupts = read_mip & reg_mie
   val m_interrupts = Mux(reg_mstatus.prv <= PRV.S || (reg_mstatus.prv === PRV.M && reg_mstatus.mie), pending_interrupts & ~reg_mideleg, UInt(0))
   val s_interrupts = Mux(m_interrupts === 0 && (reg_mstatus.prv < PRV.S || (reg_mstatus.prv === PRV.S && reg_mstatus.sie)), pending_interrupts & reg_mideleg, UInt(0))
-  val all_interrupts = m_interrupts | s_interrupts
+  val (anyInterrupt, whichInterrupt) = chooseInterrupt(Seq(s_interrupts, m_interrupts))
   val interruptMSB = BigInt(1) << (xLen-1)
-  val interruptCause = UInt(interruptMSB) + PriorityEncoder(all_interrupts)
-  io.interrupt := all_interrupts.orR && !reg_debug && !io.singleStep || reg_singleStepped
+  val interruptCause = UInt(interruptMSB) + whichInterrupt
+  io.interrupt := anyInterrupt && !reg_debug && !io.singleStep || reg_singleStepped
   io.interrupt_cause := interruptCause
   io.bp := reg_bp take nBreakpoints
   io.pmp := reg_pmp.map(PMP(_))
@@ -380,6 +383,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     val read_sip = read_mip & reg_mideleg
     val read_sstatus = Wire(init = 0.U.asTypeOf(new MStatus))
     read_sstatus.sd := io.status.sd
+    read_sstatus.uxl := io.status.uxl
     read_sstatus.sd_rv32 := io.status.sd_rv32
     read_sstatus.mxr := io.status.mxr
     read_sstatus.sum := io.status.sum
@@ -475,7 +479,15 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   val trapToDebug = Bool(usingDebug) && (reg_singleStepped || causeIsDebugInt || causeIsDebugTrigger || causeIsDebugBreak || reg_debug)
   val debugTVec = Mux(reg_debug, Mux(insn_break, UInt(0x800), UInt(0x808)), UInt(0x800))
   val delegate = Bool(usingVM) && reg_mstatus.prv <= PRV.S && Mux(cause(xLen-1), reg_mideleg(cause_lsbs), reg_medeleg(cause_lsbs))
-  val tvec = Mux(trapToDebug, debugTVec, Mux(delegate, reg_stvec.sextTo(vaddrBitsExtended), reg_mtvec))
+  val mtvecBaseAlign = 2
+  val mtvecInterruptAlign = log2Ceil(new MIP().getWidth)
+  val notDebugTVec = {
+    val base = Mux(delegate, reg_stvec.sextTo(vaddrBitsExtended), reg_mtvec)
+    val interruptOffset = cause(mtvecInterruptAlign-1, 0) << mtvecBaseAlign
+    val interruptVec = Cat(base >> (mtvecInterruptAlign + mtvecBaseAlign), interruptOffset)
+    Mux(base(0) && cause(cause.getWidth-1), interruptVec, base)
+  }
+  val tvec = Mux(trapToDebug, debugTVec, notDebugTVec)
   io.evec := tvec
   io.ptbr := reg_sptbr
   io.eret := insn_call || insn_break || insn_ret
@@ -484,6 +496,8 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   io.status.sd := io.status.fs.andR || io.status.xs.andR
   io.status.debug := reg_debug
   io.status.isa := reg_misa
+  io.status.uxl := (if (usingUser) log2Ceil(xLen) - 4 else 0)
+  io.status.sxl := (if (usingVM) log2Ceil(xLen) - 4 else 0)
   io.status.dprv := Reg(next = Mux(reg_mstatus.mprv && !reg_debug, reg_mstatus.mpp, reg_mstatus.prv))
   if (xLen == 32)
     io.status.sd_rv32 := io.status.sd
@@ -495,7 +509,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   when (pending_interrupts.orR || exception) { reg_wfi := false }
   assert(!reg_wfi || io.retire === UInt(0))
 
-  when (io.retire(0)) { reg_singleStepped := true }
+  when (io.retire(0) || exception) { reg_singleStepped := true }
   when (!io.singleStep) { reg_singleStepped := false }
   assert(!io.singleStep || io.retire <= UInt(1))
   assert(!reg_singleStepped || io.retire === UInt(0))
@@ -507,6 +521,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
       Causes.misaligned_load, Causes.misaligned_store, Causes.misaligned_fetch,
       Causes.load_access, Causes.store_access, Causes.fetch_access,
       Causes.load_page_fault, Causes.store_page_fault, Causes.fetch_page_fault)
+    val badaddr_value = Mux(write_badaddr, io.badaddr, 0.U)
 
     when (trapToDebug) {
       when (!reg_debug) {
@@ -519,7 +534,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     }.elsewhen (delegate) {
       reg_sepc := formEPC(epc)
       reg_scause := cause
-      when (write_badaddr) { reg_sbadaddr := io.badaddr }
+      reg_sbadaddr := badaddr_value
       reg_mstatus.spie := reg_mstatus.sie
       reg_mstatus.spp := reg_mstatus.prv
       reg_mstatus.sie := false
@@ -527,7 +542,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     }.otherwise {
       reg_mepc := formEPC(epc)
       reg_mcause := cause
-      when (write_badaddr) { reg_mbadaddr := io.badaddr }
+      reg_mbadaddr := badaddr_value
       reg_mstatus.mpie := reg_mstatus.mie
       reg_mstatus.mpp := trimPrivilege(reg_mstatus.prv)
       reg_mstatus.mie := false
@@ -610,7 +625,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     when (decoded_addr(CSRs.mepc))     { reg_mepc := formEPC(wdata) }
     when (decoded_addr(CSRs.mscratch)) { reg_mscratch := wdata }
     if (mtvecWritable)
-      when (decoded_addr(CSRs.mtvec))  { reg_mtvec := wdata >> 2 << 2 }
+      when (decoded_addr(CSRs.mtvec))  { reg_mtvec := ~(~wdata | 2.U | Mux(wdata(0), UInt(((BigInt(1) << mtvecInterruptAlign) - 1) << mtvecBaseAlign), 0.U)) }
     when (decoded_addr(CSRs.mcause))   { reg_mcause := wdata & UInt((BigInt(1) << (xLen-1)) + 31) /* only implement 5 LSBs and MSB */ }
     when (decoded_addr(CSRs.mbadaddr)) { reg_mbadaddr := wdata(vaddrBitsExtended-1,0) }
 
@@ -666,7 +681,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
       when (decoded_addr(CSRs.sie))      { reg_mie := (reg_mie & ~reg_mideleg) | (wdata & reg_mideleg) }
       when (decoded_addr(CSRs.sscratch)) { reg_sscratch := wdata }
       when (decoded_addr(CSRs.sepc))     { reg_sepc := formEPC(wdata) }
-      when (decoded_addr(CSRs.stvec))    { reg_stvec := wdata >> 2 << 2 }
+      when (decoded_addr(CSRs.stvec))    { reg_stvec := ~(~wdata | 2.U | Mux(wdata(0), UInt(((BigInt(1) << mtvecInterruptAlign) - 1) << mtvecBaseAlign), 0.U)) }
       when (decoded_addr(CSRs.scause))   { reg_scause := wdata & UInt((BigInt(1) << (xLen-1)) + 31) /* only implement 5 LSBs and MSB */ }
       when (decoded_addr(CSRs.sbadaddr)) { reg_sbadaddr := wdata(vaddrBitsExtended-1,0) }
       when (decoded_addr(CSRs.mideleg))  { reg_mideleg := wdata & delegable_interrupts }
@@ -749,6 +764,14 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     }
   }
 
+  def chooseInterrupt(masks: Seq[UInt]) = {
+    // we can't simply choose the highest-numbered interrupt, because timer
+    // interrupts are in the wrong place in mip.
+    val timerMask = UInt(0xF0, xLen)
+    val masked = masks.map(m => Cat(m.padTo(xLen) & ~timerMask, m.padTo(xLen) & timerMask))
+    (masks.map(_.orR).reduce(_||_), Log2(masked.asUInt)(log2Ceil(xLen)-1, 0))
+  }
+
   def readModifyWriteCSR(cmd: UInt, rdata: UInt, wdata: UInt) =
     (Mux(cmd.isOneOf(CSR.S, CSR.C), rdata, UInt(0)) | wdata) & ~Mux(cmd === CSR.C, wdata, UInt(0))
 
@@ -771,5 +794,5 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     }
   }
   def formEPC(x: UInt) = ~(~x | Cat(!reg_misa('c'-'a'), UInt(1)))
-  def isaStringToMask(s: String) = s.map(x => 1 << (x - 'A')).reduce(_|_)
+  def isaStringToMask(s: String) = s.map(x => 1 << (x - 'A')).foldLeft(0)(_|_)
 }

@@ -41,8 +41,8 @@ case class TLManagerParameters(
   require ((regionType == RegionType.CACHED || regionType == RegionType.TRACKED) != supportsAcquireB.none)
   require (regionType != RegionType.UNCACHED || supportsGet)
 
-  // Largest support transfer of all types
-  val maxTransfer = List(
+  val name = nodePath.lastOption.map(_.lazyModule.name).getOrElse("disconnected")
+  val maxTransfer = List( // Largest supported transfer of all types
     supportsAcquireT.max,
     supportsAcquireB.max,
     supportsArithmetic.max,
@@ -51,18 +51,17 @@ case class TLManagerParameters(
     supportsPutFull.max,
     supportsPutPartial.max).max
   val maxAddress = address.map(_.max).max
-
-  val name = nodePath.lastOption.map(_.lazyModule.name).getOrElse("disconnected")
-
-  // The device had better not support a transfer larger than it's alignment
   val minAlignment = address.map(_.alignment).min
-  require (minAlignment >= maxTransfer, "minAlignment (" + minAlignment + ") must be >= maxTransfer (" + maxTransfer + ")")
+
+  // The device had better not support a transfer larger than its alignment
+  require (minAlignment >= maxTransfer, s"minAlignment ($minAlignment) must be >= maxTransfer ($maxTransfer)")
 
   def toResource: ResourceAddress = {
     ResourceAddress(address,
       r = supportsAcquireB || supportsGet,
       w = supportsAcquireT || supportsPutFull,
-      x = executable)
+      x = executable,
+      c = supportsAcquireB)
   }
 }
 
@@ -103,20 +102,30 @@ case class TLManagerPortParameters(
   val anySupportPutPartial = managers.map(!_.supportsPutPartial.none).reduce(_ || _)
   val anySupportHint       = managers.map(!_.supportsHint.none)      .reduce(_ || _)
 
-  // Which bits suffice to distinguish between all managers
-  lazy val routingMask = AddressDecoder(managers.map(_.address))
-
   // These return Option[TLManagerParameters] for your convenience
   def find(address: BigInt) = managers.find(_.address.exists(_.contains(address)))
 
   // The safe version will check the entire address
   def findSafe(address: UInt) = Vec(managers.map(_.address.map(_.contains(address)).reduce(_ || _)))
-  // The fast version assumes the address is valid
-  def findFast(address: UInt) = Vec(managers.map(_.address.map(_.widen(~routingMask)).distinct.map(_.contains(address)).reduce(_ || _)))
+  // The fast version assumes the address is valid (you probably want fastProperty instead of this function)
+  def findFast(address: UInt) = {
+    val routingMask = AddressDecoder(managers.map(_.address))
+    Vec(managers.map(_.address.map(_.widen(~routingMask)).distinct.map(_.contains(address)).reduce(_ || _)))
+  }
+
+  // Compute the simplest AddressSets that decide a key
+  def fastPropertyGroup[K](p: TLManagerParameters => K): Map[K, Seq[AddressSet]] = {
+    val groups = managers.map(m => (p(m), m.address)).groupBy(_._1).mapValues(_.flatMap(_._2))
+    val reductionMask = AddressDecoder(groups.values.toList)
+    groups.mapValues(seq => AddressSet.unify(seq.map(_.widen(~reductionMask)).distinct))
+  }
+  // Select a property
+  def fastProperty[K, D <: Data](address: UInt, p: TLManagerParameters => K, d: K => D): D =
+    Mux1H(fastPropertyGroup(p).map { case (v, a) => (a.map(_.contains(address)).reduce(_||_), d(v)) })
 
   // Note: returns the actual fifoId + 1 or 0 if None
-  def findFifoIdFast(address: UInt) = Mux1H(findFast(address), managers.map(m => UInt(m.fifoId.map(_+1).getOrElse(0))))
-  def hasFifoIdFast(address: UInt) = Mux1H(findFast(address), managers.map(m => Bool(m.fifoId.isDefined)))
+  def findFifoIdFast(address: UInt) = fastProperty(address, _.fifoId.map(_+1).getOrElse(0), (i:Int) => UInt(i))
+  def hasFifoIdFast(address: UInt) = fastProperty(address, _.fifoId.isDefined, (b:Boolean) => Bool(b))
 
   // Does this Port manage this ID/address?
   def containsSafe(address: UInt) = findSafe(address).reduce(_ || _)
@@ -158,6 +167,7 @@ case class TLManagerPortParameters(
 }
 
 case class TLClientParameters(
+  name:                String,
   sourceId:            IdRange       = IdRange(0,1),
   nodePath:            Seq[BaseNode] = Seq(),
   requestFifo:         Boolean       = false, // only a request, not a requirement
@@ -188,8 +198,6 @@ case class TLClientParameters(
     supportsGet.max,
     supportsPutFull.max,
     supportsPutPartial.max).max
-
-  val name = nodePath.lastOption.map(_.lazyModule.name).getOrElse("disconnected")
 }
 
 case class TLClientPortParameters(
@@ -201,9 +209,9 @@ case class TLClientPortParameters(
   require (minLatency >= 0)
 
   // Require disjoint ranges for Ids
-  clients.combinations(2).foreach({ case Seq(x,y) =>
-    require (!x.sourceId.overlaps(y.sourceId))
-  })
+  IdRange.overlaps(clients.map(_.sourceId)).foreach { case (x, y) =>
+    require (!x.overlaps(y), s"TLClientParameters.sourceId ${x} overlaps ${y}")
+  }
 
   // Bounds on required sizes
   def endSourceId = clients.map(_.sourceId.end).max
@@ -347,9 +355,9 @@ object ManagerUnification
   def apply(managers: Seq[TLManagerParameters]) = {
     // To be unified, devices must agree on all of these terms
     case class TLManagerKey(
+      resources:          Seq[Resource],
       regionType:         RegionType.T,
       executable:         Boolean,
-      lastNode:           BaseNode,
       supportsAcquireT:   TransferSizes,
       supportsAcquireB:   TransferSizes,
       supportsArithmetic: TransferSizes,
@@ -359,9 +367,9 @@ object ManagerUnification
       supportsPutPartial: TransferSizes,
       supportsHint:       TransferSizes)
     def key(x: TLManagerParameters) = TLManagerKey(
+      resources          = x.resources,
       regionType         = x.regionType,
       executable         = x.executable,
-      lastNode           = x.nodePath.last,
       supportsAcquireT   = x.supportsAcquireT,
       supportsAcquireB   = x.supportsAcquireB,
       supportsArithmetic = x.supportsArithmetic,

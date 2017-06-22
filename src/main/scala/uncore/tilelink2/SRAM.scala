@@ -3,14 +3,14 @@
 package uncore.tilelink2
 
 import Chisel._
+import chisel3.experimental.chiselName
 import config._
 import diplomacy._
 import util._
 
-class TLRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4)(implicit p: Parameters) extends LazyModule
+class TLRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4, name: Option[String] = None)(implicit p: Parameters) extends LazyModule
 {
-  val device = new MemoryDevice
-
+  val device = name.map(new SimpleDevice(_, Nil)).getOrElse(new MemoryDevice)
   val node = TLManagerNode(Seq(TLManagerPortParameters(
     Seq(TLManagerParameters(
       address            = List(address),
@@ -27,7 +27,8 @@ class TLRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4)
   // We require the address range to include an entire beat (for the write mask)
   require ((address.mask & (beatBytes-1)) == beatBytes-1)
 
-  lazy val module = new LazyModuleImp(this) {
+  lazy val module = new Implementation
+  @chiselName class Implementation extends LazyModuleImp(this) {
     val io = new Bundle {
       val in = node.bundleIn
     }
@@ -89,9 +90,9 @@ class TLRAM(address: AddressSet, executable: Boolean = true, beatBytes: Int = 4)
 /** Synthesizeable unit testing */
 import unittest._
 
-class TLRAMSimple(ramBeatBytes: Int)(implicit p: Parameters) extends LazyModule {
-  val fuzz = LazyModule(new TLFuzzer(5000))
-  val model = LazyModule(new TLRAMModel)
+class TLRAMSimple(ramBeatBytes: Int, txns: Int)(implicit p: Parameters) extends LazyModule {
+  val fuzz = LazyModule(new TLFuzzer(txns))
+  val model = LazyModule(new TLRAMModel("SRAMSimple"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x3ff), beatBytes = ramBeatBytes))
 
   model.node := fuzz.node
@@ -102,6 +103,6 @@ class TLRAMSimple(ramBeatBytes: Int)(implicit p: Parameters) extends LazyModule 
   }
 }
 
-class TLRAMSimpleTest(ramBeatBytes: Int)(implicit p: Parameters) extends UnitTest(timeout = 500000) {
-  io.finished := Module(LazyModule(new TLRAMSimple(ramBeatBytes)).module).io.finished
+class TLRAMSimpleTest(ramBeatBytes: Int, txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
+  io.finished := Module(LazyModule(new TLRAMSimple(ramBeatBytes, txns)).module).io.finished
 }

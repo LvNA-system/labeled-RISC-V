@@ -132,7 +132,13 @@ class TLWidthWidget(innerBeatBytes: Int)(implicit p: Parameters) extends LazyMod
       } else if (edgeIn.manager.beatBytes > edgeOut.manager.beatBytes) {
         // split input to output
         val repeat = Wire(Bool())
-        repeat := split(edgeIn, Repeater(in, repeat), edgeOut, out)
+        val repeated = Repeater(in, repeat)
+        val cated = Wire(repeated)
+        cated <> repeated
+        edgeIn.data(cated.bits) := Cat(
+          edgeIn.data(repeated.bits)(edgeIn.manager.beatBytes*8-1, edgeOut.manager.beatBytes*8),
+          edgeIn.data(in.bits)(edgeOut.manager.beatBytes*8-1, 0))
+        repeat := split(edgeIn, cated, edgeOut, out)
       } else {
         // merge input to output
         merge(edgeIn, in, edgeOut, out)
@@ -174,9 +180,9 @@ object TLWidthWidget
 /** Synthesizeable unit tests */
 import unittest._
 
-class TLRAMWidthWidget(first: Int, second: Int)(implicit p: Parameters) extends LazyModule {
-  val fuzz = LazyModule(new TLFuzzer(5000))
-  val model = LazyModule(new TLRAMModel)
+class TLRAMWidthWidget(first: Int, second: Int, txns: Int)(implicit p: Parameters) extends LazyModule {
+  val fuzz = LazyModule(new TLFuzzer(txns))
+  val model = LazyModule(new TLRAMModel("WidthWidget"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x3ff)))
 
   model.node := fuzz.node
@@ -191,6 +197,6 @@ class TLRAMWidthWidget(first: Int, second: Int)(implicit p: Parameters) extends 
   }
 }
 
-class TLRAMWidthWidgetTest(little: Int, big: Int)(implicit p: Parameters) extends UnitTest(timeout = 500000) {
-  io.finished := Module(LazyModule(new TLRAMWidthWidget(little,big)).module).io.finished
+class TLRAMWidthWidgetTest(little: Int, big: Int, txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
+  io.finished := Module(LazyModule(new TLRAMWidthWidget(little,big,txns)).module).io.finished
 }

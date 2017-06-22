@@ -71,14 +71,11 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
     val dpath = new DatapathPTWIO
   }
 
-  require(usingAtomics, "PTW requires atomic memory operations")
-
   val s_ready :: s_req :: s_wait1 :: s_wait2 :: Nil = Enum(UInt(), 4)
   val state = Reg(init=s_ready)
   val count = Reg(UInt(width = log2Up(pgLevels)))
   val s1_kill = Reg(next = Bool(false))
   val resp_valid = Reg(next = Vec.fill(io.requestor.size)(Bool(false)))
-  val ae = Reg(next = io.mem.xcpt.ae.ld)
   val resp_ae = Reg(Bool())
 
   val r_req = Reg(new PTWReq)
@@ -96,6 +93,11 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
     val tmp = new PTE().fromBits(io.mem.resp.bits.data)
     val res = Wire(init = new PTE().fromBits(io.mem.resp.bits.data))
     res.ppn := tmp.ppn(ppnBits-1, 0)
+    when (tmp.r || tmp.w || tmp.x) {
+      // for superpage mappings, make sure PPN LSBs are zero
+      for (i <- 0 until pgLevels-1)
+        when (count <= i && tmp.ppn((pgLevels-1-i)*pgLevelBits-1, (pgLevels-2-i)*pgLevelBits) =/= 0) { res.v := false }
+    }
     (res, (tmp.ppn >> ppnBits) =/= 0)
   }
   val traverse = pte.table() && !invalid_paddr && count < pgLevels-1
@@ -189,7 +191,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
           resp_valid(r_req_dest) := true
         }
       }
-      when (ae) {
+      when (io.mem.s2_xcpt.ae.ld) {
         resp_ae := true
         state := s_ready
         resp_valid(r_req_dest) := true

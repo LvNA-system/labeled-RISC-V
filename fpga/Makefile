@@ -36,6 +36,7 @@ CONFIG ?= PARDFPGAConfig
 
 gen_rtl = $(generated_dir)/$(long_name).v
 srams_rtl = $(generated_dir)/$(long_name).behav_srams.v
+other_rtl = $(base_dir)/vsrc/plusarg_reader.v
 
 $(gen_rtl):
 	$(MAKE) verilog -C $(base_dir)/vsim CONFIG=$(CONFIG) MODEL=$(MODEL) generated_dir=$(generated_dir)
@@ -44,7 +45,7 @@ $(srams_rtl): $(gen_rtl)
 
 rocketchip_rtl = $(fpga_dir)/srcs/rtl/rocket/rocketchip.v
 
-$(rocketchip_rtl): $(gen_rtl) $(base_dir)/vsrc/AsyncResetReg.v $(srams_rtl)
+$(rocketchip_rtl): $(gen_rtl) $(base_dir)/vsrc/AsyncResetReg.v $(srams_rtl) $(other_rtl)
 	cat $^ > $@
 
 verilog: $(rocketchip_rtl)

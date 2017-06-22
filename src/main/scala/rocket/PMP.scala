@@ -42,7 +42,7 @@ class PMP(implicit p: Parameters) extends PMPReg {
   val mask = UInt(width = paddrBits)
 
   import PMP._
-  def computeMask = Cat((Cat(addr, cfg.a(0)) + 1) ^ Cat(addr, cfg.a(0)), UInt((BigInt(1) << (lgAlign-1)) - 1, lgAlign-1))
+  def computeMask = Cat(Cat(addr, cfg.a(0)) & ~(Cat(addr, cfg.a(0)) + 1), UInt((BigInt(1) << lgAlign) - 1, lgAlign))
   private def comparand = addr << lgAlign
 
   private def pow2Match(x: UInt, lgSize: UInt, lgMaxSize: Int) = {
@@ -80,7 +80,7 @@ class PMP(implicit p: Parameters) extends PMPReg {
     prev.lowerBoundMatch(x, lgSize, lgMaxSize) && upperBoundMatch(x, lgMaxSize)
 
   private def pow2Homogeneous(x: UInt, pgLevel: UInt) = {
-    val maskHomogeneous = pgLevelMap { idxBits => mask(idxBits - 1) } (pgLevel)
+    val maskHomogeneous = pgLevelMap { idxBits => if (idxBits > paddrBits) false.B else mask(idxBits - 1) } (pgLevel)
     maskHomogeneous || (pgLevelMap { idxBits => ((x ^ comparand) >> idxBits) =/= 0 } (pgLevel))
   }
 
@@ -92,7 +92,7 @@ class PMP(implicit p: Parameters) extends PMPReg {
     val beginsAfterLower = !(x < prev.comparand)
     val beginsAfterUpper = !(x < comparand)
 
-    val pgMask = pgLevelMap { idxBits => ((BigInt(1) << paddrBits) - (BigInt(1) << idxBits)).U } (pgLevel)
+    val pgMask = pgLevelMap { idxBits => (((BigInt(1) << paddrBits) - (BigInt(1) << idxBits)) max 0).U } (pgLevel)
     val endsBeforeLower = (x & pgMask) < (prev.comparand & pgMask)
     val endsBeforeUpper = (x & pgMask) < (comparand & pgMask)
 

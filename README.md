@@ -1,4 +1,4 @@
-Rocket Chip Generator [![Build Status](https://travis-ci.org/ucb-bar/rocket-chip.svg?branch=master)](https://travis-ci.org/ucb-bar/rocket-chip)
+Rocket Chip Generator :rocket: [![Build Status](https://travis-ci.org/freechipsproject/rocket-chip.svg?branch=master)](https://travis-ci.org/freechipsproject/rocket-chip)
 =====================
 
 This repository contains the Rocket chip generator necessary to instantiate
@@ -44,6 +44,13 @@ of riscv-tools:
 For more information (or if you run into any issues), please consult the
 [riscv-tools/README](https://github.com/riscv/riscv-tools/blob/master/README.md).
 
+### Install Necessary Dependencies
+
+You may need to install some additional packages to use this repository.
+Rather than list all dependencies here, please see the appropriate section of the READMEs for each of the subprojects:
+
+* [riscv-tools "Ubuntu Packages Needed"](https://github.com/riscv/riscv-tools/blob/priv-1.10/README.md#quickstart)
+* [chisel3 "Installation"](https://github.com/ucb-bar/chisel3#installation)
 
 ### Building The Project
 
@@ -160,8 +167,8 @@ are dynamically negotiated between modules.
 * **groundtest**
 This RTL package generates synthesizeable hardware testers that emit randomized
 memory access streams in order to stress-tests the uncore memory hierarchy.
-* **junctions**
-This RTL package provides definitions for bus interfaces and generates a variety of protocol converters. 
+* **jtag**
+This RTL package provides definitions for generating JTAG bus interfaces. 
 * **regmapper**
 This utility package generates slave devices with a standardized interface for accessing their memory-mapped registers.
 * **rocket**

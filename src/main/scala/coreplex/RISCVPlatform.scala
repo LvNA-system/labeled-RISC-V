@@ -3,26 +3,30 @@
 package coreplex
 
 import Chisel._
-import config._
-import junctions._
+import config.Field
 import diplomacy._
 import tile._
 import uncore.tilelink2._
 import uncore.devices._
 import util._
 
+/** Number of tiles */
+case object NTiles extends Field[Int]
+case object PLICKey extends Field[PLICParams]
+case object ClintKey extends Field[ClintParams]
+
 trait CoreplexRISCVPlatform extends CoreplexNetwork {
   val module: CoreplexRISCVPlatformModule
 
   val debug = LazyModule(new TLDebugModule())
-  val plic  = LazyModule(new TLPLIC(maxPriorities = 7))
-  val clint = LazyModule(new CoreplexLocalInterrupter)
+  debug.node := TLFragmenter(pbusBeatBytes, pbusBlockBytes)(pbus.node)
 
-  debug.node := TLFragmenter(cbus_beatBytes, cbus_lineBytes)(cbus.node)
-  plic.node  := TLFragmenter(cbus_beatBytes, cbus_lineBytes)(cbus.node)
-  clint.node := TLFragmenter(cbus_beatBytes, cbus_lineBytes)(cbus.node)
+  val plic  = LazyModule(new TLPLIC(p(PLICKey)))
+  plic.node  := TLFragmenter(pbusBeatBytes, pbusBlockBytes)(pbus.node)
+  plic.intnode := int_xbar.intnode
 
-  plic.intnode := intBar.intnode
+  val clint = LazyModule(new CoreplexLocalInterrupter(p(ClintKey)))
+  clint.node := TLFragmenter(pbusBeatBytes, pbusBlockBytes)(pbus.node)
 
   lazy val dts = DTS(bindingTree)
   lazy val dtb = DTB(dts)
@@ -34,7 +38,7 @@ trait CoreplexRISCVPlatformBundle extends CoreplexNetworkBundle {
 
   val debug = new ClockedDMIIO().flip
   val rtcToggle = Bool(INPUT)
-  val resetVector = UInt(INPUT, p(XLen))
+  val resetVector = UInt(INPUT, p(ResetVectorBits))
   val ndreset = Bool(OUTPUT)
   val dmactive = Bool(OUTPUT)
 }
