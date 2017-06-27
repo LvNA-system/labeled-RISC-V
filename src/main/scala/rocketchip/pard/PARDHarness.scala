@@ -31,7 +31,7 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dut.debug.clockeddmi.get.dmi.resp.ready := Bool(true)
 
   // Make cores always runnable
-  dut.L1enable.foreach(_ := io.en)
+  dut.L1enable.foreach(_ := Bool(true))
   dut.trafficGeneratorEnable := Bool(false)
 
   io.success := Bool(false)
