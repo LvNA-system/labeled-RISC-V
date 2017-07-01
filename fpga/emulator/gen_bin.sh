@@ -1,2 +1,4 @@
-hexdump -ve '/8 "%016x " "\n"' $1 > bin.txt
-ls -l $1 | awk '{print $5}' | xargs printf '%x\n' > bin.size
+file=../../../sw/riscv_bbl/build/bbl
+riscv64-unknown-linux-gnu-objcopy -O binary $file bbl.bin
+truncate -s %8 bbl.bin
+hexdump -ve '2/ "%08x " "\n"' bbl.bin | awk '{print $2$1}' > ../build/bin.txt
