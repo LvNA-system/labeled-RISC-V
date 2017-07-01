@@ -1,10 +1,14 @@
 #--------------------------------------------------------------------
 # Verilator Generation
 #--------------------------------------------------------------------
+mem_gen = $(base_dir)/vsim/vlsi_mem_gen
+srams_conf = $(generated_dir)/$(long_name).conf
+srams = $(generated_dir)/$(long_name).behav_srams.v
+
 firrtl = $(generated_dir)/$(long_name).fir
 firrtl_debug = $(generated_dir_debug)/$(long_name).fir
-verilog = $(generated_dir)/$(long_name).v
-verilog_debug = $(generated_dir_debug)/$(long_name).v
+verilog = $(generated_dir)/$(long_name).v $(srams)
+verilog_debug = $(generated_dir_debug)/$(long_name).v $(srams)
 
 .SECONDARY: $(firrtl) $(firrtl_debug) $(verilog) $(verilog_debug)
 
@@ -18,7 +22,12 @@ $(generated_dir_debug)/%.fir $(generated_dir_debug)/%.d: $(FIRRTL_JAR) $(chisel_
 
 %.v: %.fir $(FIRRTL_JAR)
 	mkdir -p $(dir $@)
-	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog
+	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog --repl-seq-mem -c:$(MODEL):-o:$(srams_conf)
+	# TODO Do we need `--infer-rw $(MODEL)' ?
+
+$(srams): $(srams_conf) $(mem_gen)
+	$(mem_gen) $< > $@.tmp
+	mv $@.tmp $@
 
 # Build and install our own Verilator, to work around versionining issues.
 VERILATOR_VERSION=3.904
@@ -67,13 +76,13 @@ model_header_debug = $(generated_dir_debug)/$(long_name)/V$(MODEL).h
 $(emu): $(verilog) $(cppfiles) $(headers) $(INSTALLED_VERILATOR)
 	mkdir -p $(generated_dir)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) \
-	-o $(abspath $(sim_dir))/$@ $< $(cppfiles) -LDFLAGS "$(LDFLAGS)" \
+	-o $(abspath $(sim_dir))/$@ $(verilog) $(cppfiles) -LDFLAGS "$(LDFLAGS)" \
 	-CFLAGS "-I$(generated_dir) -include $(model_header)"
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -f V$(MODEL).mk
 
 $(emu_debug): $(verilog_debug) $(cppfiles) $(headers) $(generated_dir)/$(long_name).d $(INSTALLED_VERILATOR)
 	mkdir -p $(generated_dir_debug)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir_debug)/$(long_name)  --trace \
-	-o $(abspath $(sim_dir))/$@ $< $(cppfiles) -LDFLAGS "$(LDFLAGS)" \
+	-o $(abspath $(sim_dir))/$@ $(verilog_debug) $(cppfiles) -LDFLAGS "$(LDFLAGS)" \
 	-CFLAGS "-I$(generated_dir_debug) -include $(model_header_debug)"
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir_debug)/$(long_name) -f V$(MODEL).mk
