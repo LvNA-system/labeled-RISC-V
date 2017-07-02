@@ -2,6 +2,7 @@
 # Verilator Generation
 #--------------------------------------------------------------------
 mem_gen = $(base_dir)/vsim/vlsi_mem_gen
+mem_init = $(base_dir)/fpga/emulator/mem_init
 srams_conf = $(generated_dir)/$(long_name).conf
 srams = $(generated_dir)/$(long_name).behav_srams.v
 
@@ -25,9 +26,10 @@ $(generated_dir_debug)/%.fir $(generated_dir_debug)/%.d: $(FIRRTL_JAR) $(chisel_
 	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $*.v -X verilog --repl-seq-mem -c:$(MODEL):-o:$*.conf
 	# TODO Do we need `--infer-rw $(MODEL)' ?
 
-$(srams): $(srams_conf) $(mem_gen)
+$(srams): $(srams_conf) $(mem_gen) $(mem_init)
 	$(mem_gen) $< > $@.tmp
-	mv $@.tmp $@
+	$(mem_init) $@.tmp mem_ext bin.txt > $@
+	rm $@.tmp
 
 # Build and install our own Verilator, to work around versionining issues.
 VERILATOR_VERSION=3.904
