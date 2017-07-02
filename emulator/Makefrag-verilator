@@ -20,9 +20,9 @@ $(generated_dir_debug)/%.fir $(generated_dir_debug)/%.d: $(FIRRTL_JAR) $(chisel_
 	mkdir -p $(dir $@)
 	cd $(base_dir) && $(SBT) "run-main $(PROJECT).Generator $(generated_dir_debug) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
 
-%.v: %.fir $(FIRRTL_JAR)
+%.v %.conf: %.fir $(FIRRTL_JAR)
 	mkdir -p $(dir $@)
-	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog --repl-seq-mem -c:$(MODEL):-o:$(srams_conf)
+	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $*.v -X verilog --repl-seq-mem -c:$(MODEL):-o:$*.conf
 	# TODO Do we need `--infer-rw $(MODEL)' ?
 
 $(srams): $(srams_conf) $(mem_gen)
