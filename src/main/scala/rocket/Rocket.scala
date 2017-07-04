@@ -652,17 +652,19 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     val priv = csr.io.status.prv
 
     when (wb_valid) {
+      printf ("hart%d time%d priv%d pc=[0x%x] instr=[0x%x - DASM(%x)]",
+        io.hartid, csr.io.time(31,0), priv, pc, inst, inst)
       when (wfd) {
-        printf ("%d 0x%x (0x%x) f%d p%d 0xXXXXXXXXXXXXXXXX\n", priv, pc, inst, rd, rd+UInt(32))
+        printf (" f%d p%d 0xXXXXXXXXXXXXXXXX\n", rd, rd+UInt(32))
       }
       .elsewhen (wxd && rd =/= UInt(0) && has_data) {
-        printf ("%d 0x%x (0x%x) x%d 0x%x\n", priv, pc, inst, rd, rf_wdata)
+        printf (" x%d 0x%x\n", rd, rf_wdata)
       }
       .elsewhen (wxd && rd =/= UInt(0) && !has_data) {
-        printf ("%d 0x%x (0x%x) x%d p%d 0xXXXXXXXXXXXXXXXX\n", priv, pc, inst, rd, rd)
+        printf (" x%d p%d 0xXXXXXXXXXXXXXXXX\n", rd, rd)
       }
       .otherwise {
-        printf ("%d 0x%x (0x%x)\n", priv, pc, inst)
+        printf ("\n")
       }
     }
 

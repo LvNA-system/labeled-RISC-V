@@ -8,7 +8,7 @@ import config._
 class PARDSimConfig extends Config(new WithNBigCores(1)
   ++ new WithoutFPU
   ++ new WithAynchronousRocketTiles(8, 3)
-  ++ new WithExtMemSize(0x1000000L)
+  ++ new WithExtMemSize(0x800000L)
   ++ new BaseConfig)
 
 class PARDFPGAConfig extends Config(new FPGAConfig
