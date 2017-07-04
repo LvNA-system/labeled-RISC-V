@@ -5,7 +5,7 @@ package rocketchip
 import coreplex._
 import config._
 
-class PARDSimConfig extends Config(new WithNBigCores(1)
+class PARDSimConfig extends Config(new WithNBigCores(2)
   ++ new WithoutFPU
   ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x800000L)
