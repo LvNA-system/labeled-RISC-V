@@ -24,13 +24,14 @@ case class RocketTileParams(
 }
   
 class RocketTile(val rocketParams: RocketTileParams, val hartid: Int)(implicit p: Parameters) extends BaseTile(rocketParams)(p)
-    with CanHaveLegacyRoccs  // implies CanHaveSharedFPU with CanHavePTW with HasHellaCache
+    with HasLazyRoCC  // implies CanHaveSharedFPU with CanHavePTW with HasHellaCache
     with CanHaveScratchpad { // implies CanHavePTW with HasHellaCache with HasICacheFrontend
 
   nDCachePorts += 1 // core TODO dcachePorts += () => module.core.io.dmem ??
 
   private def ofInt(x: Int) = Seq(ResourceInt(BigInt(x)))
   private def ofStr(x: String) = Seq(ResourceString(x))
+  private def ofRef(x: Device) = Seq(ResourceReference(x.label))
 
   val cpuDevice = new Device {
     def describe(resources: ResourceBindings): Description = {
@@ -42,10 +43,16 @@ class RocketTile(val rocketParams: RocketTileParams, val hartid: Int)(implicit p
       val c = if (rocketParams.core.useCompressed) "c" else ""
       val isa = s"rv${p(XLen)}i$m$a$f$d$c"
 
-      val dcache = rocketParams.dcache.map(d => Map(
+      val dcache = rocketParams.dcache.filter(!_.scratch.isDefined).map(d => Map(
         "d-cache-block-size"   -> ofInt(block),
         "d-cache-sets"         -> ofInt(d.nSets),
         "d-cache-size"         -> ofInt(d.nSets * d.nWays * block))).getOrElse(Map())
+
+      val dtim = scratch.map(d => Map(
+        "sifive,dtim"          -> ofRef(d.device))).getOrElse(Map())
+
+      val itim = if (!frontend.icache.slaveNode.isDefined) Map() else Map(
+        "sifive,itim"          -> ofRef(frontend.icache.device))
 
       val icache = rocketParams.icache.map(i => Map(
         "i-cache-block-size"   -> ofInt(block),
@@ -86,7 +93,7 @@ class RocketTile(val rocketParams: RocketTileParams, val hartid: Int)(implicit p
         "status"               -> ofStr("okay"),
         "clock-frequency"      -> Seq(ResourceInt(rocketParams.core.bootFreqHz)),
         "riscv,isa"            -> ofStr(isa))
-        ++ dcache ++ icache ++ nextlevel ++ mmu ++ itlb ++ dtlb)
+        ++ dcache ++ icache ++ nextlevel ++ mmu ++ itlb ++ dtlb ++ dtim ++itim)
     }
   }
   val intcDevice = new Device {
@@ -120,7 +127,7 @@ class RocketTileBundle(outer: RocketTile) extends BaseTileBundle(outer)
     with CanHaveScratchpadBundle
 
 class RocketTileModule(outer: RocketTile) extends BaseTileModule(outer, () => new RocketTileBundle(outer))
-    with CanHaveLegacyRoccsModule
+    with HasLazyRoCCModule
     with CanHaveScratchpadModule {
 
   require(outer.p(PAddrBits) >= outer.masterNode.edgesIn(0).bundle.addressBits,
@@ -137,13 +144,11 @@ class RocketTileModule(outer: RocketTile) extends BaseTileModule(outer, () => ne
   dcachePorts += core.io.dmem // TODO outer.dcachePorts += () => module.core.io.dmem ??
   fpuOpt foreach { fpu => core.io.fpu <> fpu.io }
   core.io.ptw <> ptw.io.dpath
-  outer.legacyRocc foreach { lr =>
-    lr.module.io.core.cmd <> core.io.rocc.cmd
-    lr.module.io.core.exception := core.io.rocc.exception
-    core.io.rocc.resp <> lr.module.io.core.resp
-    core.io.rocc.busy := lr.module.io.core.busy
-    core.io.rocc.interrupt := lr.module.io.core.interrupt
-  }
+  roccCore.cmd <> core.io.rocc.cmd
+  roccCore.exception := core.io.rocc.exception
+  core.io.rocc.resp <> roccCore.resp
+  core.io.rocc.busy := roccCore.busy
+  core.io.rocc.interrupt := roccCore.interrupt
 
   val dsid = UInt(0x1, width = 16) + io.hartid
   (io.master).foreach { x => {
