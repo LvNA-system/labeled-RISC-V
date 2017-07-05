@@ -8,6 +8,7 @@ import coreplex._
 import diplomacy._
 import uncore.tilelink2._
 import uncore.axi4._
+import uncore.pard.AddressMapper
 import util._
 import scala.math.{min,max}
 
@@ -131,7 +132,7 @@ trait HasPeripheryMasterAXI4MemPort extends HasSystemNetworks {
   private val device = new MemoryDevice
 
   val mem_axi4 = AXI4BlindOutputNode(Seq.tabulate(channels) { channel =>
-    val base = AddressSet(config.base, config.size-1)
+    val base = AddressSet(config.base, config.size * p(NTiles) - 1)
     val filter = AddressSet(channel * blockBytes, ~((channels-1) * blockBytes))
 
     AXI4SlavePortParameters(
@@ -146,13 +147,15 @@ trait HasPeripheryMasterAXI4MemPort extends HasSystemNetworks {
       beatBytes = config.beatBytes)
   })
 
+  private val mapper = LazyModule(new AddressMapper)
   private val converter = LazyModule(new TLToAXI4(config.beatBytes))
   private val trim = LazyModule(new AXI4IdIndexer(config.idBits))
   private val yank = LazyModule(new AXI4UserYanker)
   private val buffer = LazyModule(new AXI4Buffer)
 
   mem foreach { case xbar =>
-    converter.node := xbar.node
+    mapper.node := xbar.node
+    converter.node := mapper.node
     trim.node := converter.node
     yank.node := trim.node
     buffer.node := yank.node

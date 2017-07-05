@@ -37,7 +37,8 @@ class SimAXIMem(channels: Int, forceSize: BigInt = 0)(implicit p: Parameters) ex
       id   = IdRange(0, 1 << config.idBits))))})
 
   for (i <- 0 until channels) {
-    val sram = LazyModule(new AXI4RAM(AddressSet(0, size-1), beatBytes = config.beatBytes))
+    // Extend the size for the real mem to perform PARD's memory partition
+    val sram = LazyModule(new AXI4RAM(AddressSet(0, size * p(NTiles) - 1), beatBytes = config.beatBytes))
     sram.node := AXI4Buffer()(AXI4Fragmenter()(node))
   }
 
