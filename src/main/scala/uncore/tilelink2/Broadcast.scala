@@ -69,6 +69,9 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
       val caches = clients.filter(_.supportsProbe).map(_.sourceId)
       val cache_targets = caches.map(c => UInt(c.start))
 
+      // Records cache's dsid
+      val cache_dsids = Seq.fill(caches.size){ RegInit(UInt(0)) }
+
       // Create the request tracker queues
       val trackers = Seq.tabulate(numTrackers) { id =>
         Module(new TLBroadcastTracker(id, lineBytes, log2Up(caches.size+1), bufferless, edgeIn, edgeOut)).io
@@ -164,6 +167,18 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
       val a_cache = if (caches.size == 0) UInt(1) else Vec(caches.map(_.contains(in.a.bits.source))).asUInt
       val a_first = edgeIn.first(in.a)
 
+      // Update cache_dsids by incoming requests
+      (cache_dsids zip a_cache.toBools) foreach { case (dsid, is_requestor) =>
+        when (is_requestor) {
+          dsid := in.a.bits.dsid
+        }
+      }
+
+      val dsid_mask = Vec(cache_dsids.map { dsid =>
+        Mux(dsid === UInt(0), Bool(true), dsid === in.a.bits.dsid)
+      }).asUInt
+      val dsid_todo = (~a_cache) & dsid_mask
+
       // To accept a request from A, the probe FSM must be idle and there must be a matching tracker
       val freeTrackers = Vec(trackers.map { t => t.idle }).asUInt
       val freeTracker = freeTrackers.orR()
@@ -178,11 +193,11 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
         t.in_a.valid := in.a.valid && select && (!a_first || !probe_busy)
         t.in_a.bits := in.a.bits
         t.in_a_first := a_first
-        t.probe := (if (caches.size == 0) UInt(0) else Mux(a_cache.orR(), UInt(caches.size-1), UInt(caches.size)))
+        t.probe := (if (caches.size == 0) UInt(0) else PopCount(dsid_todo))
       }
 
       when (in.a.fire() && a_first) {
-        probe_todo  := ~a_cache // probe all but the cache who poked us
+        probe_todo  := dsid_todo // probe all but the cache who poked us
         probe_line  := in.a.bits.address >> lineShift
         probe_perms := MuxLookup(in.a.bits.opcode, Wire(UInt(width = 2)), Array(
           TLMessages.PutFullData    -> TLPermissions.toN,
