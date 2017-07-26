@@ -5,7 +5,6 @@
 #if VM_TRACE
 #include "verilated_vcd_c.h"
 #endif
-#include <fesvr/dtm.h>
 #include <iostream>
 #include <fcntl.h>
 #include <signal.h>
@@ -14,16 +13,12 @@
 #include <unistd.h>
 #include <getopt.h>
 
-extern dtm_t* dtm;
+void create_dmi_server_thread(void);
+
 static uint64_t trace_count = 0;
 bool verbose;
 bool done_reset;
 volatile int enable = 0;
-
-void handle_sigterm(int sig)
-{
-  dtm->stop();
-}
 
 void flip_enable(int sig)
 {
@@ -80,7 +75,6 @@ int main(int argc, char** argv)
   uint64_t start = 0;
 #endif
 
-  std::vector<std::string> to_dtm;
   while (1) {
     static struct option long_options[] = {
       {"cycle-count", no_argument,       0, 'c' },
@@ -136,7 +130,6 @@ int main(int argc, char** argv)
         else if (arg.substr(0, 12) == "+cycle-count")
           print_cycles = true;
         else {
-          to_dtm.push_back(optarg);
           goto done_processing;
         }
         break;
@@ -145,15 +138,6 @@ int main(int argc, char** argv)
   }
 
 done_processing:
-  if (optind < argc)
-    while (optind < argc)
-      to_dtm.push_back(argv[optind++]);
-  if (!to_dtm.size()) {
-    std::cerr << "No binary specified for emulator\n";
-    usage(argv[0]);
-    return 1;
-  }
-
   if (verbose)
     fprintf(stderr, "using random seed %u\n", random_seed);
 
@@ -174,9 +158,6 @@ done_processing:
   }
 #endif
 
-  dtm = new dtm_t(to_dtm);
-
-  signal(SIGTERM, handle_sigterm);
   signal(SIGUSR1, flip_enable);
 
   // reset for several cycles to handle pipelined reset
@@ -191,7 +172,9 @@ done_processing:
   }
   done_reset = true;
 
-  while (!dtm->done() && !tile->io_success && trace_count < max_cycles) {
+  create_dmi_server_thread();
+
+  while (!tile->io_success && trace_count < max_cycles) {
     tile->io_en = enable;
 
     tile->clock = 0;
@@ -218,12 +201,7 @@ done_processing:
     fclose(vcdfile);
 #endif
 
-  if (dtm->exit_code())
-  {
-    fprintf(stderr, "*** FAILED *** (code = %d, seed %d) after %ld cycles\n", dtm->exit_code(), random_seed, trace_count);
-    ret = dtm->exit_code();
-  }
-  else if (trace_count == max_cycles)
+  if (trace_count == max_cycles)
   {
     fprintf(stderr, "*** FAILED *** (timeout, seed %d) after %ld cycles\n", random_seed, trace_count);
     ret = 2;
@@ -233,7 +211,6 @@ done_processing:
     fprintf(stderr, "Completed after %ld cycles\n", trace_count);
   }
 
-  if (dtm) delete dtm;
   if (tile) delete tile;
   return ret;
 }
