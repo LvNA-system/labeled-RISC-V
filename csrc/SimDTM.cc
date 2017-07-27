@@ -173,12 +173,10 @@ static void host_mainloop(int server_fd)
 
     while (valid || state != State::IDLE) {}  // Wait inflight request finished.
 
-    if (req.opcode == OP_READ) {
-      DMI_Resp resp_msg;
-      resp_msg.state = resp.state;
-      resp_msg.data = resp.data;
-      send(client_fd, &resp_msg, sizeof(resp_msg), 0);
-    }
+    DMI_Resp resp_msg;
+    resp_msg.state = resp.state;
+    resp_msg.data = resp.data;
+    send(client_fd, &resp_msg, sizeof(resp_msg), 0);
   }
 
   close(client_fd);
