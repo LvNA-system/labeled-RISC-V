@@ -161,10 +161,6 @@ static void host_mainloop(int server_fd)
   DMI_Req req_msg;
   while (recv(client_fd, &req_msg, sizeof(req_msg), 0) > 0) {
     printf("recv: opcode %d, addr %08x, data %08x\n", req_msg.opcode, req_msg.addr, req_msg.data);
-    if (req_msg.opcode == OP_EXIT) {  // Invalid opcode
-      emu_exit = true;
-      break;
-    }
 
     req.opcode = req_msg.opcode;
     req.addr = req_msg.addr;
