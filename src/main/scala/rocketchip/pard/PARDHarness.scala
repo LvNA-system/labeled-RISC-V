@@ -28,8 +28,6 @@ class TestHarness()(implicit p: Parameters) extends Module {
   val dut = Module(LazyModule(new PARDSimTop).module)
 
   dut.connectDebug(clock, reset, io.success)
-  dut.debug.clockeddmi.get.dmi.req.valid := Bool(false)
-  dut.debug.clockeddmi.get.dmi.resp.ready := Bool(true)
 
   // Make cores always runnable
   dut.L1enable.foreach(_ := Bool(true))
