@@ -218,6 +218,8 @@ trait HasPeripheryMasterAXI4MMIOPortModuleImp extends LazyMultiIOModuleImp with 
 trait HasPeripherySlaveAXI4Port extends HasSystemNetworks {
   private val config = p(ExtIn)
   val l2FrontendAXI4Node = AXI4BlindInputNode(Seq(AXI4MasterPortParameters(
+    userBits = 16,
+    dsidBits = 1, // For the sake of <> requires all fields exists...
     masters = Seq(AXI4MasterParameters(
       name = "AXI4 periphery",
       id   = IdRange(0, 1 << config.idBits))))))
@@ -229,7 +231,8 @@ trait HasPeripherySlaveAXI4Port extends HasSystemNetworks {
     AXI4UserYanker(Some(1 << (config.sourceBits - fifoBits - 1)))(
     AXI4Fragmenter()(
     AXI4IdIndexer(fifoBits)(
-    l2FrontendAXI4Node)))))
+    uncore.pard.UserToDSID(
+    l2FrontendAXI4Node))))))
 }
 
 /** Common io name and methods for propagating or tying off the port bundle */

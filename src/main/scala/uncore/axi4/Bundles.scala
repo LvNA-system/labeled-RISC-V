@@ -20,6 +20,7 @@ abstract class AXI4BundleA(params: AXI4BundleParameters) extends AXI4BundleBase(
   val prot   = UInt(width = params.protBits)
   val qos    = UInt(width = params.qosBits)  // 0=no QoS, bigger = higher priority
   val user = if (params.userBits > 0) Some(UInt(width = params.userBits)) else None
+  val dsid = if (params.dsidBits > 0) Some(UInt(width = params.dsidBits)) else None
   // val region = UInt(width = 4) // optional
 
   // Number of bytes-1 in this operation

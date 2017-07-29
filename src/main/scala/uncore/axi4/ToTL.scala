@@ -9,7 +9,7 @@ import diplomacy._
 import uncore.tilelink2._
 
 case class AXI4ToTLNode() extends MixedAdapterNode(AXI4Imp, TLImp)(
-  dFn = { case AXI4MasterPortParameters(masters, userBits) =>
+  dFn = { case AXI4MasterPortParameters(masters, userBits, dsidBits) =>
     masters.foreach { m => require (m.maxFlight.isDefined, "AXI4 must include a transaction maximum per ID to convert to TL") }
     val maxFlight = masters.map(_.maxFlight.get).max
     TLClientPortParameters(
@@ -48,6 +48,14 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
       val out = node.bundleOut
     }
 
+    def bind_dsid(tl: TLBundleA, axi: AXI4BundleA) = {
+      require(axi.dsid.isDefined, "Slave AXI4 port must transfer dsid.")
+      tl.dsid := axi.dsid.get
+      val (dsid_width, user_width) = (tl.dsid.getWidth, axi.dsid.get.getWidth)
+      require(dsid_width == user_width,
+        s"Inward axi user bits width($user_width) does not match tilelink2 dsid width($dsid_width).")
+    }
+
     ((io.in zip io.out) zip (node.edgesIn zip node.edgesOut)) foreach { case ((in, out), (edgeIn, edgeOut)) =>
       val numIds = edgeIn.master.endId
       val beatBytes = edgeOut.manager.beatBytes
@@ -82,6 +90,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
       in.ar.ready := r_out.ready
       r_out.valid := in.ar.valid
       r_out.bits := edgeOut.Get(r_id, r_addr, r_size)._2
+      bind_dsid(r_out.bits, in.ar.bits)
 
       val r_sel = UIntToOH(in.ar.bits.id, numIds)
       (r_sel.toBools zip r_count) foreach { case (s, r) =>
@@ -102,6 +111,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
       in.w.ready  := w_out.ready && in.aw.valid
       w_out.valid := in.aw.valid && in.w.valid
       w_out.bits := edgeOut.Put(w_id, w_addr, w_size, in.w.bits.data, in.w.bits.strb)._2
+      bind_dsid(w_out.bits, in.aw.bits)
 
       val w_sel = UIntToOH(in.aw.bits.id, numIds)
       (w_sel.toBools zip w_count) foreach { case (s, r) =>
