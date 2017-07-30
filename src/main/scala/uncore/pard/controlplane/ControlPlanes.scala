@@ -13,6 +13,10 @@ class ControlPlanes(implicit p: Parameters) extends Module {
   val mig = Module(new MigControlPlane)
   val core = Module(new CoreControlPlane)
   val cache = Module(new CacheControlPlane)
+
+  io.mig <> mig.io
+  io.core <> core.io
+  io.cache <> cache.io
 }
 
 
