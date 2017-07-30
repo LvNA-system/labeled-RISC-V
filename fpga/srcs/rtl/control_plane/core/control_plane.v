@@ -19,6 +19,8 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+`include "../../include/dmi.vh"
+
 module core_control_plane (
   input RST,
   input SYS_CLK,
@@ -46,6 +48,8 @@ module core_control_plane (
   output [15:0] DS_ID_CORE1,
   output [15:0] DS_ID_CORE2,
 
+  `dmi_master(DMI, debug),
+
   input trigger_axis_tready,
   output trigger_axis_tvalid,
   output [15:0] trigger_axis_tdata
@@ -61,6 +65,7 @@ module core_control_plane (
     .io_i2c_t_sda(SDA_t),
     .io_i2c_o_scl(SCL_o),
     .io_i2c_o_sda(SDA_o),
+    .`dmi_connect(io_debug, debug),
     .io_trigger_axis_ready(trigger_axis_tready),
     .io_trigger_axis_valid(trigger_axis_tvalid),
     .io_trigger_axis_bits(trigger_axis_tdata),
