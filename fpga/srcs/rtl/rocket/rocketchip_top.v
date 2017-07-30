@@ -20,6 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 `include "../include/axi.vh"
+`include "../include/dmi.vh"
 
 module rocketchip_top(
   input coreclk0,
@@ -66,15 +67,7 @@ module rocketchip_top(
 
   input io_debug_clk0,
   input io_debug_rst0,
-  output  io_debug_req_ready,
-  input   io_debug_req_valid,
-  input  [4:0] io_debug_req_bits_addr,
-  input  [1:0] io_debug_req_bits_op,
-  input  [33:0] io_debug_req_bits_data,
-  input   io_debug_resp_ready,
-  output  io_debug_resp_valid,
-  output [1:0] io_debug_resp_bits_resp,
-  output [33:0] io_debug_resp_bits_data
+  `dmi_slave(DMI, io_debug)
 );
 
 PARDFPGATop top(
@@ -121,15 +114,7 @@ PARDFPGATop top(
 
    .io_debug_dmiClock(io_debug_clk0),
    .io_debug_dmiReset(io_debug_rst0),
-   .io_debug_dmi_req_ready(io_debug_req_ready),
-   .io_debug_dmi_req_valid(io_debug_req_valid),
-   .io_debug_dmi_req_bits_addr(io_debug_req_bits_addr),
-   .io_debug_dmi_req_bits_op(io_debug_req_bits_op),
-   .io_debug_dmi_req_bits_data(io_debug_req_bits_data),
-   .io_debug_dmi_resp_ready(io_debug_resp_ready),
-   .io_debug_dmi_resp_valid(io_debug_resp_valid),
-   .io_debug_dmi_resp_bits_resp(io_debug_resp_bits_resp),
-   .io_debug_dmi_resp_bits_data(io_debug_resp_bits_data)
+   .`dmi_connect(io_debug_dmi, io_debug)
 );
 
 endmodule
