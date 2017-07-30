@@ -66,7 +66,7 @@ module core_control_plane (
     .io_i2c_o_scl(SCL_o),
     .io_i2c_o_sda(SDA_o),
     .`dmi_connect(io_debug, debug),
-    .io_trigger_axis_ready(trigger_axis_tready),
+    // .io_trigger_axis_ready(trigger_axis_tready),
     .io_trigger_axis_valid(trigger_axis_tvalid),
     .io_trigger_axis_bits(trigger_axis_tdata),
     .io_extReset_0(EXT_RESET_IN_CORE0),
