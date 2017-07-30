@@ -5,11 +5,13 @@
 package uncore.pard
 
 import config._
+import uncore.devices.{DMKey, DefaultDebugModuleConfig}
 
 object TopConfig extends Config(new MigConfig
   ++ new CacheConfig
   ++ new TriggerConfig
-  ++ new BucketConfig)
+  ++ new BucketConfig
+  ++ new DebugConfig)
 
 case object TriggerRDataBits extends Field[Int]
 case object TriggerMetricBits extends Field[Int]
@@ -46,4 +48,8 @@ case object BucketBits extends Field[BucketBitsParams]
 
 class BucketConfig extends Config((site, here, next) => {
   case BucketBits => BucketBitsParams(data = 32, size = 32, freq = 32)
+})
+
+class DebugConfig extends Config((site, here, next) => {
+  case DMKey => DefaultDebugModuleConfig(64)
 })

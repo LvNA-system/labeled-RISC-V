@@ -16,4 +16,5 @@ class CoreDetectLogic(implicit p: Parameters)
   val ptab = createPTab(new CorePTab)
   ptab.io.extReset <> io.extReset
   ptab.io.dsid     <> io.dsid
+  ptab.io.debug    <> io.debug
 }
