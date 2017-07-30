@@ -15,6 +15,7 @@ class PARDFPGAHarness()(implicit p: Parameters) extends Module {
   }
   val dut = Module(LazyModule(new PARDFPGATop).module)
 
+  dut.connectDebug(clock, reset, io.success)
   dut.connectSimAXIMem()
   dut.connectSimAXIMMIO()
   dut.tieOffAXI4SlavePort()
