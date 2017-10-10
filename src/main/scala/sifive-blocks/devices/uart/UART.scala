@@ -68,7 +68,6 @@ class UARTTx(c: UARTParams)(implicit p: Parameters) extends UARTModule(c)(p) {
   val busy = (counter =/= UInt(0))
   io.in.ready := io.en && !busy
   when (io.in.fire()) {
-    printf("%c", io.in.bits)
     shifter := Cat(io.in.bits, Bits(0, 1))
     counter := Mux1H((0 until uartStopBits).map(i =>
       (io.nstop === UInt(i)) -> UInt(n + i + 1)))
@@ -221,6 +220,11 @@ trait HasUARTTopModuleContents extends Module with HasUARTParameters with HasReg
   txm.io.div := div
   txm.io.nstop := nstop
   io.port.txd := txm.io.out
+
+  val printer = Module(new UARTPrinter(s"serial${params.address.toInt.toHexString}"))
+  printer.io.clock := clock
+  printer.io.valid := txm.io.in.fire()
+  printer.io.data := txm.io.in.bits
 
   rxm.io.en := rxen
   rxm.io.in := io.port.rxd

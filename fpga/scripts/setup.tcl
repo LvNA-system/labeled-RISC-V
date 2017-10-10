@@ -37,6 +37,12 @@ set_property "target_language" "Verilog" $obj
 set_property coreContainer.enable 1 $obj
 
 
+# Set IP repository paths
+set obj [get_filesets sources_1]
+set_property "ip_repo_paths" "[file normalize "$thisDir/ip"]" $obj
+# Rebuild user ip_repo's index before adding any source files
+update_ip_catalog -rebuild
+
 # Add Constraints Files
 set fileset constrs_1
 set files [list \
@@ -125,6 +131,7 @@ set files [list \
  "[file normalize "$rtlRoot/misc/cross_domain.v"]"\
  "[file normalize "$rtlRoot/misc/leds_mux_controller.v"]"\
  "[file normalize "$rtlRoot/include/axi.vh"]"\
+ "[file normalize "$rtlRoot/include/dmi.vh"]"\
 ]
 add_files -norecurse -fileset $fileset $files
 

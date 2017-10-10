@@ -22,7 +22,7 @@ class AXI4Buffer(
   def this()(implicit p: Parameters) = this(BufferParams.default)
 
   val node = AXI4AdapterNode(
-    masterFn = { p => p },
+    masterFn = { p => p.copy(userBits = 16) },
     slaveFn  = { p => p.copy(minLatency = p.minLatency + min(aw.latency,ar.latency) + min(r.latency,b.latency)) })
 
   lazy val module = new LazyModuleImp(this) {

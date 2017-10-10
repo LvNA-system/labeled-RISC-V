@@ -2,14 +2,15 @@ package uncore.pard
 
 import chisel3._
 import chisel3.util._
-
 import config._
+import uncore.devices.DMIIO
 
 
 trait HasCoreIO { this: Bundle =>
   implicit val p: Parameters  // Want trait parameter ...
   val extReset = Output(Vec(p(NEntries), Bool()))
   val dsid = Output(Vec(p(NEntries), UInt(p(TagBits).W)))
+  val debug = new DMIIO()
 }
 
 
@@ -23,4 +24,5 @@ class CoreControlPlane(implicit p: Parameters)
   // detect <> outer
   detect.io.extReset <> io.extReset
   detect.io.dsid <> io.dsid
+  detect.io.debug <> io.debug
 }

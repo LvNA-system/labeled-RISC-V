@@ -40,7 +40,7 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 
 # The design that will be created by this Tcl script contains the following 
 # module references:
-# core_control_plane, cdma_addr, i2c_switch_top, leds_mux_controller, mig_control_plane, uart_inverter, uart_inverter, rocketchip_top, vc709_sfp, axi_reg
+# cache_control_plane, cdma_addr, core_control_plane, i2c_switch_top, leds_mux_controller, mig_control_plane, uart_inverter, uart_inverter, xlnx_cache_pard, rocketchip_top, vc709_sfp, axi_reg
 
 # Please add the sources of those modules before sourcing this Tcl script.
 
@@ -1179,7 +1179,7 @@ proc create_hier_cell_vc709_sfp { parentCell nameHier } {
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
+
   # Create instance: xlconstant_0, and set properties
   set xlconstant_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0 ]
 
@@ -1247,6 +1247,7 @@ proc create_hier_cell_rocketchip { parentCell nameHier } {
   current_bd_instance $hier_obj
 
   # Create interface pins
+  create_bd_intf_pin -mode Slave -vlnv riscv:rocket:dmi_rtl:1.0 DMI
   create_bd_intf_pin -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_CDMA
   create_bd_intf_pin -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_MEM
   create_bd_intf_pin -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 UART
@@ -1257,6 +1258,8 @@ proc create_hier_cell_rocketchip { parentCell nameHier } {
   create_bd_pin -dir I coreclk
   create_bd_pin -dir I -type rst corerst0
   create_bd_pin -dir I -type rst corerst1
+  create_bd_pin -dir I debug_clk
+  create_bd_pin -dir I debug_rst
   create_bd_pin -dir I -from 0 -to 0 -type rst s_axi_aresetn
   create_bd_pin -dir I -from 0 -to 0 -type rst s_axi_aresetn1
   create_bd_pin -dir I -type clk uncoreclk
@@ -1352,16 +1355,18 @@ CONFIG.C_PROBE9_WIDTH {64} \
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
+
   # Create instance: xlconstant_0, and set properties
   set xlconstant_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0 ]
   set_property -dict [ list \
 CONFIG.CONST_VAL {0} \
+CONFIG.CONST_WIDTH {2} \
  ] $xlconstant_0
 
   # Create interface connections
   connect_bd_intf_net -intf_net Conn1 [get_bd_intf_pins M_AXI_CDMA] [get_bd_intf_pins rocketchip_top_0/M_AXI_CDMA]
   connect_bd_intf_net -intf_net Conn2 [get_bd_intf_pins UART1] [get_bd_intf_pins axi_uartlite_1/UART]
+  connect_bd_intf_net -intf_net Conn3 [get_bd_intf_pins DMI] [get_bd_intf_pins rocketchip_top_0/DMI]
   connect_bd_intf_net -intf_net axi_crossbar_0_M00_AXI [get_bd_intf_pins axi_crossbar_0/M00_AXI] [get_bd_intf_pins axi_uartlite_0/S_AXI]
   connect_bd_intf_net -intf_net axi_crossbar_0_M01_AXI [get_bd_intf_pins axi_crossbar_0/M01_AXI] [get_bd_intf_pins axi_uartlite_1/S_AXI]
   connect_bd_intf_net -intf_net axi_dwidth_converter_0_M_AXI [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins axi_protocol_converter_0/S_AXI]
@@ -1376,6 +1381,8 @@ CONFIG.CONST_VAL {0} \
   connect_bd_net -net coreclk_1 [get_bd_pins coreclk] [get_bd_pins ila_core0/clk] [get_bd_pins ila_core1/clk] [get_bd_pins rocketchip_top_0/coreclk0] [get_bd_pins rocketchip_top_0/coreclk1]
   connect_bd_net -net corerst0_1 [get_bd_pins corerst0] [get_bd_pins rocketchip_top_0/corerst0]
   connect_bd_net -net corerst1_1 [get_bd_pins corerst1] [get_bd_pins rocketchip_top_0/corerst1]
+  connect_bd_net -net io_debug_clk0_1 [get_bd_pins debug_clk] [get_bd_pins rocketchip_top_0/io_debug_clk0]
+  connect_bd_net -net io_debug_rst0_1 [get_bd_pins debug_rst] [get_bd_pins rocketchip_top_0/io_debug_rst0]
   connect_bd_net -net rocketchip_top_0_io_ila_0_csr_time [get_bd_pins ila_core0/probe1] [get_bd_pins rocketchip_top_0/io_ila_0_csr_time]
   connect_bd_net -net rocketchip_top_0_io_ila_0_hartid [get_bd_pins ila_core0/probe0] [get_bd_pins rocketchip_top_0/io_ila_0_hartid]
   connect_bd_net -net rocketchip_top_0_io_ila_0_instr [get_bd_pins ila_core0/probe4] [get_bd_pins rocketchip_top_0/io_ila_0_instr]
@@ -1403,7 +1410,7 @@ CONFIG.CONST_VAL {0} \
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins s_axi_aresetn1] [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins axi_uartlite_1/s_axi_aresetn]
   connect_bd_net -net s_axi_aresetn_1 [get_bd_pins s_axi_aresetn] [get_bd_pins axi_uartlite_0/s_axi_aresetn]
   connect_bd_net -net uncorerst_1 [get_bd_pins uncorerst] [get_bd_pins rocketchip_top_0/uncorerst]
-  connect_bd_net -net xlconstant_0_dout [get_bd_pins rocketchip_top_0/io_debug_clk0] [get_bd_pins rocketchip_top_0/io_debug_req_bits_addr] [get_bd_pins rocketchip_top_0/io_debug_req_bits_data] [get_bd_pins rocketchip_top_0/io_debug_req_bits_op] [get_bd_pins rocketchip_top_0/io_debug_req_valid] [get_bd_pins rocketchip_top_0/io_debug_resp_ready] [get_bd_pins rocketchip_top_0/io_debug_rst0] [get_bd_pins rocketchip_top_0/io_interrupts] [get_bd_pins xlconstant_0/dout]
+  connect_bd_net -net xlconstant_0_dout [get_bd_pins rocketchip_top_0/io_interrupts] [get_bd_pins xlconstant_0/dout]
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -1749,28 +1756,6 @@ CONFIG.FREQ_HZ {125000000} \
 CONFIG.POLARITY {ACTIVE_HIGH} \
  ] $sys_rst
 
-  # Create instance: cache_control_plane_0, and set properties
-  set block_name cache_control_plane
-  set block_cell_name cache_control_plane_0
-  if { [catch {set cache_control_plane_0 [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
-     catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
-     return 1
-   } elseif { $cache_control_plane_0 eq "" } {
-     catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
-     return 1
-   }
-  
-  # Create instance: core_control_plane_0, and set properties
-  set block_name core_control_plane
-  set block_cell_name core_control_plane_0
-  if { [catch {set core_control_plane_0 [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
-     catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
-     return 1
-   } elseif { $core_control_plane_0 eq "" } {
-     catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
-     return 1
-   }
-  
   # Create instance: PRMSYS
   create_hier_cell_PRMSYS [current_bd_instance .] PRMSYS
 
@@ -1787,6 +1772,17 @@ CONFIG.C_NUM_OF_COUNTERS {10} \
 CONFIG.C_REG_ALL_MONITOR_SIGNALS {1} \
  ] $axi_perf_mon_0
 
+  # Create instance: cache_control_plane_0, and set properties
+  set block_name cache_control_plane
+  set block_cell_name cache_control_plane_0
+  if { [catch {set cache_control_plane_0 [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
+     catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   } elseif { $cache_control_plane_0 eq "" } {
+     catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   }
+
   # Create instance: cdma_addr_0, and set properties
   set block_name cdma_addr
   set block_cell_name cdma_addr_0
@@ -1797,7 +1793,7 @@ CONFIG.C_REG_ALL_MONITOR_SIGNALS {1} \
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
+
   # Create instance: clk_wiz_0, and set properties
   set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:5.3 clk_wiz_0 ]
   set_property -dict [ list \
@@ -1830,6 +1826,17 @@ CONFIG.MMCM_CLKIN2_PERIOD.VALUE_SRC {DEFAULT} \
 CONFIG.MMCM_COMPENSATION.VALUE_SRC {DEFAULT} \
  ] $clk_wiz_0
 
+  # Create instance: core_control_plane_0, and set properties
+  set block_name core_control_plane
+  set block_cell_name core_control_plane_0
+  if { [catch {set core_control_plane_0 [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
+     catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   } elseif { $core_control_plane_0 eq "" } {
+     catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   }
+
   # Create instance: i2c_switch_top_0, and set properties
   set block_name i2c_switch_top
   set block_cell_name i2c_switch_top_0
@@ -1840,7 +1847,7 @@ CONFIG.MMCM_COMPENSATION.VALUE_SRC {DEFAULT} \
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
+
   # Create instance: leds_mux_controller_0, and set properties
   set block_name leds_mux_controller
   set block_cell_name leds_mux_controller_0
@@ -1851,7 +1858,7 @@ CONFIG.MMCM_COMPENSATION.VALUE_SRC {DEFAULT} \
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
+
   # Create instance: mig_7series_0, and set properties
   set mig_7series_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:mig_7series:4.0 mig_7series_0 ]
 
@@ -1878,7 +1885,7 @@ CONFIG.XML_INPUT_FILE {mig_b.prj} \
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
+
   # Create instance: pardcore_reset0, and set properties
   set pardcore_reset0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 pardcore_reset0 ]
 
@@ -1904,7 +1911,7 @@ CONFIG.XML_INPUT_FILE {mig_b.prj} \
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
+
   # Create instance: uart_inverter_1, and set properties
   set block_name uart_inverter
   set block_cell_name uart_inverter_1
@@ -1915,7 +1922,7 @@ CONFIG.XML_INPUT_FILE {mig_b.prj} \
      catch {common::send_msg_id "BD_TCL-106" "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
+
   # Create instance: util_vector_logic_0, and set properties
   set util_vector_logic_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 util_vector_logic_0 ]
   set_property -dict [ list \
@@ -1983,6 +1990,13 @@ CONFIG.CONST_VAL {121} \
 CONFIG.CONST_WIDTH {7} \
  ] $xlconstant_3
 
+  # Create instance: xlconstant_4, and set properties
+  set xlconstant_4 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_4 ]
+  set_property -dict [ list \
+CONFIG.CONST_VAL {3} \
+CONFIG.CONST_WIDTH {3} \
+ ] $xlconstant_4
+
   # Create instance: xlconstant_01010101, and set properties
   set xlconstant_01010101 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_01010101 ]
   set_property -dict [ list \
@@ -2006,8 +2020,7 @@ CONFIG.ID_WIDTH {5} \
 
   # Create interface connections
   connect_bd_intf_net -intf_net C0_SYS_CLK_1 [get_bd_intf_ports C0_SYS_CLK] [get_bd_intf_pins mig_7series_0/C0_SYS_CLK]
-  connect_bd_intf_net -intf_net cache_control_plane_0_I2C [get_bd_intf_pins cache_control_plane_0/I2C] [get_bd_intf_pins i2c_switch_top_0/S1]
-  connect_bd_intf_net -intf_net core_control_plane_0_I2C [get_bd_intf_pins core_control_plane_0/I2C] [get_bd_intf_pins i2c_switch_top_0/S0]
+  connect_bd_intf_net -intf_net DMI_1 [get_bd_intf_pins core_control_plane_0/DMI] [get_bd_intf_pins rocketchip/DMI]
   connect_bd_intf_net -intf_net PRMSYS_IIC [get_bd_intf_pins PRMSYS/IIC] [get_bd_intf_pins i2c_switch_top_0/M]
   connect_bd_intf_net -intf_net PRMSYS_MEM_AXI [get_bd_intf_pins PRMSYS/MEM_AXI] [get_bd_intf_pins mig_7series_0/S0_AXI]
   connect_bd_intf_net -intf_net PRMSYS_M_AXI_APM [get_bd_intf_pins PRMSYS/M_AXI_APM] [get_bd_intf_pins axi_perf_mon_0/S_AXI]
@@ -2015,22 +2028,20 @@ CONFIG.ID_WIDTH {5} \
   connect_bd_intf_net -intf_net PRM_CORE_EMC_INTF [get_bd_intf_ports linear_flash] [get_bd_intf_pins PRMSYS/EMC_INTF]
   connect_bd_intf_net -intf_net PRM_CORE_UART [get_bd_intf_ports UART] [get_bd_intf_pins PRMSYS/UART]
   connect_bd_intf_net -intf_net PRM_CORE_sfp [get_bd_intf_ports sfp] [get_bd_intf_pins PRMSYS/sfp]
-  connect_bd_intf_net -intf_net axi_clock_converter_0_M_AXI [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins mig_control_plane_0/S_AXI]
+  connect_bd_intf_net -intf_net axi_clock_converter_0_M_AXI [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins mig_7series_0/S1_AXI]
   connect_bd_intf_net -intf_net axi_clock_converter_1_M_AXI [get_bd_intf_pins axi_clock_converter_1/M_AXI] [get_bd_intf_pins rocketchip/M_AXI_CDMA]
+  connect_bd_intf_net -intf_net cache_control_plane_0_I2C [get_bd_intf_pins cache_control_plane_0/I2C] [get_bd_intf_pins i2c_switch_top_0/S1]
   connect_bd_intf_net -intf_net cdma_addr_0_M_AXI [get_bd_intf_pins axi_clock_converter_1/S_AXI] [get_bd_intf_pins cdma_addr_0/M_AXI]
+  connect_bd_intf_net -intf_net core_control_plane_0_I2C [get_bd_intf_pins core_control_plane_0/I2C] [get_bd_intf_pins i2c_switch_top_0/S0]
   connect_bd_intf_net -intf_net mig_7series_0_C0_DDR3 [get_bd_intf_ports C0_DDR3] [get_bd_intf_pins mig_7series_0/C0_DDR3]
   connect_bd_intf_net -intf_net mig_7series_0_C1_DDR3 [get_bd_intf_ports C1_DDR3] [get_bd_intf_pins mig_7series_0/C1_DDR3]
   connect_bd_intf_net -intf_net mig_control_plane_0_I2C [get_bd_intf_pins i2c_switch_top_0/S2] [get_bd_intf_pins mig_control_plane_0/I2C]
-  connect_bd_intf_net -intf_net mig_control_plane_0_M_AXI [get_bd_intf_pins mig_7series_0/S1_AXI] [get_bd_intf_pins mig_control_plane_0/M_AXI]
-connect_bd_intf_net -intf_net [get_bd_intf_nets mig_control_plane_0_M_AXI] [get_bd_intf_pins axi_perf_mon_0/SLOT_0_AXI] [get_bd_intf_pins mig_control_plane_0/M_AXI]
   connect_bd_intf_net -intf_net rocketchip_M_AXI_MEM [get_bd_intf_pins rocketchip/M_AXI_MEM] [get_bd_intf_pins xlnx_cache_pard_0/S0_AXI]
   connect_bd_intf_net -intf_net sfp_mgt_clk_1 [get_bd_intf_ports sfp_mgt_clk] [get_bd_intf_pins PRMSYS/mgt_clk]
   connect_bd_intf_net -intf_net xlnx_cache_pard_0_M_AXI [get_bd_intf_pins axi_clock_converter_0/S_AXI] [get_bd_intf_pins xlnx_cache_pard_0/M_AXI]
 
   # Create port connections
-  connect_bd_net -net cache_control_plane_0_way_mask_to_cache [get_bd_pins cache_control_plane_0/way_mask_to_cache] [get_bd_pins xlnx_cache_pard_0/way_mask_from_ptab]
-  connect_bd_net -net core_control_plane_0_EXT_RESET_IN_CORE0 [get_bd_pins core_control_plane_0/EXT_RESET_IN_CORE0] [get_bd_pins pardcore_reset0/ext_reset_in] [get_bd_pins xlconcat_0/In0]
-  connect_bd_net -net core_control_plane_0_EXT_RESET_IN_CORE1 [get_bd_pins core_control_plane_0/EXT_RESET_IN_CORE1] [get_bd_pins pardcore_reset1/ext_reset_in] [get_bd_pins xlconcat_0/In1]
+  connect_bd_net -net L1enable_1 [get_bd_pins rocketchip/L1enable] [get_bd_pins xlconstant_4/dout]
   connect_bd_net -net Net [get_bd_ports i2c_clk] [get_bd_pins vc709_sfp/i2c_clk]
   connect_bd_net -net Net1 [get_bd_ports i2c_data] [get_bd_pins vc709_sfp/i2c_data]
   connect_bd_net -net PRMSYS_ARESETN [get_bd_pins PRMSYS/ARESETN] [get_bd_pins axi_perf_mon_0/s_axi_aresetn] [get_bd_pins i2c_switch_top_0/aresetn]
@@ -2044,25 +2055,27 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets mig_control_plane_0_M_AXI] [get_
   connect_bd_net -net aclk_1 [get_bd_pins PRMSYS/aclk] [get_bd_pins mig_7series_0/c0_ui_clk]
   connect_bd_net -net axi_perf_mon_0_interrupt [get_bd_pins PRMSYS/apm_interrupt] [get_bd_pins axi_perf_mon_0/interrupt]
   connect_bd_net -net buttons_1 [get_bd_ports buttons] [get_bd_pins leds_mux_controller_0/buttons]
+  connect_bd_net -net cache_control_plane_0_way_mask_to_cache [get_bd_pins cache_control_plane_0/way_mask_to_cache] [get_bd_pins xlnx_cache_pard_0/way_mask_from_ptab]
   connect_bd_net -net clk_wiz_0_clk_out1 [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins vc709_sfp/slowest_sync_clk]
   connect_bd_net -net clk_wiz_0_clk_out2 [get_bd_pins PRMSYS/io_clk] [get_bd_pins axi_perf_mon_0/s_axi_aclk] [get_bd_pins i2c_switch_top_0/aclk]
   connect_bd_net -net clk_wiz_0_clk_out3 [get_bd_pins clk_wiz_0/clk_out3] [get_bd_pins pardcore_reset0/slowest_sync_clk] [get_bd_pins pardcore_reset1/slowest_sync_clk] [get_bd_pins rocketchip/coreclk]
-  connect_bd_net -net clk_wiz_0_clk_out4 [get_bd_pins cache_control_plane_0/SYS_CLK] [get_bd_pins axi_clock_converter_0/s_axi_aclk] [get_bd_pins axi_clock_converter_1/m_axi_aclk] [get_bd_pins clk_wiz_0/clk_out2] [get_bd_pins pardio_reset/slowest_sync_clk] [get_bd_pins rocketchip/uncoreclk] [get_bd_pins xlnx_cache_pard_0/ACLK]
+  connect_bd_net -net clk_wiz_0_clk_out4 [get_bd_pins axi_clock_converter_0/s_axi_aclk] [get_bd_pins axi_clock_converter_1/m_axi_aclk] [get_bd_pins cache_control_plane_0/SYS_CLK] [get_bd_pins clk_wiz_0/clk_out2] [get_bd_pins pardio_reset/slowest_sync_clk] [get_bd_pins rocketchip/uncoreclk] [get_bd_pins xlnx_cache_pard_0/ACLK]
   connect_bd_net -net clk_wiz_0_locked [get_bd_pins clk_wiz_0/locked] [get_bd_pins pardcore_reset0/dcm_locked] [get_bd_pins pardcore_reset1/dcm_locked] [get_bd_pins pardio_reset/dcm_locked] [get_bd_pins vc709_sfp/dcm_locked]
+  connect_bd_net -net core_control_plane_0_EXT_RESET_IN_CORE0 [get_bd_pins core_control_plane_0/EXT_RESET_IN_CORE0] [get_bd_pins pardcore_reset0/ext_reset_in] [get_bd_pins xlconcat_0/In0]
+  connect_bd_net -net core_control_plane_0_EXT_RESET_IN_CORE1 [get_bd_pins core_control_plane_0/EXT_RESET_IN_CORE1] [get_bd_pins pardcore_reset1/ext_reset_in] [get_bd_pins xlconcat_0/In1]
   connect_bd_net -net corerst0_1 [get_bd_pins pardcore_reset0/mb_reset] [get_bd_pins rocketchip/corerst0]
   connect_bd_net -net dcm_locked_1 [get_bd_pins PRMSYS/dcm_locked] [get_bd_pins mig_7series_0/c0_mmcm_locked]
   connect_bd_net -net ext_reset_in_1 [get_bd_pins PRMSYS/ext_reset_in] [get_bd_pins mig_7series_0/c0_ui_clk_sync_rst]
   connect_bd_net -net leds_mux_controller_0_leds [get_bd_ports leds] [get_bd_pins leds_mux_controller_0/leds]
   connect_bd_net -net mig_7series_0_c1_mmcm_locked [get_bd_pins mig_7series_0/c1_mmcm_locked] [get_bd_pins reset_100M/dcm_locked]
-  connect_bd_net -net mig_7series_0_c1_ui_clk [get_bd_pins core_control_plane_0/SYS_CLK] [get_bd_pins PRMSYS/m_axi_aclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins axi_clock_converter_1/s_axi_aclk] [get_bd_pins axi_perf_mon_0/core_aclk] [get_bd_pins axi_perf_mon_0/slot_0_axi_aclk] [get_bd_pins clk_wiz_0/clk_in1] [get_bd_pins leds_mux_controller_0/clk] [get_bd_pins mig_7series_0/c1_ui_clk] [get_bd_pins mig_control_plane_0/aclk] [get_bd_pins reset_100M/slowest_sync_clk]
+  connect_bd_net -net mig_7series_0_c1_ui_clk [get_bd_pins PRMSYS/m_axi_aclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins axi_clock_converter_1/s_axi_aclk] [get_bd_pins axi_perf_mon_0/core_aclk] [get_bd_pins axi_perf_mon_0/slot_0_axi_aclk] [get_bd_pins clk_wiz_0/clk_in1] [get_bd_pins core_control_plane_0/SYS_CLK] [get_bd_pins leds_mux_controller_0/clk] [get_bd_pins mig_7series_0/c1_ui_clk] [get_bd_pins mig_control_plane_0/aclk] [get_bd_pins reset_100M/slowest_sync_clk] [get_bd_pins rocketchip/debug_clk]
   connect_bd_net -net mig_7series_0_c1_ui_clk_sync_rst [get_bd_pins clk_wiz_0/reset] [get_bd_pins mig_7series_0/c1_ui_clk_sync_rst] [get_bd_pins pardio_reset/ext_reset_in] [get_bd_pins reset_100M/ext_reset_in] [get_bd_pins vc709_sfp/ext_reset_in]
-  connect_bd_net -net mig_control_plane_0_L1enable [get_bd_pins mig_control_plane_0/L1enable] [get_bd_pins rocketchip/L1enable]
   connect_bd_net -net pardcore_reset1_mb_reset [get_bd_pins pardcore_reset1/mb_reset] [get_bd_pins rocketchip/corerst1]
   connect_bd_net -net pardcore_reset_interconnect_aresetn [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins axi_clock_converter_1/m_axi_aresetn] [get_bd_pins pardio_reset/interconnect_aresetn] [get_bd_pins rocketchip/s_axi_aresetn1] [get_bd_pins util_vector_logic_2/Op1] [get_bd_pins xlnx_cache_pard_0/ARESETN]
   connect_bd_net -net pardcore_reset_peripheral_aresetn [get_bd_pins PRMSYS/aresetn1] [get_bd_pins axi_perf_mon_0/core_aresetn] [get_bd_pins axi_perf_mon_0/slot_0_axi_aresetn] [get_bd_pins mig_7series_0/c1_aresetn] [get_bd_pins reset_100M/peripheral_aresetn]
   connect_bd_net -net pardio_reset_mb_reset [get_bd_pins pardio_reset/mb_reset] [get_bd_pins rocketchip/uncorerst] [get_bd_pins util_vector_logic_1/Op1]
   connect_bd_net -net reset_100M_interconnect_aresetn [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins axi_clock_converter_1/s_axi_aresetn] [get_bd_pins leds_mux_controller_0/aresetn] [get_bd_pins mig_control_plane_0/aresetn] [get_bd_pins reset_100M/interconnect_aresetn]
-  connect_bd_net -net reset_100M_mb_reset [get_bd_pins core_control_plane_0/RST] [get_bd_pins reset_100M/mb_reset]
+  connect_bd_net -net reset_100M_mb_reset [get_bd_pins core_control_plane_0/RST] [get_bd_pins reset_100M/mb_reset] [get_bd_pins rocketchip/debug_rst]
   connect_bd_net -net rocketchip_UART1_txd [get_bd_pins rocketchip/UART1_txd] [get_bd_pins uart_inverter_1/tx_src] [get_bd_pins xlconcat_1/In3]
   connect_bd_net -net rocketchip_UART_txd [get_bd_pins rocketchip/UART_txd] [get_bd_pins uart_inverter_0/tx_src] [get_bd_pins xlconcat_1/In1]
   connect_bd_net -net s_axi_aresetn_1 [get_bd_pins pardio_reset/peripheral_aresetn] [get_bd_pins rocketchip/s_axi_aresetn]
@@ -2138,4 +2151,6 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets mig_control_plane_0_M_AXI] [get_
 
 create_root_design ""
 
+
+common::send_msg_id "BD_TCL-1000" "WARNING" "This Tcl script was generated from a block design that has not been validated. It is possible that design <$design_name> may result in errors during validation."
 

@@ -16,8 +16,8 @@ class APMBundle extends Bundle {
 class MigControlPlaneIO(implicit p: Parameters) extends ControlPlaneIO {
   val l1enable = Output(Vec(p(NEntries), Bool()))
   val apm = new APMBundle
-  val s_axi =  Flipped(AXI4Bundle(AXI4BundleParameters(p(AddrBits), p(DataBits), 5, 16)))
-  val m_axi = AXI4Bundle(AXI4BundleParameters(p(AddrBits), p(DataBits), 5, 16))
+  val s_axi =  Flipped(AXI4Bundle(AXI4BundleParameters(p(AddrBits), p(DataBits), 5, 16, 0)))
+  val m_axi = AXI4Bundle(AXI4BundleParameters(p(AddrBits), p(DataBits), 5, 16, 0))
 }
 
 

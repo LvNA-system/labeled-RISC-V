@@ -10,7 +10,9 @@ import rocketchip._
 //case object PeripheryUARTKey extends Field[Seq[UARTParams]]
 
 trait HasPeripheryUART extends HasSystemNetworks {
-  val uartParams = Seq(UARTParams(address = BigInt(0x1000L))) //p(PeripheryUARTKey)
+  val uartParams = Seq.tabulate(p(coreplex.NTiles)) { i => //p(PeripheryUARTKey)
+    UARTParams(address = BigInt(0x1000L + i * 0x1000L))
+  }
   val uarts = uartParams map { params =>
     val uart = LazyModule(new TLUART(peripheryBusBytes, params))
     uart.node := TLFragmenter(peripheryBusBytes, cacheBlockBytes)(peripheryBus.node)
