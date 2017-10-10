@@ -32,8 +32,8 @@ module mig_control_plane(
     output trigger_axis_tvalid,
     output [15:0] trigger_axis_tdata,
 
-    `axi_in_interface(S_AXI, s_axi, 5),
-    `axi_out_interface(M_AXI, m_axi, 5)
+    `axi_slave_if(S_AXI, 64, 5),
+    `axi_master_if(M_AXI, 64, 5)
   );
 
   /* Enables for cores' L1 traffic */
@@ -67,7 +67,7 @@ module mig_control_plane(
     .io_trigger_axis_ready(trigger_axis_tready),
     .io_trigger_axis_valid(trigger_axis_tvalid),
     .io_trigger_axis_bits(trigger_axis_tdata),
-    `axi_connect_interface(io_s_axi, s_axi),
-    `axi_connect_interface(io_m_axi, m_axi)
+    `axi_connect_if(io_s_axi, S_AXI),
+    `axi_connect_if(io_m_axi, M_AXI)
   );
 endmodule

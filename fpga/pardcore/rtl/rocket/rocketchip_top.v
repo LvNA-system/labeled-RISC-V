@@ -19,8 +19,8 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-`include "../include/axi.vh"
-`include "../include/dmi.vh"
+`include "axi.vh"
+`include "dmi.vh"
 
 module rocketchip_top(
   input coreclk0,
@@ -29,15 +29,15 @@ module rocketchip_top(
   input corerst1,
   input [2:0] L1enable,  // For nTiles = 2 and one traffic generator
 	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 uncoreclk CLK" *)
-	(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI_MEM:M_AXI_MMIO:M_AXI_CDMA, ASSOCIATED_RESET uncorerst, FREQ_HZ 50000000" *)
+	(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI_MEM:M_AXI_MMIO:M_AXI_CDMA, ASSOCIATED_RESET uncorerst" *)
   input   uncoreclk,
   (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 uncorerst RST" *)
   (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_HIGH" *)
   input   uncorerst,
 
-  `axi_out_interface(M_AXI_MEM, io_mem_axi_0, 4),
-  `axi_out_interface(M_AXI_MMIO, axi_uart, 4),
-  `axi_in_interface(M_AXI_CDMA, axi_cdma, 4),
+  `axi_master_if(M_AXI_MEM, 64, 4),
+  `axi_master_if(M_AXI_MMIO, 64, 4),
+  `axi_slave_if(M_AXI_CDMA, 64, 4),
   input  [1:0] io_interrupts,
 
   output [1:0] io_ila_0_hartid,
@@ -74,18 +74,17 @@ PARDFPGATop top(
    .clock(uncoreclk),
    .reset(uncorerst),
    .tcrs_0_clock(coreclk0),
-   .tcrs_1_clock(coreclk1),
    .tcrs_0_reset(corerst0),
-   .tcrs_1_reset(corerst1),
+   //.tcrs_1_clock(coreclk1),
+   //.tcrs_1_reset(corerst1),
    .interrupts(io_interrupts_0),
    .L1enable_0(L1enable[0]),
-   .L1enable_1(L1enable[1]),
+   //.L1enable_1(L1enable[1]),
    .trafficGeneratorEnable(L1enable[2]),
 
-   `axi_connect_interface(mem_axi4_0, io_mem_axi_0),
-   `axi_connect_interface(mmio_axi4_0, axi_uart),
-   `axi_connect_interface(l2_frontend_bus_axi4_0, axi_cdma),
-   /*
+   `axi_connect_if(mem_axi4_0, M_AXI_MEM),
+   `axi_connect_if(mmio_axi4_0, M_AXI_MMIO),
+   `axi_connect_if(l2_frontend_bus_axi4_0, M_AXI_CDMA),
    .ila_0_hartid(io_ila_0_hartid),
    .ila_0_csr_time(io_ila_0_csr_time),
    .ila_0_pc(io_ila_0_pc),
@@ -99,6 +98,7 @@ PARDFPGATop top(
    .ila_0_rt_raddr(io_ila_0_rt_raddr),
    .ila_0_rt_rdata(io_ila_0_rt_rdata),
 
+   /*
    .ila_1_hartid(io_ila_1_hartid),
    .ila_1_csr_time(io_ila_1_csr_time),
    .ila_1_pc(io_ila_1_pc),
