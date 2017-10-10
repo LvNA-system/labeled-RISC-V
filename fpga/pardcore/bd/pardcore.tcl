@@ -20,15 +20,15 @@ set script_folder [_tcl::get_script_folder]
 ################################################################
 # Check if script is running in correct Vivado version.
 ################################################################
-set scripts_vivado_version 2016.2
-set current_vivado_version [version -short]
+#set scripts_vivado_version 2016.2
+#set current_vivado_version [version -short]
 
-if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
-   puts ""
-   catch {common::send_msg_id "BD_TCL-109" "ERROR" "This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Please run the script in Vivado <$scripts_vivado_version> then open the design in Vivado <$current_vivado_version>. Upgrade the design by running \"Tools => Report => Report IP Status...\", then run write_bd_tcl to create an updated script."}
+#if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
+#   puts ""
+#   catch {common::send_msg_id "BD_TCL-109" "ERROR" "This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Please run the script in Vivado <$scripts_vivado_version> then open the design in Vivado <$current_vivado_version>. Upgrade the design by running \"Tools => Report => Report IP Status...\", then run write_bd_tcl to create an updated script."}
 
-   return 1
-}
+#   return 1
+#}
 
 ################################################################
 # START
@@ -182,7 +182,7 @@ CONFIG.FREQ_HZ {50000000} \
  ] $uncoreclk
 
   # Create instance: axi_crossbar_0, and set properties
-  set axi_crossbar_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_crossbar:2.1 axi_crossbar_0 ]
+  set axi_crossbar_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_crossbar axi_crossbar_0 ]
   set_property -dict [ list \
 CONFIG.M00_A00_ADDR_WIDTH {16} \
 CONFIG.M00_A00_BASE_ADDR {0x0000000060000000} \
@@ -191,13 +191,13 @@ CONFIG.M01_A00_BASE_ADDR {0x0000000060010000} \
  ] $axi_crossbar_0
 
   # Create instance: axi_dwidth_converter_0, and set properties
-  set axi_dwidth_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0 ]
+  set axi_dwidth_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter axi_dwidth_converter_0 ]
 
   # Create instance: axi_protocol_converter_0, and set properties
-  set axi_protocol_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_protocol_converter:2.1 axi_protocol_converter_0 ]
+  set axi_protocol_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_protocol_converter axi_protocol_converter_0 ]
 
   # Create instance: axi_uartlite_0, and set properties
-  set axi_uartlite_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_0 ]
+  set axi_uartlite_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite axi_uartlite_0 ]
   set_property -dict [ list \
 CONFIG.C_BAUDRATE {115200} \
 CONFIG.C_S_AXI_ACLK_FREQ_HZ {50000000} \
@@ -210,7 +210,7 @@ CONFIG.C_S_AXI_ACLK_FREQ_HZ.VALUE_SRC {DEFAULT} \
  ] $axi_uartlite_0
 
   # Create instance: axi_uartlite_1, and set properties
-  set axi_uartlite_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_1 ]
+  set axi_uartlite_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite axi_uartlite_1 ]
   set_property -dict [ list \
 CONFIG.C_BAUDRATE {115200} \
 CONFIG.C_S_AXI_ACLK_FREQ_HZ {50000000} \
@@ -222,7 +222,7 @@ CONFIG.C_S_AXI_ACLK_FREQ_HZ.VALUE_SRC {DEFAULT} \
  ] $axi_uartlite_1
 
   # Create instance: ila_core0, and set properties
-  set ila_core0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.1 ila_core0 ]
+  set ila_core0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila ila_core0 ]
   set_property -dict [ list \
 CONFIG.C_DATA_DEPTH {4096} \
 CONFIG.C_ENABLE_ILA_AXI_MON {false} \
@@ -242,7 +242,7 @@ CONFIG.C_PROBE9_WIDTH {64} \
  ] $ila_core0
 
   # Create instance: ila_core1, and set properties
-  set ila_core1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.1 ila_core1 ]
+  set ila_core1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila ila_core1 ]
   set_property -dict [ list \
 CONFIG.C_DATA_DEPTH {4096} \
 CONFIG.C_ENABLE_ILA_AXI_MON {false} \
@@ -273,7 +273,7 @@ CONFIG.C_PROBE9_WIDTH {64} \
    }
   
   # Create instance: util_vector_logic_0, and set properties
-  set util_vector_logic_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 util_vector_logic_0 ]
+  set util_vector_logic_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic util_vector_logic_0 ]
   set_property -dict [ list \
 CONFIG.C_OPERATION {not} \
 CONFIG.C_SIZE {1} \
@@ -281,14 +281,14 @@ CONFIG.LOGO_FILE {data/sym_notgate.png} \
  ] $util_vector_logic_0
 
   # Create instance: xlconstant_0, and set properties
-  set xlconstant_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0 ]
+  set xlconstant_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant xlconstant_0 ]
   set_property -dict [ list \
 CONFIG.CONST_VAL {0} \
 CONFIG.CONST_WIDTH {2} \
  ] $xlconstant_0
 
   # Create instance: xlconstant_1, and set properties
-  set xlconstant_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_1 ]
+  set xlconstant_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant xlconstant_1 ]
   set_property -dict [ list \
 CONFIG.CONST_VAL {3} \
 CONFIG.CONST_WIDTH {3} \
