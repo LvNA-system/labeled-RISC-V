@@ -36,11 +36,11 @@ set ip_dir      ${script_dir}/ip
 # lib src files
 add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/include/axi.vh"]"
 add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/include/dmi.vh"]"
-add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/util/cdma_addr.v"]"
 set_property is_global_include true [get_files "[file normalize "${lib_dir}/include/axi.vh"]"]
 set_property is_global_include true [get_files "[file normalize "${lib_dir}/include/dmi.vh"]"]
 
 # Add files for system top
+add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/addr_mapper.v"]"
 add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/system_top.v"]"
 
 
