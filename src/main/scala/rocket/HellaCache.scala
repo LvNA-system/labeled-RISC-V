@@ -10,7 +10,7 @@ import diplomacy._
 import tile._
 import uncore.constants._
 import uncore.tilelink2._
-import uncore.util.{Code, IdentityCode}
+import uncore.util.{Code, IdentityCode, SECDEDCode}
 import util.{ParameterizedBundle, RandomReplacement}
 import scala.collection.mutable.ListBuffer
 import scala.math.max
@@ -21,8 +21,10 @@ case class DCacheParams(
     rowBits: Int = 64,
     nTLBEntries: Int = 32,
     tagECC: Code = new IdentityCode,
-    dataECC: Code = new IdentityCode,
-    dataECCBytes: Int = 1,
+    //dataECC: Code = new IdentityCode,
+    //dataECCBytes: Int = 1,
+    dataECC: Code = new SECDEDCode,
+    dataECCBytes: Int = 4,
     nMSHRs: Int = 1,
     nSDQ: Int = 17,
     nRPQ: Int = 16,
