@@ -75,11 +75,11 @@ PARDFPGATop top(
    .reset(uncorerst),
    .tcrs_0_clock(coreclk0),
    .tcrs_0_reset(corerst0),
-   //.tcrs_1_clock(coreclk1),
-   //.tcrs_1_reset(corerst1),
+   .tcrs_1_clock(coreclk1),
+   .tcrs_1_reset(corerst1),
    .interrupts(io_interrupts_0),
    .L1enable_0(L1enable[0]),
-   //.L1enable_1(L1enable[1]),
+   .L1enable_1(L1enable[1]),
    .trafficGeneratorEnable(L1enable[2]),
 
    `axi_connect_if(mem_axi4_0, M_AXI_MEM),
@@ -98,7 +98,6 @@ PARDFPGATop top(
    .ila_0_rt_raddr(io_ila_0_rt_raddr),
    .ila_0_rt_rdata(io_ila_0_rt_rdata),
 
-   /*
    .ila_1_hartid(io_ila_1_hartid),
    .ila_1_csr_time(io_ila_1_csr_time),
    .ila_1_pc(io_ila_1_pc),
@@ -111,7 +110,6 @@ PARDFPGATop top(
    .ila_1_rs_rdata(io_ila_1_rs_rdata),
    .ila_1_rt_raddr(io_ila_1_rt_raddr),
    .ila_1_rt_rdata(io_ila_1_rt_rdata),
-   */
    .debug_clockeddmi_dmiClock(io_debug_clk0),
    .debug_clockeddmi_dmiReset(io_debug_rst0),
    .`dmi_connect(debug_clockeddmi_dmi, io_debug)
