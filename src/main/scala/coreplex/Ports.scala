@@ -8,6 +8,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.util._
+import uncore.pard.AddressMapper
 
 /** Specifies the size and width of external memory ports */
 case class MasterPortParams(
@@ -34,7 +35,7 @@ trait HasMasterAXI4MemPort extends HasMemoryBus {
   private val device = new MemoryDevice
 
   val mem_axi4 = AXI4SlaveNode(Seq.tabulate(nMemoryChannels) { channel =>
-    val base = AddressSet(params.base, params.size-1)
+    val base = AddressSet(params.base, params.size * p(NTiles) - 1)
     val filter = AddressSet(channel * cacheBlockBytes, ~((nMemoryChannels-1) * cacheBlockBytes))
 
     AXI4SlavePortParameters(
@@ -49,13 +50,15 @@ trait HasMasterAXI4MemPort extends HasMemoryBus {
       beatBytes = params.beatBytes)
   })
 
+  val mapper = LazyModule(new AddressMapper)
   val converter = LazyModule(new TLToAXI4())
   val trim = LazyModule(new AXI4IdIndexer(params.idBits))
   val yank = LazyModule(new AXI4UserYanker)
   val buffer = LazyModule(new AXI4Buffer)
 
   memBuses.map(_.toDRAMController).foreach { case node =>
-    converter.node := node
+    mapper.node := node
+    converter.node := mapper.node
     trim.node := converter.node
     yank.node := trim.node
     buffer.node := yank.node
