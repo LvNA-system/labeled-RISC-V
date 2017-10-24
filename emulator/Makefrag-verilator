@@ -9,20 +9,26 @@ srams = $(generated_dir)/$(long_name).behav_srams.v
 srams_init = $(generated_dir)/$(long_name).init_srams.v
 
 firrtl = $(generated_dir)/$(long_name).fir
+
 verilog = $(generated_dir)/$(long_name).v $(srams_init)
+
 
 .SECONDARY: $(firrtl) $(verilog)
 
-#$(generated_dir)/%.fir $(generated_dir)/%.d: $(FIRRTL_JAR) $(chisel_srcs) $(bootrom_img)
-$(firrtl): $(FIRRTL_JAR) $(chisel_srcs) $(bootrom_img)
+$(generated_dir)/%.fir $(generated_dir)/%.d: $(FIRRTL_JAR) $(chisel_srcs) $(bootrom_img)
 	mkdir -p $(dir $@)
 	cd $(base_dir) && $(SBT) "run-main $(PROJECT).Generator $(generated_dir) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
 
-%.v %.conf: %.fir $(FIRRTL_JAR)
-	mkdir -p $(dir $@)
-	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $*.v -X verilog --infer-rw $(MODEL) --repl-seq-mem -c:$(MODEL):-o:$*.conf -faf $*.anno -ffaaf
+#%.v %.conf %.json: %.fir $(FIRRTL_JAR)
+#	mkdir -p $(dir $@)
+#	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $*.v -X verilog --infer-rw $(MODEL) --repl-seq-mem -c:$(MODEL):-o:$*.conf -faf $*.anno -ffaaf
 
-$(srams): $(srams_conf)
+$(generated_dir)/$(PROJECT).%.v $(generated_dir)/$(PROJECT).%.conf $(generated_dir)/%.json: $(generated_dir)/$(PROJECT).%.fir $(FIRRTL_JAR)
+	mkdir -p $(dir $@)
+	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $(generated_dir)/$(PROJECT).$*.v -X verilog --repl-seq-mem -c:$(MODEL):-o:$(generated_dir)/$(PROJECT).$*.conf
+	# TODO Do we need `--infer-rw $(MODEL)' ?
+
+$(srams): $(srams_conf) $(mem_gen)
 	$(mem_gen) $< > $@
 
 $(srams_init): $(srams) $(mem_init) $(json)
