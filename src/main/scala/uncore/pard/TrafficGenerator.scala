@@ -2,9 +2,12 @@ package uncore.pard
 
 import chisel3._
 import chisel3.util._
-import diplomacy._
-import config._
-import uncore.tilelink2._
+import freechips.rocketchip.config._
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.tilelink._
+import freechips.rocketchip.coreplex.{ExtMem, NTiles}
+import freechips.rocketchip.util.UIntToOH1
+
 
 /** This module is a customized version of `TLFuzzer'.
   * It generates endless, randomized, and always-valid Get requests,
@@ -16,7 +19,7 @@ import uncore.tilelink2._
   * @param inFlight is the number of requests that can be sent but not get responsed.
   * @param noiseMaker is a function that supplies a random UInt of a given width every time inc is true
   */
-class TrafficGenerator(
+class TrafficGenerator (
     dsid: Int, base: String, mask: String, inFlight: Int = 32,
     noiseMaker: (Int, Bool, Int) => UInt = {
       (wide: Int, increment: Bool, abs_values: Int) =>
@@ -24,16 +27,19 @@ class TrafficGenerator(
     }
   )(implicit p: Parameters) extends LazyModule
 {
-  val node = TLClientNode(TLClientParameters(name = "TrafficGenerator", sourceId = IdRange(0, inFlight)))
+  val params = TLClientParameters(name = "TrafficGenerator", sourceId = IdRange(0, inFlight))
+  val node = new TLClientNode(Seq(TLClientPortParameters(Seq(params))))
+
+  val (bundleOut, edgesOut) = node.out.unzip
 
   lazy val module = new LazyModuleImp(this) {
     val io = new Bundle {
-      val out = node.bundleOut
+      val out = bundleOut
       val enable = Input(Bool())
     }
 
     val out = io.out(0)
-    val edge = node.edgesOut(0)
+    val edge = edgesOut(0)
 
     // Extract useful parameters from the TL edge
     val addressBits  = log2Ceil(edge.manager.maxAddress + 1)
@@ -84,10 +90,14 @@ object TrafficGenerator {
   }
 }
 
-trait HasTrafficGenerator extends coreplex.HasCoreplexParameters {
+/*
+ * I still do not know how to deal with the p(NTiles) problem
+ * since no one else uses this trait
+ * simply remove this
+trait HasTrafficGenerator {
   val sbus: TLXbar
   // TODO Make it configured
-  val trafficGenerator = TrafficGenerator(nTiles + 1, "h80000000", "h3ffffff")
+  val trafficGenerator = TrafficGenerator(p(NTiles) + 1, "h80000000", "h3ffffff")
   sbus.node := trafficGenerator.node
 }
 
@@ -101,3 +111,4 @@ trait HasTrafficGeneratorModule {
   val io: HasTrafficGeneratorBundle
   outer.trafficGenerator.module.io.enable := io.trafficGeneratorEnable
 }
+*/

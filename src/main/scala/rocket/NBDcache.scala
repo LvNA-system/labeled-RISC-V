@@ -1,16 +1,14 @@
 // See LICENSE.Berkeley for license details.
 // See LICENSE.SiFive for license details.
 
-package rocket
+package freechips.rocketchip.rocket
 
 import Chisel._
 import Chisel.ImplicitConversions._
-import config._
-import diplomacy._
-import uncore.constants._
-import uncore.tilelink2._
-import uncore.util._
-import util._
+import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.tilelink._
+import freechips.rocketchip.util._
 
 trait HasMissInfo extends HasL1HellaCacheParameters {
   val tag_match = Bool()
@@ -278,7 +276,7 @@ class MSHR(id: Int)(implicit edge: TLEdgeOut, p: Parameters) extends L1HellaCach
   io.wb_req.bits.voluntary := Bool(true)
 
   io.mem_acquire.valid := state === s_refill_req && grantackq.io.enq.ready
-  io.mem_acquire.bits := edge.Acquire(
+  io.mem_acquire.bits := edge.AcquireBlock(
                                 fromSource = UInt(id),
                                 toAddress = Cat(io.tag, req_idx) << blockOffBits,
                                 lgSize = lgCacheBlockBytes,
@@ -702,16 +700,16 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   // check for unsupported operations
   assert(!s1_valid || !s1_req.cmd.isOneOf(M_PWR))
 
-  val dtlb = Module(new TLB(log2Ceil(coreDataBytes), nTLBEntries))
+  val dtlb = Module(new TLB(false, log2Ceil(coreDataBytes), nTLBEntries))
   io.ptw <> dtlb.io.ptw
   dtlb.io.req.valid := s1_valid && !io.cpu.s1_kill && (s1_readwrite || s1_sfence)
   dtlb.io.req.bits.sfence.valid := s1_sfence
   dtlb.io.req.bits.sfence.bits.rs1 := s1_req.typ(0)
   dtlb.io.req.bits.sfence.bits.rs2 := s1_req.typ(1)
+  dtlb.io.req.bits.sfence.bits.addr := s1_req.addr
   dtlb.io.req.bits.sfence.bits.asid := io.cpu.s1_data.data
   dtlb.io.req.bits.passthrough := s1_req.phys
   dtlb.io.req.bits.vaddr := s1_req.addr
-  dtlb.io.req.bits.instruction := Bool(false)
   dtlb.io.req.bits.size := s1_req.typ
   dtlb.io.req.bits.cmd := s1_req.cmd
   when (!dtlb.io.req.ready && !io.cpu.req.bits.phys) { io.cpu.req.ready := Bool(false) }

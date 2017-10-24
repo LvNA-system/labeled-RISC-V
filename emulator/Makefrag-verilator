@@ -9,26 +9,20 @@ srams = $(generated_dir)/$(long_name).behav_srams.v
 srams_init = $(generated_dir)/$(long_name).init_srams.v
 
 firrtl = $(generated_dir)/$(long_name).fir
-firrtl_debug = $(generated_dir_debug)/$(long_name).fir
 verilog = $(generated_dir)/$(long_name).v $(srams_init)
-verilog_debug = $(generated_dir_debug)/$(long_name).v $(srams_init)
 
-.SECONDARY: $(firrtl) $(firrtl_debug) $(verilog) $(verilog_debug)
+.SECONDARY: $(firrtl) $(verilog)
 
-$(generated_dir)/%.fir $(generated_dir)/%.d: $(FIRRTL_JAR) $(chisel_srcs) $(bootrom_img)
+#$(generated_dir)/%.fir $(generated_dir)/%.d: $(FIRRTL_JAR) $(chisel_srcs) $(bootrom_img)
+$(firrtl): $(FIRRTL_JAR) $(chisel_srcs) $(bootrom_img)
 	mkdir -p $(dir $@)
 	cd $(base_dir) && $(SBT) "run-main $(PROJECT).Generator $(generated_dir) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
 
-$(generated_dir_debug)/%.fir $(generated_dir_debug)/%.d: $(FIRRTL_JAR) $(chisel_srcs) $(bootrom_img)
+%.v %.conf: %.fir $(FIRRTL_JAR)
 	mkdir -p $(dir $@)
-	cd $(base_dir) && $(SBT) "run-main $(PROJECT).Generator $(generated_dir_debug) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
+	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $*.v -X verilog --infer-rw $(MODEL) --repl-seq-mem -c:$(MODEL):-o:$*.conf -faf $*.anno -ffaaf
 
-$(generated_dir)/$(PROJECT).%.v $(generated_dir)/$(PROJECT).%.conf $(generated_dir)/%.json: $(generated_dir)/$(PROJECT).%.fir $(FIRRTL_JAR)
-	mkdir -p $(dir $@)
-	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $(generated_dir)/$(PROJECT).$*.v -X verilog --repl-seq-mem -c:$(MODEL):-o:$(generated_dir)/$(PROJECT).$*.conf
-	# TODO Do we need `--infer-rw $(MODEL)' ?
-
-$(srams): $(srams_conf) $(mem_gen)
+$(srams): $(srams_conf)
 	$(mem_gen) $< > $@
 
 $(srams_init): $(srams) $(mem_init) $(json)
@@ -67,6 +61,7 @@ verilator: $(INSTALLED_VERILATOR)
 VERILATOR := $(INSTALLED_VERILATOR) --cc --exe
 VERILATOR_FLAGS := --top-module $(MODEL) \
   +define+PRINTF_COND=\$$c\(\"verbose\",\"\&\&\"\,\"done_reset\"\) \
+  +define+RANDOMIZE_GARBAGE_ASSIGN \
   +define+STOP_COND=\$$c\(\"done_reset\"\) --assert \
   --output-split 20000 \
   --output-split-cfuncs 20000 \
@@ -86,9 +81,9 @@ $(emu): $(verilog) $(cppfiles) $(headers) $(INSTALLED_VERILATOR)
 	-CFLAGS "-I$(generated_dir) -include $(model_header)"
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -f V$(MODEL).mk
 
-$(emu_debug): $(verilog_debug) $(cppfiles) $(headers) $(generated_dir)/$(long_name).d $(INSTALLED_VERILATOR)
+$(emu_debug): $(verilog) $(cppfiles) $(headers) $(generated_dir)/$(long_name).d $(INSTALLED_VERILATOR)
 	mkdir -p $(generated_dir_debug)/$(long_name)
 	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir_debug)/$(long_name)  --trace \
-	-o $(abspath $(sim_dir))/$@ $(verilog_debug) $(cppfiles) -LDFLAGS "$(LDFLAGS)" \
+	-o $(abspath $(sim_dir))/$@ $(verilog) $(cppfiles) -LDFLAGS "$(LDFLAGS)" \
 	-CFLAGS "-I$(generated_dir_debug) -include $(model_header_debug)"
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir_debug)/$(long_name) -f V$(MODEL).mk

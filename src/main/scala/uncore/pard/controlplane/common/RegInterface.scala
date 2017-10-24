@@ -3,7 +3,7 @@ package uncore.pard
 import chisel3._
 import chisel3.util._
 
-import config._
+import freechips.rocketchip.config._
 
 /** Register Interface
  *  Field layout described as XXOffset below.
@@ -44,7 +44,7 @@ class RegInterface(regType: Int, ident: String)(implicit p: Parameters) extends 
     next = Mux(index < regSpaceSize.U, regs(index), 0.U))
 
   // Write data to register
-  when (reset) {
+  when (reset.toBool) {
     // Type field
     regs(typeOffset) := regType.U
     // Reserved field

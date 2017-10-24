@@ -1,16 +1,15 @@
 // See LICENSE.Berkeley for license details.
 // See LICENSE.SiFive for license details.
 
-package tile
+package freechips.rocketchip.tile
 
 import Chisel._
 import Chisel.ImplicitConversions._
-import FPConstants._
-import rocket.DecodeLogic
-import rocket.Instructions._
-import uncore.constants.MemoryOpConstants._
-import config._
-import util._
+
+import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.rocket._
+import freechips.rocketchip.rocket.Instructions._
+import freechips.rocketchip.util._
 
 case class FPUParams(
   divSqrt: Boolean = true,
@@ -23,6 +22,7 @@ object FPConstants
   val RM_SZ = 3
   val FLAGS_SZ = 5
 }
+import FPConstants._
 
 trait HasFPUCtrlSigs {
   val ldst = Bool()
@@ -232,7 +232,7 @@ object FType {
 
 trait HasFPUParameters {
   val fLen: Int
-  val xLen: Int
+  def xLen: Int
   val minXLen = 32
   val nIntTypes = log2Ceil(xLen/minXLen) + 1
   val floatTypes = FType.all.filter(_.ieeeWidth <= fLen)
@@ -542,7 +542,72 @@ class FPToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
   io.out <> Pipe(in.valid, mux, latency-1)
 }
 
+class MulAddRecFNPipe(latency: Int, expWidth: Int, sigWidth: Int) extends Module
+{
+    require(latency<=2) 
+
+    val io = new Bundle {
+        val validin = Bool(INPUT)
+        val op = Bits(INPUT, 2)
+        val a = Bits(INPUT, expWidth + sigWidth + 1)
+        val b = Bits(INPUT, expWidth + sigWidth + 1)
+        val c = Bits(INPUT, expWidth + sigWidth + 1)
+        val roundingMode   = UInt(INPUT, 3)
+        val detectTininess = UInt(INPUT, 1)
+        val out = Bits(OUTPUT, expWidth + sigWidth + 1)
+        val exceptionFlags = Bits(OUTPUT, 5)
+        val validout = Bool(OUTPUT)
+    }
+
+    //------------------------------------------------------------------------
+    //------------------------------------------------------------------------
+    val mulAddRecFNToRaw_preMul =
+        Module(new hardfloat.MulAddRecFNToRaw_preMul(expWidth, sigWidth))
+    val mulAddRecFNToRaw_postMul =
+        Module(new hardfloat.MulAddRecFNToRaw_postMul(expWidth, sigWidth))
+
+    mulAddRecFNToRaw_preMul.io.op := io.op
+    mulAddRecFNToRaw_preMul.io.a  := io.a
+    mulAddRecFNToRaw_preMul.io.b  := io.b
+    mulAddRecFNToRaw_preMul.io.c  := io.c
+
+    val mulAddResult =
+        (mulAddRecFNToRaw_preMul.io.mulAddA *
+             mulAddRecFNToRaw_preMul.io.mulAddB) +&
+            mulAddRecFNToRaw_preMul.io.mulAddC
+
+    val valid_stage0 = Wire(Bool())
+    val roundingMode_stage0 = Wire(UInt(width=3))
+    val detectTininess_stage0 = Wire(UInt(width=1))
+  
+    val postmul_regs = if(latency>0) 1 else 0
+    mulAddRecFNToRaw_postMul.io.fromPreMul   := Pipe(io.validin, mulAddRecFNToRaw_preMul.io.toPostMul, postmul_regs).bits
+    mulAddRecFNToRaw_postMul.io.mulAddResult := Pipe(io.validin, mulAddResult, postmul_regs).bits
+    mulAddRecFNToRaw_postMul.io.roundingMode := Pipe(io.validin, io.roundingMode, postmul_regs).bits
+    roundingMode_stage0                      := Pipe(io.validin, io.roundingMode, postmul_regs).bits
+    detectTininess_stage0                    := Pipe(io.validin, io.detectTininess, postmul_regs).bits
+    valid_stage0                             := Pipe(io.validin, false.B, postmul_regs).valid
+    
+    //------------------------------------------------------------------------
+    //------------------------------------------------------------------------
+    val roundRawFNToRecFN = Module(new hardfloat.RoundRawFNToRecFN(expWidth, sigWidth, 0))
+
+    val round_regs = if(latency==2) 1 else 0
+    roundRawFNToRecFN.io.invalidExc         := Pipe(valid_stage0, mulAddRecFNToRaw_postMul.io.invalidExc, round_regs).bits
+    roundRawFNToRecFN.io.in                 := Pipe(valid_stage0, mulAddRecFNToRaw_postMul.io.rawOut, round_regs).bits
+    roundRawFNToRecFN.io.roundingMode       := Pipe(valid_stage0, roundingMode_stage0, round_regs).bits
+    roundRawFNToRecFN.io.detectTininess     := Pipe(valid_stage0, detectTininess_stage0, round_regs).bits
+    io.validout                             := Pipe(valid_stage0, false.B, round_regs).valid
+
+    roundRawFNToRecFN.io.infiniteExc := Bool(false)
+
+    io.out            := roundRawFNToRecFN.io.out
+    io.exceptionFlags := roundRawFNToRecFN.io.exceptionFlags
+}
+
 class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
+  require(latency>0)
+
   val io = new Bundle {
     val in = Valid(new FPInput).flip
     val out = Valid(new FPResult)
@@ -560,7 +625,8 @@ class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends
     when (!(cmd_fma || cmd_addsub)) { in.in3 := zero }
   }
 
-  val fma = Module(new hardfloat.MulAddRecFN(t.exp, t.sig))
+  val fma = Module(new MulAddRecFNPipe((latency-1) min 2, t.exp, t.sig))
+  fma.io.validin := valid
   fma.io.op := in.fmaCmd
   fma.io.roundingMode := in.rm
   fma.io.detectTininess := hardfloat.consts.tininess_afterRounding
@@ -571,7 +637,8 @@ class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends
   val res = Wire(new FPResult)
   res.data := sanitizeNaN(fma.io.out, t)
   res.exc := fma.io.exceptionFlags
-  io.out := Pipe(valid, res, latency-1)
+
+  io.out := Pipe(fma.io.validout, res, (latency-3) max 0)
 }
 
 class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
@@ -581,12 +648,17 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   val req_valid = ex_reg_valid || io.cp_req.valid
   val ex_reg_inst = RegEnable(io.inst, io.valid)
   val ex_cp_valid = io.cp_req.fire()
-  val mem_reg_valid = Reg(next=ex_reg_valid && !io.killx || ex_cp_valid, init=Bool(false))
-  val mem_reg_inst = RegEnable(ex_reg_inst, ex_reg_valid)
   val mem_cp_valid = Reg(next=ex_cp_valid, init=Bool(false))
-  val killm = (io.killm || io.nack_mem) && !mem_cp_valid
-  val wb_reg_valid = Reg(next=mem_reg_valid && (!killm || mem_cp_valid), init=Bool(false))
   val wb_cp_valid = Reg(next=mem_cp_valid, init=Bool(false))
+  val mem_reg_valid = RegInit(false.B)
+  val killm = (io.killm || io.nack_mem) && !mem_cp_valid
+  // Kill X-stage instruction if M-stage is killed.  This prevents it from
+  // speculatively being sent to the div-sqrt unit, which can cause priority
+  // inversion for two back-to-back divides, the first of which is killed.
+  val killx = io.killx || mem_reg_valid && killm
+  mem_reg_valid := ex_reg_valid && !killx || ex_cp_valid
+  val mem_reg_inst = RegEnable(ex_reg_inst, ex_reg_valid)
+  val wb_reg_valid = Reg(next=mem_reg_valid && (!killm || mem_cp_valid), init=Bool(false))
 
   val fp_decoder = Module(new FPUDecoder)
   fp_decoder.io.inst := io.inst

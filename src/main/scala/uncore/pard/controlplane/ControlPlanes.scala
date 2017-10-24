@@ -1,8 +1,7 @@
 package uncore.pard
 
 import chisel3._
-import config._
-
+import freechips.rocketchip.config._
 
 class ControlPlanes(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
@@ -18,7 +17,6 @@ class ControlPlanes(implicit p: Parameters) extends Module {
   io.core <> core.io
   io.cache <> cache.io
 }
-
 
 object CP extends App {
   Driver.execute(args, () => new ControlPlanes()(TopConfig))

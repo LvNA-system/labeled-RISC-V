@@ -1,12 +1,17 @@
 // See LICENSE.SiFive for license details.
 
-package util
+package freechips.rocketchip.util
 
 import Chisel._
+import chisel3.internal.firrtl.Circuit
 import chisel3.experimental.{RawModule}
-import config._
-import diplomacy.LazyModule
+// TODO: better job of Makefrag generation for non-RocketChip testing platforms
+import freechips.rocketchip.system.{TestGeneration, DefaultTestSuites}
+import freechips.rocketchip.config._
+import freechips.rocketchip.diplomacy.LazyModule
 import java.io.{File, FileWriter}
+import net.jcazevedo.moultingyaml._
+import firrtl.annotations.AnnotationYamlProtocol._
 
 /** Representation of the information this Generator needs to collect from external sources. */
 case class ParsedInputNames(
@@ -40,7 +45,6 @@ trait HasGeneratorUtilities {
 
   def getParameters(config: Config): Parameters = Parameters.root(config.toInstance)
 
-  import chisel3.internal.firrtl.Circuit
   def elaborate(names: ParsedInputNames, params: Parameters): Circuit = {
     val gen = () =>
       Class.forName(names.fullTopModuleClass)
@@ -49,6 +53,21 @@ trait HasGeneratorUtilities {
         .asInstanceOf[RawModule]
 
     Driver.elaborate(gen)
+  }
+
+  def enumerateROMs(circuit: Circuit): String = {
+    val res = new StringBuilder
+    val configs =
+      circuit.components flatMap { m =>
+        m.id match {
+          case rom: BlackBoxedROM => Some((rom.name, ROMGenerator.lookup(rom)))
+          case _ => None
+        }
+      }
+    configs foreach { case (name, c) =>
+      res append s"name ${name} depth ${c.depth} width ${c.width}\n"
+    }
+    res.toString
   }
 
   def writeOutputFile(targetDir: String, fname: String, contents: String): File = {
@@ -89,20 +108,28 @@ trait GeneratorApp extends App with HasGeneratorUtilities {
     Driver.dumpFirrtl(circuit, Some(new File(td, s"$longName.fir"))) // FIRRTL
   }
 
+  def generateAnno {
+    val annotationFile = new File(td, s"$longName.anno")
+    val af = new FileWriter(annotationFile)
+    af.write(circuit.annotations.toArray.toYaml.prettyPrint)
+    af.close()
+  }
+
   /** Output software test Makefrags, which provide targets for integration testing. */
   def generateTestSuiteMakefrags {
     addTestSuites
-    writeOutputFile(td, s"$longName.d", rocketchip.TestGeneration.generateMakefrag) // Coreplex-specific test suites
+    writeOutputFile(td, s"$longName.d", TestGeneration.generateMakefrag) // Coreplex-specific test suites
   }
 
   def addTestSuites {
-    // TODO: better job of Makefrag generation
-    //       for non-RocketChip testing platforms
-    import rocketchip.{DefaultTestSuites, TestGeneration}
     TestGeneration.addSuite(DefaultTestSuites.groundtest64("p"))
     TestGeneration.addSuite(DefaultTestSuites.emptyBmarks)
     TestGeneration.addSuite(DefaultTestSuites.singleRegression)
   } 
+
+  def generateROMs {
+    writeOutputFile(td, s"$longName.rom.conf", enumerateROMs(circuit))
+  }
 
   /** Output files created as a side-effect of elaboration */
   def generateArtefacts {

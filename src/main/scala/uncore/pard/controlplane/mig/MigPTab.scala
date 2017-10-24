@@ -3,7 +3,7 @@ package uncore.pard
 import chisel3.util._
 import chisel3.core._
 
-import config._
+import freechips.rocketchip.config._
 
 /**
   * The common bundle to describe both read and write channel.
@@ -33,7 +33,7 @@ class MigPTab(implicit p: Parameters) extends PTab(new MigPTabIO) {
   private val freqBits = p(BucketBits).freq
   private val nRows = p(NEntries)
 
-  val dsids   = RegNext(io.dsids, Vec(Seq.fill(nRows){ 0.U(p(TagBits).W) }))
+  val dsids   = RegNext(io.dsids, Vec(nRows, 0.U(p(TagBits).W)))
   val bases   = makeField(0.U(p(AddrBits).W))()
   val masks   = makeField(0.U(p(AddrBits).W))()
   val enables = makeField(true.B)()

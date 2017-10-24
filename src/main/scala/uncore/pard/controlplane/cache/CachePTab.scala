@@ -3,7 +3,7 @@ package uncore.pard
 import chisel3._
 import chisel3.util._
 
-import config._
+import freechips.rocketchip.config._
 
 class CachePTabIO(implicit p: Parameters) extends PTabIO {
   val dsids   = Input(Vec(p(NEntries), UInt(p(TagBits).W)))

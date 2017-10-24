@@ -4,8 +4,8 @@
 
 package uncore.pard
 
-import config._
-import uncore.devices.{DMKey, DefaultDebugModuleConfig}
+import freechips.rocketchip.config._
+import freechips.rocketchip.devices.debug.{DebugModuleParams, DefaultDebugModuleParams}
 
 object TopConfig extends Config(new MigConfig
   ++ new CacheConfig
@@ -51,5 +51,5 @@ class BucketConfig extends Config((site, here, next) => {
 })
 
 class DebugConfig extends Config((site, here, next) => {
-  case DMKey => DefaultDebugModuleConfig(64)
+  case DebugModuleParams => DefaultDebugModuleParams(64)
 })

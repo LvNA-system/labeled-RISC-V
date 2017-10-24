@@ -1,9 +1,10 @@
 // See LICENSE for license details.
 
-package rocketchip
+package freechips.rocketchip.system
 
-import coreplex._
-import config._
+import freechips.rocketchip.coreplex._
+import freechips.rocketchip.config._
+import freechips.rocketchip.system._
 
 class PARDSimConfig extends Config(new WithNBigCores(2)
   ++ new WithoutFPU

@@ -1,17 +1,15 @@
 // See LICENSE.SiFive for license details.
 // See LICENSE.Berkeley for license details.
 
-package rocket
-
-import collection.mutable.LinkedHashMap
+package freechips.rocketchip.rocket
 
 import Chisel._
-import Instructions._
-import config._
-import tile._
-import uncore.devices._
-import util._
 import Chisel.ImplicitConversions._
+import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.tile._
+import freechips.rocketchip.util._
+import scala.collection.mutable.LinkedHashMap
+import Instructions._
 
 class MStatus extends Bundle {
   // not truly part of mstatus, but convenient
@@ -65,7 +63,7 @@ class DCSR extends Bundle {
 }
 
 class MIP(implicit p: Parameters) extends CoreBundle()(p)
-    with HasRocketCoreParameters {
+    with HasCoreParameters {
   val lip = Vec(coreParams.nLocalInterrupts, Bool())
   val zero2 = Bool()
   val debug = Bool() // keep in sync with CSR.debugIntCause
@@ -146,13 +144,24 @@ object CSR
 }
 
 class PerfCounterIO(implicit p: Parameters) extends CoreBundle
-    with HasRocketCoreParameters {
+    with HasCoreParameters {
   val eventSel = UInt(OUTPUT, xLen)
   val inc = UInt(INPUT, log2Ceil(1+retireWidth))
 }
 
+class TracedInstruction(implicit p: Parameters) extends CoreBundle {
+  val valid = Bool()
+  val iaddr = UInt(width = coreMaxAddrBits)
+  val insn = UInt(width = iLen)
+  val priv = UInt(width = 3)
+  val exception = Bool()
+  val interrupt = Bool()
+  val cause = UInt(width = log2Ceil(xLen))
+  val tval = UInt(width = coreMaxAddrBits max iLen)
+}
+
 class CSRFileIO(implicit p: Parameters) extends CoreBundle
-    with HasRocketCoreParameters {
+    with HasCoreParameters {
   val interrupts = new TileInterrupts().asInput
   val hartid = UInt(INPUT, hartIdLen)
   val rw = new Bundle {
@@ -181,7 +190,6 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle
   val evec = UInt(OUTPUT, vaddrBitsExtended)
   val exception = Bool(INPUT)
   val retire = UInt(INPUT, log2Up(1+retireWidth))
-  val custom_mrw_csrs = Vec(nCustomMrwCsrs, UInt(INPUT, xLen))
   val cause = UInt(INPUT, xLen)
   val pc = UInt(INPUT, vaddrBitsExtended)
   val badaddr = UInt(INPUT, vaddrBitsExtended)
@@ -194,10 +202,12 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle
   val bp = Vec(nBreakpoints, new BP).asOutput
   val pmp = Vec(nPMPs, new PMP).asOutput
   val counters = Vec(nPerfCounters, new PerfCounterIO)
+  val inst = Vec(retireWidth, UInt(width = iLen)).asInput
+  val trace = Vec(retireWidth, new TracedInstruction).asOutput
 }
 
 class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Parameters) extends CoreModule()(p)
-    with HasRocketCoreParameters {
+    with HasCoreParameters {
   val io = new CSRFileIO
 
   val reset_mstatus = Wire(init=new MStatus().fromBits(0))
@@ -212,7 +222,6 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   reset_dcsr.xdebugver := 1
   reset_dcsr.prv := PRV.M
   val reg_dcsr = Reg(init=reset_dcsr)
-  val reg_debugint = Reg(Bool())
 
   val (supported_interrupts, delegable_interrupts) = {
     val sup = Wire(new MIP)
@@ -294,27 +303,26 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   val hpm_mask = reg_mcounteren & Mux((!usingVM).B || reg_mstatus.prv === PRV.S, delegable_counters.U, reg_scounteren)
 
   val mip = Wire(init=reg_mip)
+  mip.lip := (io.interrupts.lip: Seq[Bool])
+  mip.mtip := io.interrupts.mtip
+  mip.msip := io.interrupts.msip
+  mip.meip := io.interrupts.meip
   // seip is the OR of reg_mip.seip and the actual line from the PLIC
   io.interrupts.seip.foreach { mip.seip := reg_mip.seip || RegNext(_) }
   mip.rocc := io.rocc_interrupt
   val read_mip = mip.asUInt & supported_interrupts
 
   val pending_interrupts = read_mip & reg_mie
+  val d_interrupts = io.interrupts.debug << CSR.debugIntCause
   val m_interrupts = Mux(reg_mstatus.prv <= PRV.S || (reg_mstatus.prv === PRV.M && reg_mstatus.mie), pending_interrupts & ~reg_mideleg, UInt(0))
-  val s_interrupts = Mux(m_interrupts === 0 && (reg_mstatus.prv < PRV.S || (reg_mstatus.prv === PRV.S && reg_mstatus.sie)), pending_interrupts & reg_mideleg, UInt(0))
-  val (anyInterrupt, whichInterrupt) = chooseInterrupt(Seq(s_interrupts, m_interrupts))
+  val s_interrupts = Mux(reg_mstatus.prv < PRV.S || (reg_mstatus.prv === PRV.S && reg_mstatus.sie), pending_interrupts & reg_mideleg, UInt(0))
+  val (anyInterrupt, whichInterrupt) = chooseInterrupt(Seq(s_interrupts, m_interrupts, d_interrupts))
   val interruptMSB = BigInt(1) << (xLen-1)
   val interruptCause = UInt(interruptMSB) + whichInterrupt
   io.interrupt := anyInterrupt && !reg_debug && !io.singleStep || reg_singleStepped
   io.interrupt_cause := interruptCause
   io.bp := reg_bp take nBreakpoints
   io.pmp := reg_pmp.map(PMP(_))
-
-  // debug interrupts are only masked by being in debug mode
-  when (Bool(usingDebug) && reg_debugint && !reg_debug) {
-    io.interrupt := true
-    io.interrupt_cause := UInt(interruptMSB) + CSR.debugIntCause
-  }
 
   val isaMaskString =
     (if (usingMulDiv) "M" else "") +
@@ -337,8 +345,6 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     CSRs.mimpid -> UInt(0),
     CSRs.marchid -> UInt(0),
     CSRs.mvendorid -> UInt(0),
-    CSRs.mcycle -> reg_cycle,
-    CSRs.minstret -> reg_instret,
     CSRs.misa -> reg_misa,
     CSRs.mstatus -> read_mstatus,
     CSRs.mtvec -> reg_mtvec,
@@ -366,14 +372,34 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   if (usingFPU)
     read_mapping ++= fp_csrs
 
-  for (((e, c), i) <- (reg_hpmevent.padTo(CSR.nHPM, UInt(0))
-                       zip reg_hpmcounter.map(x => x: UInt).padTo(CSR.nHPM, UInt(0))) zipWithIndex) {
-    read_mapping += (i + CSR.firstHPE) -> e // mhpmeventN
-    read_mapping += (i + CSR.firstMHPC) -> c // mhpmcounterN
-    if (usingUser) read_mapping += (i + CSR.firstHPC) -> c // hpmcounterN
+  if (coreParams.haveBasicCounters) {
+    read_mapping += CSRs.mcycle -> reg_cycle
+    read_mapping += CSRs.minstret -> reg_instret
+
+    for (((e, c), i) <- (reg_hpmevent.padTo(CSR.nHPM, UInt(0))
+                         zip reg_hpmcounter.map(x => x: UInt).padTo(CSR.nHPM, UInt(0))) zipWithIndex) {
+      read_mapping += (i + CSR.firstHPE) -> e // mhpmeventN
+      read_mapping += (i + CSR.firstMHPC) -> c // mhpmcounterN
+      if (usingUser) read_mapping += (i + CSR.firstHPC) -> c // hpmcounterN
+      if (xLen == 32) {
+        read_mapping += (i + CSR.firstMHPCH) -> c // mhpmcounterNh
+        if (usingUser) read_mapping += (i + CSR.firstHPCH) -> c // hpmcounterNh
+      }
+    }
+
+    if (usingUser) {
+      read_mapping += CSRs.mcounteren -> reg_mcounteren
+      read_mapping += CSRs.cycle -> reg_cycle
+      read_mapping += CSRs.instret -> reg_instret
+    }
+
     if (xLen == 32) {
-      read_mapping += (i + CSR.firstMHPCH) -> c // mhpmcounterNh
-      if (usingUser) read_mapping += (i + CSR.firstHPCH) -> c // hpmcounterNh
+      read_mapping += CSRs.mcycleh -> (reg_cycle >> 32)
+      read_mapping += CSRs.minstreth -> (reg_instret >> 32)
+      if (usingUser) {
+        read_mapping += CSRs.cycleh -> (reg_cycle >> 32)
+        read_mapping += CSRs.instreth -> (reg_instret >> 32)
+      }
     }
   }
 
@@ -406,21 +432,6 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     read_mapping += CSRs.medeleg -> reg_medeleg
   }
 
-  if (usingUser) {
-    read_mapping += CSRs.mcounteren -> reg_mcounteren
-    read_mapping += CSRs.cycle -> reg_cycle
-    read_mapping += CSRs.instret -> reg_instret
-  }
-
-  if (xLen == 32) {
-    read_mapping += CSRs.mcycleh -> (reg_cycle >> 32)
-    read_mapping += CSRs.minstreth -> (reg_instret >> 32)
-    if (usingUser) {
-      read_mapping += CSRs.cycleh -> (reg_cycle >> 32)
-      read_mapping += CSRs.instreth -> (reg_instret >> 32)
-    }
-  }
-
   val pmpCfgPerCSR = xLen / new PMPConfig().getWidth
   def pmpCfgIndex(i: Int) = (xLen / 32) * (i / pmpCfgPerCSR)
   if (reg_pmp.nonEmpty) {
@@ -430,13 +441,6 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
       read_mapping += (CSRs.pmpcfg0 + pmpCfgIndex(i)) -> read_pmp.map(_.cfg).slice(i, i + pmpCfgPerCSR).asUInt
     for ((pmp, i) <- read_pmp zipWithIndex)
       read_mapping += (CSRs.pmpaddr0 + i) -> pmp.addr
-  }
-
-  for (i <- 0 until nCustomMrwCsrs) {
-    val addr = 0xff0 + i
-    require(addr < (1 << CSR.ADDRSZ))
-    require(!read_mapping.contains(addr), "custom MRW CSR address " + i + " is already in use")
-    read_mapping += addr -> io.custom_mrw_csrs(i)
   }
 
   val decoded_addr = read_mapping map { case (k, v) => k -> (io.rw.addr === k) }
@@ -505,7 +509,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   assert(PopCount(insn_ret :: insn_call :: insn_break :: io.exception :: Nil) <= 1, "these conditions must be mutually exclusive")
 
   when (insn_wfi && !io.singleStep && !reg_debug) { reg_wfi := true }
-  when (pending_interrupts.orR || exception || reg_debugint) { reg_wfi := false }
+  when (pending_interrupts.orR || exception || io.interrupts.debug) { reg_wfi := false }
   assert(!reg_wfi || io.retire === UInt(0))
 
   when (io.retire(0) || exception) { reg_singleStepped := true }
@@ -513,15 +517,14 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   assert(!io.singleStep || io.retire <= UInt(1))
   assert(!reg_singleStepped || io.retire === UInt(0))
 
+  val epc = ~(~io.pc | (coreInstBytes-1))
+  val write_badaddr = exception && cause.isOneOf(Causes.illegal_instruction, Causes.breakpoint,
+    Causes.misaligned_load, Causes.misaligned_store,
+    Causes.load_access, Causes.store_access, Causes.fetch_access,
+    Causes.load_page_fault, Causes.store_page_fault, Causes.fetch_page_fault)
+  val badaddr_value = Mux(write_badaddr, io.badaddr, 0.U)
+
   when (exception) {
-    val epc = ~(~io.pc | (coreInstBytes-1))
-
-    val write_badaddr = cause isOneOf (Causes.illegal_instruction, Causes.breakpoint,
-      Causes.misaligned_load, Causes.misaligned_store, Causes.misaligned_fetch,
-      Causes.load_access, Causes.store_access, Causes.fetch_access,
-      Causes.load_page_fault, Causes.store_page_fault, Causes.fetch_page_fault)
-    val badaddr_value = Mux(write_badaddr, io.badaddr, 0.U)
-
     when (trapToDebug) {
       when (!reg_debug) {
         reg_debug := true
@@ -606,7 +609,8 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     when (decoded_addr(CSRs.misa)) {
       val mask = UInt(isaStringToMask(isaMaskString), xLen)
       val f = wdata('f' - 'a')
-      reg_misa := ~(~wdata | (!f << ('d' - 'a'))) & mask | reg_misa & ~mask
+      if (coreParams.misaWritable)
+        reg_misa := ~(~wdata | (!f << ('d' - 'a'))) & mask | reg_misa & ~mask
     }
     when (decoded_addr(CSRs.mip)) {
       // MIP should be modified based on the value in reg_mip, not the value
@@ -632,8 +636,10 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
       writeCounter(i + CSR.firstMHPC, c, wdata)
       when (decoded_addr(i + CSR.firstHPE)) { e := perfEventSets.maskEventSelector(wdata) }
     }
-    writeCounter(CSRs.mcycle, reg_cycle, wdata)
-    writeCounter(CSRs.minstret, reg_instret, wdata)
+    if (coreParams.haveBasicCounters) {
+      writeCounter(CSRs.mcycle, reg_cycle, wdata)
+      writeCounter(CSRs.minstret, reg_instret, wdata)
+    }
 
     if (usingFPU) {
       when (decoded_addr(CSRs.fflags)) { reg_fflags := wdata }
@@ -716,12 +722,6 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     }
   }
 
-  reg_mip.lip := (io.interrupts.lip: Seq[Bool])
-  reg_mip.mtip := io.interrupts.mtip
-  reg_mip.msip := io.interrupts.msip
-  reg_mip.meip := io.interrupts.meip
-  reg_debugint := io.interrupts.debug
-
   if (!usingVM) {
     reg_mideleg := 0
     reg_medeleg := 0
@@ -763,12 +763,26 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     }
   }
 
-  def chooseInterrupt(masks: Seq[UInt]) = {
-    // we can't simply choose the highest-numbered interrupt, because timer
-    // interrupts are in the wrong place in mip.
-    val timerMask = UInt(0xF0, xLen)
-    val masked = masks.map(m => Cat(m.padTo(xLen) & ~timerMask, m.padTo(xLen) & timerMask))
-    (masks.map(_.orR).reduce(_||_), Log2(masked.asUInt)(log2Ceil(xLen)-1, 0))
+  for (((t, insn), i) <- (io.trace zip io.inst).zipWithIndex) {
+    t.exception := io.retire >= i && exception
+    t.valid := io.retire > i || t.exception
+    t.insn := insn
+    t.iaddr := io.pc
+    t.priv := Cat(reg_debug, reg_mstatus.prv)
+    t.cause := cause
+    t.interrupt := cause(xLen-1)
+    t.tval := badaddr_value
+  }
+
+  def chooseInterrupt(masks: Seq[UInt]): (Bool, UInt) = {
+    val nonstandard = supported_interrupts.getWidth-1 to 12 by -1
+    // MEI, MSI, MTI, SEI, SSI, STI, UEI, USI, UTI
+    val standard = Seq(11, 3, 7, 9, 1, 5, 8, 0, 4)
+    val priority = nonstandard ++ standard
+    val paddedMasks = masks.reverse.map(_.padTo(xLen))
+    val any = paddedMasks.flatMap(m => priority.map(i => m(i))).reduce(_||_)
+    val which = PriorityMux(paddedMasks.flatMap(m => priority.map(i => (m(i), i.U))))
+    (any, which)
   }
 
   def readModifyWriteCSR(cmd: UInt, rdata: UInt, wdata: UInt) =

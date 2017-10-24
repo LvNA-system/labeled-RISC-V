@@ -3,6 +3,7 @@ ifndef RISCV
 $(error Please set environment variable RISCV. Please take a look at README)
 endif
 
+build_dir = $(realpath ./build)
 SW_PATH = $(abspath ../../sw)
 
 $(SW_PATH):

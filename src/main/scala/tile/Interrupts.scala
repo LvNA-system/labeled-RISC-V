@@ -1,11 +1,12 @@
 // See LICENSE.SiFive for license details.
 
-package tile
+package freechips.rocketchip.tile
 
 import Chisel._
-import config.Parameters
-import uncore.tilelink2.{IntSinkNode, IntSinkPortSimple}
-import util._
+
+import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.tilelink.{IntSinkNode, IntSinkPortSimple}
+import freechips.rocketchip.util._
 
 class TileInterrupts(implicit p: Parameters) extends CoreBundle()(p) {
   val debug = Bool()
@@ -37,7 +38,6 @@ trait HasExternalInterrupts extends HasTileParameters {
 
 trait HasExternalInterruptsBundle {
   val outer: HasExternalInterrupts
-  val interrupts = outer.intNode.bundleIn
 }
 
 trait HasExternalInterruptsModule {
@@ -56,6 +56,7 @@ trait HasExternalInterruptsModule {
 
     val core_ips = core.lip
 
-    (async_ips ++ periph_ips ++ seip ++ core_ips).zip(io.interrupts(0)).foreach { case(c, i) => c := i }
+    val (interrupts, _) = outer.intNode.in(0)
+    (async_ips ++ periph_ips ++ seip ++ core_ips).zip(interrupts).foreach { case(c, i) => c := i }
   }
 }
