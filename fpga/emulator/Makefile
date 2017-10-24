@@ -25,7 +25,7 @@ $(original_emu):
 		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir)
 
 $(emu_bin_hex_file): $(emu_bin_file)
-	cd $(dir $(emu)) && bash $(emu_gen_script) $<
+	bash $(emu_gen_script) $<
 
 emu: $(emu)
 

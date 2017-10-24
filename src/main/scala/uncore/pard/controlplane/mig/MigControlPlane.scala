@@ -2,8 +2,8 @@ package uncore.pard
 
 import chisel3._
 import chisel3.util._
-import config._
-import uncore.axi4._
+import freechips.rocketchip.config._
+import freechips.rocketchip.amba.axi4._
 
 
 class APMBundle extends Bundle {

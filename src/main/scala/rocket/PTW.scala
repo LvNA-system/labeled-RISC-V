@@ -1,17 +1,17 @@
 // See LICENSE.Berkeley for license details.
 // See LICENSE.SiFive for license details.
 
-package rocket
+package freechips.rocketchip.rocket
 
 import Chisel._
 import Chisel.ImplicitConversions._
-import config._
-import tile._
-import coreplex.CacheBlockBytes
-import uncore.constants._
-import uncore.tilelink2._
-import util._
-
+import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.coreplex.CacheBlockBytes
+import freechips.rocketchip.tile._
+import freechips.rocketchip.tilelink._
+import freechips.rocketchip.util._
+import freechips.rocketchip.util.property._
+import chisel3.internal.sourceinfo.SourceInfo
 import scala.collection.mutable.ListBuffer
 
 class PTWReq(implicit p: Parameters) extends CoreBundle()(p) {
@@ -26,7 +26,7 @@ class PTWResp(implicit p: Parameters) extends CoreBundle()(p) {
 }
 
 class TLBPTWIO(implicit p: Parameters) extends CoreBundle()(p)
-    with HasRocketCoreParameters {
+    with HasCoreParameters {
   val req = Decoupled(new PTWReq)
   val resp = Valid(new PTWResp).flip
   val ptbr = new PTBR().asInput
@@ -34,12 +34,17 @@ class TLBPTWIO(implicit p: Parameters) extends CoreBundle()(p)
   val pmp = Vec(nPMPs, new PMP).asInput
 }
 
+class PTWPerfEvents extends Bundle {
+  val l2miss = Bool()
+}
+
 class DatapathPTWIO(implicit p: Parameters) extends CoreBundle()(p)
-    with HasRocketCoreParameters {
+    with HasCoreParameters {
   val ptbr = new PTBR().asInput
-  val invalidate = Bool(INPUT)
+  val sfence = Valid(new SFenceReq).flip
   val status = new MStatus().asInput
   val pmp = Vec(nPMPs, new PMP).asInput
+  val perf = new PTWPerfEvents().asOutput
 }
 
 class PTE(implicit p: Parameters) extends CoreBundle()(p) {
@@ -81,9 +86,6 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
   val r_req = Reg(new PTWReq)
   val r_req_dest = Reg(Bits())
   val r_pte = Reg(new PTE)
-  
-  val vpn_idxs = (0 until pgLevels).map(i => (r_req.addr >> (pgLevels-i-1)*pgLevelBits)(pgLevelBits-1,0))
-  val vpn_idx = vpn_idxs(count)
 
   val arb = Module(new RRArbiter(new PTWReq, n))
   arb.io.in <> io.requestor.map(_.req)
@@ -101,7 +103,11 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
     (res, (tmp.ppn >> ppnBits) =/= 0)
   }
   val traverse = pte.table() && !invalid_paddr && count < pgLevels-1
-  val pte_addr = Cat(r_pte.ppn, vpn_idx) << log2Ceil(xLen/8)
+  val pte_addr = if (!usingVM) 0.U else {
+    val vpn_idxs = (0 until pgLevels).map(i => (r_req.addr >> (pgLevels-i-1)*pgLevelBits)(pgLevelBits-1,0))
+    val vpn_idx = vpn_idxs(count)
+    Cat(r_pte.ppn, vpn_idx) << log2Ceil(xLen/8)
+  }
 
   when (arb.io.out.fire()) {
     r_req := arb.io.out.bits
@@ -125,17 +131,83 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
       data(r) := pte.ppn
     }
     when (hit && state === s_req) { plru.access(OHToUInt(hits)) }
-    when (io.dpath.invalidate) { valid := 0 }
+    when (io.dpath.sfence.valid && !io.dpath.sfence.bits.rs1) { valid := 0 }
+
+    for (i <- 0 until pgLevels-1)
+      ccover(hit && state === s_req && count === i, s"PTE_CACHE_HIT_L$i", s"PTE cache hit, level $i")
 
     (hit && count < pgLevels-1, Mux1H(hits, data))
   }
+
+  val l2_refill = RegNext(false.B)
+  io.dpath.perf.l2miss := false
+  val (l2_hit, l2_valid, l2_pte, l2_tlb_ram) = if (coreParams.nL2TLBEntries == 0) (false.B, false.B, Wire(new PTE), None) else {
+    val code = new ParityCode
+    require(isPow2(coreParams.nL2TLBEntries))
+    val idxBits = log2Ceil(coreParams.nL2TLBEntries)
+    val tagBits = vpnBits - idxBits
+
+    class Entry extends Bundle {
+      val tag = UInt(width = tagBits)
+      val ppn = UInt(width = ppnBits)
+      val d = Bool()
+      val a = Bool()
+      val u = Bool()
+      val x = Bool()
+      val w = Bool()
+      val r = Bool()
+
+      override def cloneType = new Entry().asInstanceOf[this.type]
+    }
+
+    val ram = SeqMem(coreParams.nL2TLBEntries, UInt(width = code.width(new Entry().getWidth)))
+    val g = Reg(UInt(width = coreParams.nL2TLBEntries))
+    val valid = RegInit(UInt(0, coreParams.nL2TLBEntries))
+    val (r_tag, r_idx) = Split(r_req.addr, idxBits)
+    when (l2_refill) {
+      val entry = Wire(new Entry)
+      entry := r_pte
+      entry.tag := r_tag
+      ram.write(r_idx, code.encode(entry.asUInt))
+
+      val mask = UIntToOH(r_idx)
+      valid := valid | mask
+      g := Mux(r_pte.g, g | mask, g & ~mask)
+    }
+    when (io.dpath.sfence.valid) {
+      valid :=
+        Mux(io.dpath.sfence.bits.rs1, valid & ~UIntToOH(io.dpath.sfence.bits.addr(idxBits+pgIdxBits-1, pgIdxBits)),
+        Mux(io.dpath.sfence.bits.rs2, valid & g, 0.U))
+    }
+
+    val s0_valid = !l2_refill && arb.io.out.fire()
+    val s1_valid = RegNext(s0_valid)
+    val s2_valid = RegNext(s1_valid)
+    val s1_rdata = ram.read(arb.io.out.bits.addr(idxBits-1, 0), s0_valid)
+    val s2_rdata = code.decode(RegEnable(s1_rdata, s1_valid))
+    val s2_valid_bit = RegEnable(valid(r_idx), s1_valid)
+    val s2_g = RegEnable(g(r_idx), s1_valid)
+    when (s2_valid && s2_valid_bit && s2_rdata.error) { valid := 0.U }
+
+    val s2_entry = s2_rdata.uncorrected.asTypeOf(new Entry)
+    val s2_hit = s2_valid && s2_valid_bit && !s2_rdata.error && r_tag === s2_entry.tag
+    io.dpath.perf.l2miss := s2_valid && !(s2_valid_bit && r_tag === s2_entry.tag)
+    val s2_pte = Wire(new PTE)
+    s2_pte := s2_entry
+    s2_pte.g := s2_g
+    s2_pte.v := true
+
+    ccover(s2_hit, "L2_TLB_HIT", "L2 TLB hit")
+
+    (s2_hit, s2_valid && s2_valid_bit, s2_pte, Some(ram))
+  }
   
-  io.mem.req.valid     := state === s_req
+  io.mem.req.valid := state === s_req && !l2_valid
   io.mem.req.bits.phys := Bool(true)
   io.mem.req.bits.cmd  := M_XRD
   io.mem.req.bits.typ  := log2Ceil(xLen/8)
   io.mem.req.bits.addr := pte_addr
-  io.mem.s1_kill := s1_kill
+  io.mem.s1_kill := s1_kill || l2_hit
   io.mem.invalidate_lr := Bool(false)
   
   val pmaPgLevelHomogeneous = (0 until pgLevels) map { i =>
@@ -159,7 +231,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
   // control state machine
   switch (state) {
     is (s_ready) {
-      when (arb.io.out.valid) {
+      when (arb.io.out.fire()) {
         state := s_req
       }
       count := UInt(0)
@@ -169,7 +241,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
         s1_kill := true
         count := count + 1
         r_pte.ppn := pte_cache_data
-      }.elsewhen (io.mem.req.ready) {
+      }.elsewhen (io.mem.req.fire()) {
         state := s_wait1
       }
     }
@@ -186,6 +258,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
           state := s_req
           count := count + 1
         }.otherwise {
+          l2_refill := pte.v && !invalid_paddr && count === pgLevels-1
           resp_ae := pte.v && invalid_paddr
           state := s_ready
           resp_valid(r_req_dest) := true
@@ -198,6 +271,21 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
       }
     }
   }
+  when (l2_hit) {
+    state := s_ready
+    resp_valid(r_req_dest) := true
+    resp_ae := false
+    r_pte := l2_pte
+    count := pgLevels-1
+  }
+
+  if (usingVM) {
+    ccover(io.mem.s2_nack, "NACK", "D$ nacked page-table access")
+    ccover(state === s_wait2 && io.mem.s2_xcpt.ae.ld, "AE", "access exception while walking page table")
+  }
+
+  def ccover(cond: Bool, label: String, desc: String)(implicit sourceInfo: SourceInfo) =
+    cover(cond, s"PTW_$label", "MemorySystem;;" + desc)
 }
 
 /** Mix-ins for constructing tiles that might have a PTW */
@@ -211,7 +299,7 @@ trait CanHavePTW extends HasHellaCache {
 trait CanHavePTWModule extends HasHellaCacheModule {
   val outer: CanHavePTW
   val ptwPorts = ListBuffer(outer.dcache.module.io.ptw)
-  val ptw = Module(new PTW(outer.nPTWPorts)(outer.dcache.node.edgesOut(0), outer.p))
+  val ptw = Module(new PTW(outer.nPTWPorts)(outer.dcache.node.edges.out(0), outer.p))
   if (outer.usingPTW)
     dcachePorts += ptw.io.mem
 }

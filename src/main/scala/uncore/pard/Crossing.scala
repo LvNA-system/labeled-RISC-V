@@ -2,19 +2,22 @@ package uncore.pard
 
 import chisel3._
 import chisel3.internal.sourceinfo.SourceInfo
-import config._
-import diplomacy._
-import uncore.tilelink2._
+import freechips.rocketchip.config._
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.tilelink._
 
 class ControlledCrossing(implicit p: Parameters) extends LazyModule
 {
-  val node = new IdentityNode(TLImp)
+  val node = new IdentityNode(TLImp)()
 
   lazy val module = new LazyModuleImp(this) {
+    val (bundleIn, _) = node.in.unzip
+    val (bundleOut, _) = node.out.unzip
+
     val io = new Bundle {
       val enable = Input(Bool())
-      val in = node.bundleIn
-      val out = node.bundleOut
+      val in = bundleIn
+      val out = bundleOut
     }
 
     (io.in zip io.out) foreach { case (in, out) =>

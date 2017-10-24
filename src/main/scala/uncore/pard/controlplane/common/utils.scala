@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 import scala.collection.mutable.ListBuffer
 
-import config._
+import freechips.rocketchip.config._
 
 
 /**

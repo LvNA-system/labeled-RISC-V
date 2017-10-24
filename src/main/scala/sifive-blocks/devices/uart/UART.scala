@@ -2,10 +2,10 @@
 package sifive.blocks.devices.uart
 
 import Chisel._
-import config._
-import regmapper._
-import uncore.tilelink2._
-import util._
+import freechips.rocketchip.tilelink._
+import freechips.rocketchip.config._
+import freechips.rocketchip.regmapper._
+import freechips.rocketchip.util._
 import sifive.blocks.util.{NonBlockingEnqueue, NonBlockingDequeue}
 
 case class UARTParams(
@@ -189,7 +189,7 @@ class UARTInterrupts extends Bundle {
   val txwm = Bool()
 }
 
-trait HasUARTTopModuleContents extends Module with HasUARTParameters with HasRegMap {
+trait HasUARTTopModuleContents extends HasUARTParameters with HasRegMap {
   val io: HasUARTTopBundleContents
 
   implicit val p: Parameters
@@ -221,8 +221,10 @@ trait HasUARTTopModuleContents extends Module with HasUARTParameters with HasReg
   txm.io.nstop := nstop
   io.port.txd := txm.io.out
 
-  val printer = Module(new UARTPrinter(s"serial${params.address.toInt.toHexString}"))
-  printer.io.clock := clock
+  // printer is wrapped in a module, so that we can provide a clock to it
+  // here, in this trait, we can not give it a clock
+  // since if we extends Module, we will get an Scala inheritance error when TLRegModule tries to extends it
+  val printer = Module(new UARTPrinterWrapper(s"serial${params.address.toInt.toHexString}"))
   printer.io.valid := txm.io.in.fire()
   printer.io.data := txm.io.in.bits
 
@@ -236,7 +238,7 @@ trait HasUARTTopModuleContents extends Module with HasUARTParameters with HasReg
 
   ip.txwm := (txq.io.count < txwm)
   ip.rxwm := (rxq.io.count > rxwm)
-//  interrupts(0) := Bool(false) //(ip.txwm && ie.txwm) || (ip.rxwm && ie.rxwm)
+  //  interrupts(0) := Bool(false) //(ip.txwm && ie.txwm) || (ip.rxwm && ie.rxwm)
 
   regmap(
     UARTCtrlRegs.txfifo -> NonBlockingEnqueue(txq.io.enq),
@@ -253,37 +255,38 @@ trait HasUARTTopModuleContents extends Module with HasUARTParameters with HasReg
       RegField.r(1, UInt(0))
     ),
 
-    UARTCtrlRegs.ctrl -> Seq(
-      RegField.r(1, UInt(0)),
-      RegField.r(1, UInt(0)),
-      RegField.r(2, UInt(0)),
-      RegField.r(1, UInt(0))
-    )
+  UARTCtrlRegs.ctrl -> Seq(
+    RegField.r(1, UInt(0)),
+    RegField.r(1, UInt(0)),
+    RegField.r(2, UInt(0)),
+    RegField.r(1, UInt(0))
+  )
 
 
 /*
-    UARTCtrlRegs.txctrl -> Seq(
-      RegField(1, txen),
-      RegField(stopCountBits, nstop)),
-    UARTCtrlRegs.rxctrl -> Seq(RegField(1, rxen)),
-    UARTCtrlRegs.txmark -> Seq(RegField(txCountBits, txwm)),
-    UARTCtrlRegs.rxmark -> Seq(RegField(rxCountBits, rxwm)),
+UARTCtrlRegs.txctrl -> Seq(
+  RegField(1, txen),
+  RegField(stopCountBits, nstop)),
+UARTCtrlRegs.rxctrl -> Seq(RegField(1, rxen)),
+UARTCtrlRegs.txmark -> Seq(RegField(txCountBits, txwm)),
+UARTCtrlRegs.rxmark -> Seq(RegField(rxCountBits, rxwm)),
 
-    UARTCtrlRegs.ie -> Seq(
-      RegField(1, ie.txwm),
-      RegField(1, ie.rxwm)),
+UARTCtrlRegs.ie -> Seq(
+  RegField(1, ie.txwm),
+  RegField(1, ie.rxwm)),
 
-    UARTCtrlRegs.ip -> Seq(
-      RegField.r(1, ip.txwm),
-      RegField.r(1, ip.rxwm)),
+UARTCtrlRegs.ip -> Seq(
+  RegField.r(1, ip.txwm),
+  RegField.r(1, ip.rxwm)),
 
-    UARTCtrlRegs.div -> Seq(
-      RegField(uartDivisorBits, div))
-    */
-  )
+UARTCtrlRegs.div -> Seq(
+  RegField(uartDivisorBits, div))
+  */
+ )
 }
 
 // Magic TL2 Incantation to create a TL2 UART
+// 这边这个结构啥意思啊？看不懂啊？怎么后面会有那么多的括号？
 class TLUART(w: Int, c: UARTParams)(implicit p: Parameters)
   extends TLRegisterRouter(c.address, "serial", Seq("sifive,uart0"), interrupts = 1, beatBytes = w)(
   new TLRegBundle(c, _)    with HasUARTTopBundleContents)(

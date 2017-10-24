@@ -1,11 +1,10 @@
 package uncore.pard
 
 import Chisel._
-import config._
-import diplomacy._
-import uncore.tilelink2._
-import rocketchip.ExtMem
-import coreplex.NTiles
+import freechips.rocketchip.config._
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.tilelink._
+import freechips.rocketchip.coreplex.{ExtMem, NTiles}
 
 class AddressMapper(implicit p: Parameters) extends LazyModule {
   private val mem = p(ExtMem)
@@ -24,9 +23,12 @@ class AddressMapper(implicit p: Parameters) extends LazyModule {
     })
 
   lazy val module = new LazyModuleImp(this) {
+    val (bundleIn, _) = node.in.unzip
+    val (bundleOut, _) = node.out.unzip
+
     val io = IO(new Bundle {
-      val in = node.bundleIn
-      val out = node.bundleOut
+      val in = bundleIn
+      val out = bundleOut
     })
 
     // Jump the 0 element as dsid starts from 1.

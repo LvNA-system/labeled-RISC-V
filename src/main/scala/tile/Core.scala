@@ -1,10 +1,12 @@
 // See LICENSE.SiFive for license details.
 
-package tile
+package freechips.rocketchip.tile
 
 import Chisel._
-import config._
-import rocket._
+
+import freechips.rocketchip.config._
+import freechips.rocketchip.rocket._
+import freechips.rocketchip.util._
 import util._
 
 case object BuildCore extends Field[Parameters => CoreModule with HasCoreIO]
@@ -24,14 +26,25 @@ trait CoreParams {
   val retireWidth: Int
   val instBits: Int
   val nLocalInterrupts: Int
+  val nPMPs: Int
+  val nBreakpoints: Int
+  val nPerfCounters: Int
+  val haveBasicCounters: Boolean
+  val misaWritable: Boolean
+  val nL2TLBEntries: Int
+  val mtvecInit: Option[BigInt]
+  val mtvecWritable: Boolean
+  val jumpInFrontend: Boolean
+  val tileControlAddr: Option[BigInt]
+
+  def instBytes: Int = instBits / 8
+  def fetchBytes: Int = fetchWidth * instBytes
 }
 
 trait HasCoreParameters extends HasTileParameters {
   val coreParams: CoreParams = tileParams.core
 
-  val xLen = p(XLen)
   val fLen = xLen // TODO relax this
-  require(xLen == 32 || xLen == 64)
 
   val usingMulDiv = coreParams.mulDiv.nonEmpty
   val usingFPU = coreParams.fpu.nonEmpty
@@ -42,27 +55,21 @@ trait HasCoreParameters extends HasTileParameters {
   val fetchWidth = coreParams.fetchWidth
   val decodeWidth = coreParams.decodeWidth
 
+  val fetchBytes = coreParams.fetchBytes
   val coreInstBits = coreParams.instBits
   val coreInstBytes = coreInstBits/8
   val coreDataBits = xLen max fLen
   val coreDataBytes = coreDataBits/8
+  val coreMaxAddrBits = paddrBits max vaddrBitsExtended
+
+  val nBreakpoints = coreParams.nBreakpoints
+  val nPMPs = coreParams.nPMPs
+  val nPerfCounters = coreParams.nPerfCounters
+  val mtvecInit = coreParams.mtvecInit
+  val mtvecWritable = coreParams.mtvecWritable
 
   val coreDCacheReqTagBits = 6
   val dcacheReqTagBits = coreDCacheReqTagBits + log2Ceil(dcacheArbPorts)
-
-  def pgIdxBits = 12
-  def pgLevelBits = 10 - log2Ceil(xLen / 32)
-  def vaddrBits = pgIdxBits + pgLevels * pgLevelBits
-  val paddrBits = p(PAddrBits)
-  def ppnBits = paddrBits - pgIdxBits
-  def vpnBits = vaddrBits - pgIdxBits
-  val pgLevels = p(PgLevels)
-  val asIdBits = p(ASIdBits)
-  val vpnBitsExtended = vpnBits + (vaddrBits < xLen).toInt
-  val vaddrBitsExtended = vpnBitsExtended + pgIdxBits
-  val coreMaxAddrBits = paddrBits max vaddrBitsExtended
-  val maxPAddrBits = xLen match { case 32 => 34; case 64 => 56 }
-  require(paddrBits <= maxPAddrBits)
 
   // Print out log of committed instructions and their writeback values.
   // Requires post-processing due to out-of-order writebacks.
@@ -86,5 +93,6 @@ trait HasCoreIO extends HasTileParameters {
     val rocc = new RoCCCoreIO().flip
 
     val ila = new ILABundle()
+    val trace = Vec(coreParams.retireWidth, new TracedInstruction).asOutput
   }
 }

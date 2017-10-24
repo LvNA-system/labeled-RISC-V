@@ -5,7 +5,7 @@
 _start:
   li s0, DRAM_BASE
   lh a0, 0(s0)
-  li a1, 0x006f
+  li a1, 0x4117
   bne a0, a1, _hang
   csrr a0, mhartid
   la a1, _dtb

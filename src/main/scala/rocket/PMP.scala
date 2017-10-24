@@ -1,12 +1,12 @@
 // See LICENSE.SiFive for license details.
 
-package rocket
+package freechips.rocketchip.rocket
 
 import Chisel._
 import Chisel.ImplicitConversions._
-import config._
-import tile._
-import util._
+import freechips.rocketchip.config._
+import freechips.rocketchip.tile._
+import freechips.rocketchip.util._
 
 class PMPConfig extends Bundle {
   val l = Bool()
@@ -51,7 +51,7 @@ class PMP(implicit p: Parameters) extends PMPReg {
       eval(x, comparand, mask)
     } else {
       // break up the circuit; the MSB part will be CSE'd
-      val lsbMask = mask | ~(((BigInt(1) << lgMaxSize) - 1).U << lgSize)
+      val lsbMask = mask | UIntToOH1(lgSize, lgMaxSize)
       val msbMatch = eval(x >> lgMaxSize, comparand >> lgMaxSize, mask >> lgMaxSize)
       val lsbMatch = eval(x(lgMaxSize-1, 0), comparand(lgMaxSize-1, 0), lsbMask(lgMaxSize-1, 0))
       msbMatch && lsbMatch
@@ -71,7 +71,7 @@ class PMP(implicit p: Parameters) extends PMPReg {
   }
 
   private def lowerBoundMatch(x: UInt, lgSize: UInt, lgMaxSize: Int) =
-    !boundMatch(x, ~(((BigInt(1) << lgMaxSize) - 1).U << lgSize)(lgMaxSize-1, 0), lgMaxSize)
+    !boundMatch(x, UIntToOH1(lgSize, lgMaxSize), lgMaxSize)
 
   private def upperBoundMatch(x: UInt, lgMaxSize: Int) =
     boundMatch(x, 0.U, lgMaxSize)
@@ -105,7 +105,7 @@ class PMP(implicit p: Parameters) extends PMPReg {
 
   // returns whether this matching PMP fully contains the access
   def aligned(x: UInt, lgSize: UInt, lgMaxSize: Int, prev: PMP): Bool = if (lgMaxSize <= lgAlign) true.B else {
-    val lsbMask = ~(((BigInt(1) << lgMaxSize) - 1).U << lgSize)(lgMaxSize-1, 0)
+    val lsbMask = UIntToOH1(lgSize, lgMaxSize)
     val straddlesLowerBound = ((x >> lgMaxSize) ^ (prev.comparand >> lgMaxSize)) === 0 && (prev.comparand(lgMaxSize-1, 0) & ~x(lgMaxSize-1, 0)) =/= 0
     val straddlesUpperBound = ((x >> lgMaxSize) ^ (comparand >> lgMaxSize)) === 0 && (comparand(lgMaxSize-1, 0) & (x(lgMaxSize-1, 0) | lsbMask)) =/= 0
     val rangeAligned = !(straddlesLowerBound || straddlesUpperBound)
@@ -127,7 +127,7 @@ class PMPHomogeneityChecker(pmps: Seq[PMP])(implicit p: Parameters) {
 }
 
 class PMPChecker(lgMaxSize: Int)(implicit p: Parameters) extends CoreModule()(p)
-    with HasRocketCoreParameters {
+    with HasCoreParameters {
   val io = new Bundle {
     val prv = UInt(INPUT, PRV.SZ)
     val pmp = Vec(nPMPs, new PMP).asInput
