@@ -52,7 +52,7 @@ $(PARD_CP_TARGET): $(shell find $(PARD_CP_SRC_DIR) -type f -name "*.scala")
 	rm $(base_dir)/$(PARD_CP).fir $(base_dir)/$(PARD_CP).anno
 
 
-verilog: $(rocketchip_rtl) $(PARD_CP_TARGET)
+verilog: $(rocketchip_rtl) #$(PARD_CP_TARGET)
 
 .PHONY: $(gen_rtl) verilog
 
