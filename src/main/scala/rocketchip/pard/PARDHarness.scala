@@ -7,6 +7,7 @@ import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.coreplex._
 import freechips.rocketchip.amba.axi4._
+import freechips.rocketchip.util.DontTouch
 
 class PARDFPGAHarness()(implicit p: Parameters) extends Module {
   val io = new Bundle {
@@ -14,6 +15,7 @@ class PARDFPGAHarness()(implicit p: Parameters) extends Module {
   }
   val dut = Module(LazyModule(new PARDFPGATop).module)
 
+  dut.dontTouchPorts()
   dut.connectDebug(clock, reset, io.success)
   dut.connectSimAXIMem()
   dut.connectSimAXIMMIO()
