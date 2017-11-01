@@ -27,3 +27,5 @@ clean:
 	#-rm -rf $(build_dir)
 
 .PHONY: default project vivado clean
+
+include Makefile.sw
