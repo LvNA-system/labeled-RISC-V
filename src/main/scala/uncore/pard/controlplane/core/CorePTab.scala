@@ -1,9 +1,8 @@
 package uncore.pard
 
 import chisel3._
-import config._
-import uncore.devices.{DMIConsts, DMKey}
-
+import freechips.rocketchip.config._
+import freechips.rocketchip.devices.debug.{DMIConsts, DebugModuleParams}
 
 class CorePTabIO(implicit val p: Parameters)
   extends PTabIO
@@ -16,7 +15,7 @@ class CorePTab(implicit p: Parameters) extends PTab(new CorePTabIO) {
   // Fields for debug module interface
   val req_valid = makeField(false.B)()
   val req_op = makeField(0.U(DMIConsts.dmiOpSize.W))()
-  val req_addr = makeField(0.U(p(DMKey).nDMIAddrSize.W))()
+  val req_addr = makeField(0.U(p(DebugModuleParams).nDMIAddrSize.W))()
   val req_data = makeField(0.U(DMIConsts.dmiDataSize.W))()
   val resp_valid = makeField(false.B, false.B, NoSet)()
   val resp_resp = makeField(0.U(DMIConsts.dmiRespSize.W), false.B, NoSet)()

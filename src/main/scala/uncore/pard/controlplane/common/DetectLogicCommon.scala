@@ -3,7 +3,7 @@ package uncore.pard
 import chisel3._
 import chisel3.util._
 
-import config._
+import freechips.rocketchip.config._
 
 class Command(implicit p: Parameters) extends Bundle {
   val wdata = UInt(p(DataBits).W)

@@ -13,7 +13,7 @@ generated_dir = $(build_dir)/generated-src
 SIM_CONFIG ?= PARDSimConfig
 original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(SIM_CONFIG)
 emu = $(build_dir)/emu
-emu_bin_file = bbl.bin
+emu_bin_file = bbl
 emu_gen_script = gen_bin.sh
 emu_bin_hex_file = $(dir $(emu))/bin.txt
 
@@ -25,7 +25,7 @@ $(original_emu):
 		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir)
 
 $(emu_bin_hex_file): $(emu_bin_file)
-	cd $(dir $(emu)) && bash $(emu_gen_script) $<
+	bash $(emu_gen_script) $<
 
 emu: $(emu)
 

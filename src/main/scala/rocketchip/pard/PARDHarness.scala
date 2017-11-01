@@ -1,13 +1,13 @@
 // See LICENSE.SiFive for license details.
 
-package rocketchip
+package freechips.rocketchip.system
 
 import Chisel._
-import config._
-import junctions._
-import diplomacy._
-import coreplex._
-import uncore.axi4._
+import freechips.rocketchip.config._
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.coreplex._
+import freechips.rocketchip.amba.axi4._
+import freechips.rocketchip.util.DontTouch
 
 class PARDFPGAHarness()(implicit p: Parameters) extends Module {
   val io = new Bundle {
@@ -15,6 +15,7 @@ class PARDFPGAHarness()(implicit p: Parameters) extends Module {
   }
   val dut = Module(LazyModule(new PARDFPGATop).module)
 
+  dut.dontTouchPorts()
   dut.connectDebug(clock, reset, io.success)
   dut.connectSimAXIMem()
   dut.connectSimAXIMMIO()
@@ -30,15 +31,14 @@ class TestHarness()(implicit p: Parameters) extends Module {
 
   dut.connectDebug(clock, reset, io.success)
 
-  // Make cores always runnable
-  dut.L1enable.foreach(_ := Bool(true))
-  dut.trafficGeneratorEnable := Bool(false)
-
-
   for (tcr <- dut.tcrs) {
     tcr.reset := reset
     tcr.clock := clock
   }
+
+  // Make cores always runnable
+  dut.L1enable.foreach(_ := Bool(true))
+  dut.trafficGeneratorEnable := Bool(false)
 
   val mmio_axi4 = dut.mmio_axi4(0)
   mmio_axi4.r.valid := Bool(false)

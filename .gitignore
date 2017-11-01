@@ -5,3 +5,8 @@ project/target
 .addons-dont-touch
 /lib/
 ControlPlanes.v
+
+# ignore intellij idea projects under src/main/scala
+src/main/scala/.idea/
+src/main/scala/build.sbt
+src/main/scala/project/

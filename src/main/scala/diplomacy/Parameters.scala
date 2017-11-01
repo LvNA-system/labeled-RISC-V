@@ -1,18 +1,24 @@
 // See LICENSE.SiFive for license details.
 
-package diplomacy
+package freechips.rocketchip.diplomacy
 
 import Chisel._
+import freechips.rocketchip.util.ShiftQueue
 
 /** Options for memory regions */
 object RegionType {
-  sealed trait T
+  // Define the 'more relaxed than' ordering
+  val cases = Seq(CACHED, TRACKED, UNCACHED, UNCACHEABLE, PUT_EFFECTS, GET_EFFECTS)
+  sealed trait T extends Ordered[T] {
+    def compare(that: T): Int = cases.indexOf(that) compare cases.indexOf(this)
+  }
+
   case object CACHED      extends T
   case object TRACKED     extends T
-  case object UNCACHED    extends T
-  case object PUT_EFFECTS extends T
+  case object UNCACHED    extends T // not cached yet, but could be
+  case object UNCACHEABLE extends T // may spontaneously change contents
+  case object PUT_EFFECTS extends T // PUT_EFFECTS => UNCACHEABLE
   case object GET_EFFECTS extends T // GET_EFFECTS => PUT_EFFECTS
-  val cases = Seq(CACHED, TRACKED, UNCACHED, PUT_EFFECTS, GET_EFFECTS)
 }
 
 // A non-empty half-open range; [start, end)
@@ -86,6 +92,9 @@ case class TransferSizes(min: Int, max: Int)
   def intersect(x: TransferSizes) =
     if (x.max < min || max < x.min) TransferSizes.none
     else TransferSizes(scala.math.max(min, x.min), scala.math.min(max, x.max))
+
+  override def toString() = "TransferSizes[%d, %d]".format(min, max)
+ 
 }
 
 object TransferSizes {
@@ -221,6 +230,7 @@ object AddressRange
 
 object AddressSet
 {
+  val everything = AddressSet(0, -1)
   def misaligned(base: BigInt, size: BigInt, tail: Seq[AddressSet] = Seq()): Seq[AddressSet] = {
     if (size == 0) tail.reverse else {
       val maxBaseAlignment = base & (-base) // 0 for infinite (LSB)
@@ -262,6 +272,16 @@ case class BufferParams(depth: Int, flow: Boolean, pipe: Boolean)
   def apply[T <: Data](x: DecoupledIO[T]) =
     if (isDefined) Queue(x, depth, flow=flow, pipe=pipe)
     else x
+
+  def sq[T <: Data](x: DecoupledIO[T]) =
+    if (!isDefined) x else {
+      val sq = Module(new ShiftQueue(x.bits, depth, flow=flow, pipe=pipe))
+      sq.io.enq <> x
+      sq.io.deq
+    }
+
+  override def toString() = "BufferParams:%d%s%s".format(depth, if (flow) "F" else "", if (pipe) "P" else "")
+
 }
 
 object BufferParams
@@ -272,4 +292,15 @@ object BufferParams
   val none    = BufferParams(0)
   val flow    = BufferParams(1, true, false)
   val pipe    = BufferParams(1, false, true)
+}
+
+case class TriStateValue(value: Boolean, set: Boolean)
+{
+  def update(orig: Boolean) = if (set) value else orig
+}
+
+object TriStateValue
+{
+  implicit def apply(value: Boolean): TriStateValue = TriStateValue(value, true)
+  def unset = TriStateValue(false, false)
 }

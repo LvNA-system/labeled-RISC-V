@@ -1,14 +1,13 @@
 // See LICENSE.SiFive for license details.
 
-package tile
+package freechips.rocketchip.tile
 
 import Chisel._
-import config.{Parameters, Field}
-import coreplex.CacheBlockBytes
-import rocket.PAddrBits
-import uncore.tilelink2.ClientMetadata
-import uncore.util.{Code, IdentityCode}
-import util.ParameterizedBundle
+
+import freechips.rocketchip.config.{Parameters, Field}
+import freechips.rocketchip.coreplex.CacheBlockBytes
+import freechips.rocketchip.tilelink.ClientMetadata
+import freechips.rocketchip.util._
 
 trait L1CacheParams {
   def nSets:         Int
@@ -21,6 +20,7 @@ trait L1CacheParams {
 trait HasL1CacheParameters {
   implicit val p: Parameters
   val cacheParams: L1CacheParams
+  private val bundleParams = p(SharedMemoryTLEdge).bundle
 
   def cacheBlockBytes = cacheParams.blockBytes
   def lgCacheBlockBytes = log2Up(cacheBlockBytes)
@@ -28,7 +28,7 @@ trait HasL1CacheParameters {
   def blockOffBits = lgCacheBlockBytes
   def idxBits = log2Up(cacheParams.nSets)
   def untagBits = blockOffBits + idxBits
-  def tagBits = p(PAddrBits) - untagBits
+  def tagBits = bundleParams.addressBits - untagBits
   def nWays = cacheParams.nWays
   def wayBits = log2Up(nWays)
   def isDM = nWays == 1
@@ -37,7 +37,7 @@ trait HasL1CacheParameters {
   def rowOffBits = log2Up(rowBytes)
   def nTLBEntries = cacheParams.nTLBEntries
 
-  def cacheDataBits = p(SharedMemoryTLEdge).bundle.dataBits
+  def cacheDataBits = bundleParams.dataBits
   def cacheDataBeats = (cacheBlockBytes * 8) / cacheDataBits
   def refillCycles = cacheDataBeats
 }

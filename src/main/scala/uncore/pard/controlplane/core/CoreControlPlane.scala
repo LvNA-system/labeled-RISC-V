@@ -2,9 +2,8 @@ package uncore.pard
 
 import chisel3._
 import chisel3.util._
-import config._
-import uncore.devices.DMIIO
-
+import freechips.rocketchip.config._
+import freechips.rocketchip.devices.debug.DMIIO
 
 trait HasCoreIO { this: Bundle =>
   implicit val p: Parameters  // Want trait parameter ...

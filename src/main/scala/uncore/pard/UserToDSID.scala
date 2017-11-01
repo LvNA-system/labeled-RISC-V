@@ -1,9 +1,9 @@
 package uncore.pard
 
 import chisel3._
-import config._
-import diplomacy._
-import uncore.axi4._
+import freechips.rocketchip.config._
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.amba.axi4._
 
 /**
   * As axi4 user bits is used for other purposes inside rocket-chip,
@@ -16,9 +16,11 @@ class UserToDSID(implicit p: Parameters) extends LazyModule {
   )
 
   lazy val module = new LazyModuleImp(this) {
+    val (bundleIn, _) = node.in.unzip
+    val (bundleOut, _) = node.out.unzip
     val io = new Bundle {
-      val in = node.bundleIn
-      val out = node.bundleOut
+      val in = bundleIn
+      val out = bundleOut
     }
 
     (io.in zip io.out) foreach { case (in, out) =>
@@ -30,7 +32,7 @@ class UserToDSID(implicit p: Parameters) extends LazyModule {
 }
 
 object UserToDSID {
-  def apply(axi: AXI4BlindInputNode)(implicit p: Parameters) = {
+  def apply(axi: AXI4MasterNode)(implicit p: Parameters) = {
     val cross = LazyModule(new UserToDSID)
     cross.node := axi
     cross.node

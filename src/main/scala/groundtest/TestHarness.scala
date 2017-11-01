@@ -1,16 +1,15 @@
 // See LICENSE.SiFive for license details.
 
-package groundtest
+package freechips.rocketchip.groundtest
 
 import Chisel._
-import diplomacy._
-import config._
-import rocketchip._
-import util._
+
+import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.diplomacy.LazyModule
 
 class TestHarness(implicit p: Parameters) extends Module {
   val io = new Bundle { val success = Bool(OUTPUT) }
-  val dut = Module(LazyModule(new GroundTestTop).module)
-  io.success := dut.io_success
+  val dut = Module(LazyModule(new GroundTestCoreplex).module)
+  io.success := dut.success
   dut.connectSimAXIMem()
 }

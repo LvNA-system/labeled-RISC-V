@@ -3,7 +3,6 @@
 package util
 
 import Chisel._
-import config._
 
 class ILABundle extends Bundle {
   val hartid = UInt(OUTPUT, 2)

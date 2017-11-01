@@ -2,26 +2,27 @@
 package sifive.blocks.devices.uart
 
 import Chisel._
-import uncore.tilelink2._
-import config.Field
-import diplomacy.{LazyModule, LazyMultiIOModuleImp}
-import rocketchip._
+import freechips.rocketchip.tilelink._
+import freechips.rocketchip.config.Field
+import freechips.rocketchip.coreplex._
+import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 
 //case object PeripheryUARTKey extends Field[Seq[UARTParams]]
 
-trait HasPeripheryUART extends HasSystemNetworks {
-  val uartParams = Seq.tabulate(p(coreplex.NTiles)) { i => //p(PeripheryUARTKey)
+trait HasPeripheryUART extends HasPeripheryBus {
+  val uartParams = Seq.tabulate(p(NTiles)) { i => //p(PeripheryUARTKey)
     UARTParams(address = BigInt(0x1000L + i * 0x1000L))
   }
   val uarts = uartParams map { params =>
-    val uart = LazyModule(new TLUART(peripheryBusBytes, params))
-    uart.node := TLFragmenter(peripheryBusBytes, cacheBlockBytes)(peripheryBus.node)
-    intBus.intnode := uart.intnode
+    val uart = LazyModule(new TLUART(pbusBeatBytes, params))
+
+    uart.node := pbus.toVariableWidthSlaves
+    ibus.fromSync := uart.intnode
     uart
   }
 }
 
-trait HasPeripheryUARTModuleImp extends LazyMultiIOModuleImp {
+trait HasPeripheryUARTModuleImp extends LazyModuleImp {
   val outer: HasPeripheryUART
   val io = IO(new Bundle {
     val uarts = Vec(outer.uartParams.size, new UARTPortIO)
