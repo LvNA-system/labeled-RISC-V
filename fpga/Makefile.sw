@@ -30,7 +30,7 @@ RISCV_LINK_OPTS = -nostdlib -nostartfiles -ffast-math #-lc -lgcc
 #--------------------------------------------------------------------
 
 BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = 616a97045cb582146427fac79c6b2ea507863756
+BBL_BUILD_COMMIT = 78748942edaec953e097097ea337a8f308ec872c
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
