@@ -31,6 +31,11 @@ class TestHarness()(implicit p: Parameters) extends Module {
 
   dut.connectDebug(clock, reset, io.success)
 
+  for (tcr <- dut.tcrs) {
+    tcr.reset := reset
+    tcr.clock := clock
+  }
+
   // Make cores always runnable
   dut.L1enable.foreach(_ := Bool(true))
   dut.trafficGeneratorEnable := Bool(false)

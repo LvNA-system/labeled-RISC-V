@@ -140,11 +140,15 @@ trait HasTilesModuleImp extends LazyModuleImp
   // val trafficGeneratorEnable = IO(Vec(outer.nRocketTiles, Bool()).asInput)
   val trafficGeneratorEnable = IO(Bool().asInput)
   val ila = IO(Vec(outer.nRocketTiles, new ILABundle()))
+  val tcrs = IO(Vec(outer.nRocketTiles, new Bundle {
+    val clock = Clock(INPUT)
+    val reset = Bool(INPUT)
+  }))
 
   // Unconditionally wire up the non-diplomatic tile inputs
   outer.tiles.map(_.module).zip(tile_inputs).zipWithIndex.foreach { case((tile, wire), i) =>
-    tile.clock := wire.clock
-    tile.reset := wire.reset
+    tile.clock := tcrs(i).clock
+    tile.reset := tcrs(i).reset
     tile.io.hartid := wire.hartid
     tile.io.reset_vector := wire.reset_vector
 
