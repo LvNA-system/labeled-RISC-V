@@ -15,6 +15,7 @@ build_dir = $(fpga_dir)/build
 generated_dir = $(build_dir)/generated-src
 
 MODEL ?= PARDFPGAHarness
+BOARD ?= zcu102
 CONFIG = PARDFPGAConfig$(BOARD)
 
 #--------------------------------------------------------------------
