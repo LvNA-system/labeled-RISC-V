@@ -1,87 +1,86 @@
-## 如何烧板子
+# PARD on FPGA
 
-1. 进入 `riscv_fpga_pard/fpga` 执行 `make vivado`
-2. 在 Vivado 里按提示 refresh changed modules, 然后在左侧边栏下方点 *Generate Bistream*, 一路确认。
-3. 完成后在左侧边栏下方点 *Open Hardware Manager*, 在新界面点 *Open target -> Open New Target*, 一路确认，选 Remote Server, 选个 FPGA 芯片（486、945）。
-4. 在更新的界面里对着 FPGA 芯片（XADC 上面）右键点击 *Program Device*, 一路确认。
+下面描述从chisel到上板运行的全流程。
 
-## 如何启动 PRM
+## 编译
 
+
+
+首先我们这里包含了三个目标对象：
+vivado工程文件、由chisel生成的verilog、编译生成的bbl。
+由于我们这里使用了Makefile调用tcl，tcl调用Makefile的方式，并没有正确地处理好make及clean时的依赖关系。导致在更新某一部分之后，无法正确地检查依赖，增量编译；clean时也无法正确clean。
+直接生成三者使用如下命令：
 ```
-ssh 10.30.6.123
-minicom -D /dev/ttyUSB0  # 0, 1, ...
-setenv kernel_img image-risc.ub && run netboot
-```
-
-1. 先登录对应的 uart 口（猜一个），然后在 Vivado 里 poogram bitstream。一 program 完就开始 5s 倒计时，不回车打断的话会从 flash 里加载旧镜像。
-2. `netboot` 其实就是记录了一条命令的环境变量，`run` 命令以环境变量所存储的字符串为命令进行执行。
-3. `netboot = tftp ${netstart} ${kernel_img} && fdt addr ${netstart} && fdt get addr dtbnetstart /images/fdt@1 data && fdt addr ${dt}`
-4. `netstart = 0x84000000`
-5. `dt =`
-6. tftp 即 tftpboot, 通过 tftp 协议传输镜像并启动。
-7. tftp 服务器在 10.30.6.123 的 `/tftpboot` 目录，这个目录所有用户都能够访问。
-8. 其他 PRM 镜像：whz-image.ub, 加了 System Cache 和 MIGCP 参数表项的，不兼容。no-l2-image.ub, 没 System Cache 的，可兼容启动。
-9. 用户名和密码都是 root
-
-## 如何让 rocket-chip 运行 riscv-linux
-
-在 PRM 上执行下面的命令：
-
-```
-wget 10.30.6.123/yzh/ksrisc
-wget 10.30.6.123:8000/traffic.sh
-sh traffic.sh 0 4096 1 4096
-sh ksrisc 1
+make BOARD=zedboard
 ```
 
-要与 rocket-chip 进行交互，在任意一台可以通过网络访问 PRM 的主机上执行下面的命令：
+当某一部分发生变化之后，增量编译及单独清理一个目标，命令如下：
 
+|目标对象|生成|清理方式|
+|-----|-------|-----------------|
+|vivado工程 | make BOARD=zedboard | make clean |
+|bbl | make bbl -j32 | make sw-clean -j32 |
+|generated verilog | make -C pardcore BOARD=zedboard| make -C pardcore BOARD=zedboard clean |
+
+上述编译完成之后，得到的是一个vivado project以及bbl.bin文件。
+
+接下来，我们打开vivado工程，单击refresh module。再单击generatebitstream。经过漫长的等待后，我们得到了bitstream文件system_top.bit。
+
+## 运行
+
+步骤太多，我都不知道该怎么分步了。
+
+将板子开关打开，上电。
+
+ssh上123服务器(10.30.6.123)
 ```
-telnet 10.30.6.<prm> <rocket-port>
-```
-
-1. `<prm>` 是 PRM 对应的子网地址。对于 486, 它是 61; 对于 945, 它是 60.
-2. `<rocket-port>` 是访问 uart 的端口号，对于 core0 它是 3000, 对于 core1 它是 3001.
-
-## 如何修改 PRM 表项
-
-TODO
-
-## 如何编译 PRM
-
-```
-cd pard_fpga_vc709_sw/prm_core_bd/
-petalinux-build
-```
-
-在已经有一次完整编译的情况下，若只想更新一部分，则
-
-```
-petalinux-build -c <your-package>
-petalinux-build -x package
-```
-## 如何进行 Verilator 模拟
-
-编译最好在 `bash` 环境下完成。
-
-```
-source ~/gcc.sh  # 获取最新版本的 GCC 以满足编译需求
-cd riscv_pard_fpga/fpga
-make emu -j32
-cd emulator
-sh gen.sh your-bbl  #=> bin.txt, bin.size
-cp bin.txt bin.size ../build
-cd build
-./emu +verbose . 2>&1 | tee log
+ssh liuzhigang@10.30.6.123
 ```
 
-`emu` 使用 `bin.txt` 和 `bin.size` 作为负载模拟执行，重新编译 bbl 记得更新这两个文件。
-
-## 如何进行 groundtest
-
+打开arm核的串口
 ```
-PROJECT=groundtest SIM_CONFIG=Memtest make emu -j32
+minicom -D /dev/ttyACM0
 ```
 
-具体有哪些测试配置，请参考 `src/main/scala/groundtest/Configs.scala`.
+烧板子及启动arm核
+将刚编好的bitstream文件拷贝到123的pard目录下，拷贝时请这样用如下命令：
+```
+scp system_top.bit liuzhigang@10.30.6.123:~
+```
+注意:后面的":~"不能少，不然会拷贝到本机上。
 
+运行xsdb
+输入`source noop.tcl`。则arm核启动。
+
+切换到arm的minicom窗口，窗口提示符为：zynq-uboot>
+输入bootm 0x3000000 - 0x2a00000，则arm核开始启动Linux kernel。
+如果莫名奇妙地挂住，请重新`source noop.tcl`。
+
+启动linux核之后，提示符为：`debian-airbook login:`，则说明成功启动linux。
+
+用户名密码均为root，登录进去。
+
+让zedboard上的linux获取ip地址
+```
+dhclient eth0
+```
+
+查看arm linux的ip地址
+```
+ifconfig
+```
+
+进入arm linux的pard目录下，从eda上将新编译的bbl.bin
+scp过来（实际上是scp到了arm核用的sd卡上），将runme.sh更改，保证a.out后面跟的是刚传上去的bbl文件。
+
+打开FPGA上rocket核的串口
+在123服务器上，新开一个窗口，ssh到arm linux上，运行`minicom -D /dev/ttyUL1`。
+如果显示locked，则用`ps aux | grep "minicom"`来看一下在运行的minicom进程，并杀死。
+
+启动rocket核
+切换到arm linux上，运行bash runme.sh，在minicom上即可看到riscv linux的输出。
+
+
+重新烧板子时记得先把arm上的debian给poweroff，不要直接烧，直接运行bootm，因为arm上的debian需要正常关机以保证sd卡上的东西不会被写坏。
+
+不用了，记得把zync给关机。
