@@ -4,7 +4,7 @@ if {[llength $argv] > 0} {
   set project_name [lindex $argv 0]
   set s [split $project_name -]
   set prj [lindex $s 0]
-  set board [lindex $s 1]
+  set brd [lindex $s 1]
 } else {
   puts "project full name is not given!"
   return 1
@@ -23,10 +23,7 @@ set_property board_part $board [current_project]
 set_property verilog_define {{HAS_CACHE}} [get_fileset sources_1]
 set_property verilog_define {{HAS_CACHE}} [get_fileset sim_1]
 
-# source does not take any command line arguments
-# use the following line to pass arguments
-set argv [list zedboard]
-set argc 1
+# the $brd variable will be passed to pardcore/mk.tcl
 source ${fpga_dir}/pardcore/mk.tcl
 
 # setting up the project
