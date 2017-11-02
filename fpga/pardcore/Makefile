@@ -15,7 +15,8 @@ build_dir = $(fpga_dir)/build
 generated_dir = $(build_dir)/generated-src
 
 MODEL ?= PARDFPGAHarness
-CONFIG ?= PARDFPGAConfig
+BOARD ?= zcu102
+CONFIG = PARDFPGAConfig$(BOARD)
 
 #--------------------------------------------------------------------
 # Rocket-chip verilog source generation
@@ -32,7 +33,7 @@ $(gen_rtl):
 
 $(srams_rtl): $(gen_rtl)
 
-rocketchip_rtl = rtl/rocket/rocketchip.v
+rocketchip_rtl = rtl/rocket/rocketchip_board_$(BOARD).v
 
 $(rocketchip_rtl): $(gen_rtl) $(base_dir)/vsrc/AsyncResetReg.v $(srams_rtl) $(other_rtl)
 	cat $^ > $@
