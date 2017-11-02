@@ -15,7 +15,7 @@ build_dir = $(fpga_dir)/build
 generated_dir = $(build_dir)/generated-src
 
 MODEL ?= PARDFPGAHarness
-CONFIG ?= PARDFPGAConfig
+CONFIG = PARDFPGAConfig$(BOARD)
 
 #--------------------------------------------------------------------
 # Rocket-chip verilog source generation

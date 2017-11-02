@@ -22,6 +22,11 @@ set_property board_part $board [current_project]
 
 set_property verilog_define {{HAS_CACHE}} [get_fileset sources_1]
 set_property verilog_define {{HAS_CACHE}} [get_fileset sim_1]
+
+# source does not take any command line arguments
+# use the following line to pass arguments
+set argv [list zedboard]
+set argc 1
 source ${fpga_dir}/pardcore/mk.tcl
 
 # setting up the project
