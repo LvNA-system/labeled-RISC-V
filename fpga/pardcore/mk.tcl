@@ -24,7 +24,7 @@ set_property is_global_include true [get_files "[file normalize "${lib_dir}/incl
 set_property is_global_include true [get_files "[file normalize "${lib_dir}/include/dmi.vh"]"]
 
 # Add files for rocketchip
-add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/rocket/rocketchip.v"]"
+add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/rocket/rocketchip_board_${brd}.v"]"
 add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/rocket/rocketchip_top.v"]"
 
 # Block Designs
