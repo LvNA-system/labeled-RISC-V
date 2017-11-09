@@ -614,6 +614,7 @@ proc create_root_design { parentCell } {
   # Create instance: ila_core0, and set properties
   set ila_core0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila_core0 ]
   set_property -dict [ list \
+   CONFIG.ALL_PROBE_SAME_MU {false} \
    CONFIG.C_DATA_DEPTH {4096} \
    CONFIG.C_ENABLE_ILA_AXI_MON {false} \
    CONFIG.C_INPUT_PIPE_STAGES {2} \
@@ -623,6 +624,7 @@ proc create_root_design { parentCell } {
    CONFIG.C_PROBE10_WIDTH {5} \
    CONFIG.C_PROBE11_WIDTH {64} \
    CONFIG.C_PROBE1_WIDTH {32} \
+   CONFIG.C_PROBE2_MU_CNT {2} \
    CONFIG.C_PROBE2_WIDTH {40} \
    CONFIG.C_PROBE4_WIDTH {32} \
    CONFIG.C_PROBE6_WIDTH {5} \
@@ -634,6 +636,7 @@ proc create_root_design { parentCell } {
   # Create instance: ila_core1, and set properties
   set ila_core1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila_core1 ]
   set_property -dict [ list \
+   CONFIG.ALL_PROBE_SAME_MU {false} \
    CONFIG.C_DATA_DEPTH {4096} \
    CONFIG.C_ENABLE_ILA_AXI_MON {false} \
    CONFIG.C_INPUT_PIPE_STAGES {2} \
@@ -643,6 +646,7 @@ proc create_root_design { parentCell } {
    CONFIG.C_PROBE10_WIDTH {5} \
    CONFIG.C_PROBE11_WIDTH {64} \
    CONFIG.C_PROBE1_WIDTH {32} \
+   CONFIG.C_PROBE2_MU_CNT {2} \
    CONFIG.C_PROBE2_WIDTH {40} \
    CONFIG.C_PROBE4_WIDTH {32} \
    CONFIG.C_PROBE6_WIDTH {5} \
