@@ -22,7 +22,8 @@ trait HasRTCModuleImp extends LazyModuleImp {
   require((pbusFreq - rtcFreq * internalPeriod) * 100 / pbusFreq <= 5)
 
   // Use the static period to toggle the RTC
-  val (_, int_rtc_tick) = Counter(true.B, internalPeriod.toInt)
+  // val (_, int_rtc_tick) = Counter(true.B, internalPeriod.toInt)
+  val (_, int_rtc_tick) = Counter(true.B, p(RTCPeriod))
 
   outer.clint.module.io.rtcTick := int_rtc_tick
 }
