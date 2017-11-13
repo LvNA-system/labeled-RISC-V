@@ -8,7 +8,7 @@
 
 但是在看rocketchip的代码时，我们会看到HasRTCModuleImp这个东西，会以为RTC是一个单独的定时设备，搞不清RTC和上述两种计时工具的关系。但实际上这个RTC仅仅是一个简单的计数器，负责驱动mtime寄存器的更新。
 
-mtime以及counter都是CSR寄存器，但是他们不是在CSR模块中实现的，他们是在Clint中实现的，Clint可能是clock interrupt的缩写。
+mtime以及counter都是CSR寄存器，但是他们不是在CSR模块中实现的，他们是在Clint中实现的，Clint是coreplex local interrupter的缩写。
 
 HasRTCModuleImp实例化了一个计数器，并连接到Clint中，驱动mtime的更新，compare counter以及raise timer interrupt是在Clint中完成的。
 
