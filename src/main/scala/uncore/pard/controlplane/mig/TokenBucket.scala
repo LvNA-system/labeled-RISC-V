@@ -31,18 +31,25 @@ class TokenBucket(implicit p: Parameters) extends Module {
     val enable = Output(Bool())
   })
 
+  // val bucketSize = io.bucket.size
+  // val bucketFreq = io.bucket.freq
+  // val bucketInc = io.bucket.inc
+  val bucketSize = 32.U
+  val bucketFreq = 32.U
+  val bucketInc = 32.U
+
   val nTokensNext = Wire(UInt())
   val nTokens = RegNext(
-    Mux(nTokensNext < io.bucket.size, nTokensNext, io.bucket.size),
-    io.bucket.size)
+    Mux(nTokensNext < bucketSize, nTokensNext, bucketSize),
+    bucketSize)
 
   val counterNext = Wire(UInt())
   val counter = RegNext(counterNext, 0.U(p(BucketBits).freq.W))
-  counterNext := Mux(counter >= io.bucket.freq, 1.U, counter + 1.U)
+  counterNext := Mux(counter >= bucketFreq, 1.U, counter + 1.U)
 
-  val tokenAdd = Mux(counter === 1.U, io.bucket.inc, 0.U)
+  val tokenAdd = Mux(counter === 1.U, bucketInc, 0.U)
 
-  val bypass = io.bucket.freq === 0.U
+  val bypass = bucketFreq === 0.U
   val channelEnables = List(io.read, io.write).map { ch => ch.valid && ch.ready }
   val rTokenSub :: wTokenSub :: _ = List(io.read, io.write).zip(channelEnables).map {
     case (ch, en) => Mux(en && !bypass, ch.bits, 0.U)
@@ -61,7 +68,7 @@ class TokenBucket(implicit p: Parameters) extends Module {
   when (channelEnables.reduce(_ || _) && consumeUp) {
     enable := false.B
     threshold := tokenSub
-  } .elsewhen((nTokens >= threshold || nTokens === io.bucket.size) && nTokens =/= 0.U) {
+  } .elsewhen((nTokens >= threshold || nTokens === bucketSize) && nTokens =/= 0.U) {
     enable := true.B
     threshold := 0.U
   }

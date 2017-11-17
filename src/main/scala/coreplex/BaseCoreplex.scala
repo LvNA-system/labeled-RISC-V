@@ -154,7 +154,7 @@ trait HasTilesModuleImp extends LazyModuleImp
 
     // pard ports
     ila(i) <> tile.io.ila
-    tile.io.L1enable := L1enable(i)
+    tile.io.trafficEnable := L1enable(i)
     tile.io.trafficGeneratorEnable := trafficGeneratorEnable
   }
 

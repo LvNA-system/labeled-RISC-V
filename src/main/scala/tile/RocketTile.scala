@@ -10,6 +10,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+import uncore.pard.ControlledCrossing
 
 case class RocketTileParams(
     core: RocketCoreParams = RocketCoreParams(),
@@ -208,6 +209,10 @@ abstract class RocketTileWrapper(rtp: RocketTileParams)(implicit p: Parameters) 
 
   rocket.intNode := intXbar.intnode
 
+  // PARD uses this module to control tile generated traffic
+  val ctrlXing = LazyModule(new ControlledCrossing)
+  ctrlXing.node :=* rocket.masterNode
+
   def optionalMasterBuffer(in: TLOutwardNode): TLOutwardNode = {
     if (rtp.boundaryBuffers) {
       val mbuf = LazyModule(new TLBuffer(BufferParams.none, BufferParams.flow, BufferParams.none, BufferParams.flow, BufferParams(1)))
@@ -237,11 +242,13 @@ abstract class RocketTileWrapper(rtp: RocketTileParams)(implicit p: Parameters) 
     io.trace.foreach { _ := rocket.module.io.trace.get }
     io.halt_and_catch_fire.foreach { _ := rocket.module.io.halt_and_catch_fire.get }
     io.ila <> rocket.module.io.ila
+    ctrlXing.module.io.enable := io.trafficEnable
   }
 }
 
 class SyncRocketTile(rtp: RocketTileParams)(implicit p: Parameters) extends RocketTileWrapper(rtp) {
-  val masterNode = optionalMasterBuffer(rocket.masterNode)
+  val masterNode = optionalMasterBuffer(ctrlXing.node)
+
   val slaveNode = optionalSlaveBuffer(rocket.slaveNode)
 
   // Fully async interrupts need synchronizers.
@@ -262,7 +269,7 @@ class SyncRocketTile(rtp: RocketTileParams)(implicit p: Parameters) extends Rock
 
 class AsyncRocketTile(rtp: RocketTileParams)(implicit p: Parameters) extends RocketTileWrapper(rtp) {
   val source = LazyModule(new TLAsyncCrossingSource)
-  source.node :=* rocket.masterNode
+  source.node :=* ctrlXing.node
   val masterNode = source.node
 
   val sink = LazyModule(new TLAsyncCrossingSink)
@@ -288,7 +295,7 @@ class AsyncRocketTile(rtp: RocketTileParams)(implicit p: Parameters) extends Roc
 
 class RationalRocketTile(rtp: RocketTileParams)(implicit p: Parameters) extends RocketTileWrapper(rtp) {
   val source = LazyModule(new TLRationalCrossingSource)
-  source.node :=* optionalMasterBuffer(rocket.masterNode)
+  source.node :=* optionalMasterBuffer(ctrlXing.node)
   val masterNode = source.node
 
   val sink = LazyModule(new TLRationalCrossingSink(SlowToFast))

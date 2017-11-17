@@ -165,8 +165,8 @@ trait HasRocketTiles extends HasTiles
 
 trait HasRocketTilesModuleImp extends HasTilesModuleImp
   with HasPeripheryDebugModuleImp {
-    val outer: HasRocketTiles
-  }
+  val outer: HasRocketTiles
+}
 
 class RocketCoreplex(implicit p: Parameters) extends BaseCoreplex
     with HasRocketTiles {
