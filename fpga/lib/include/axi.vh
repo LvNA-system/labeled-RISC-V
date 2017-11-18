@@ -12,7 +12,7 @@
 `define axilite_if(dir1, dir2, prefix, data_width) \
 	`axi_field(dir1, 1, prefix, awready), \
 	`axi_field(dir2, 1, prefix, awvalid), \
-	`axi_field(dir2, 32, prefix, awaddr), \
+	`axi_field(dir2, 40, prefix, awaddr), \
 	`axi_field(dir2, 3, prefix, awprot), \
 	`axi_field(dir1, 1, prefix, wready), \
 	`axi_field(dir2, 1, prefix, wvalid), \
@@ -23,7 +23,7 @@
 	`axi_field(dir1, 2, prefix, bresp), \
 	`axi_field(dir1, 1, prefix, arready), \
 	`axi_field(dir2, 1, prefix, arvalid), \
-	`axi_field(dir2, 32, prefix, araddr), \
+	`axi_field(dir2, 40, prefix, araddr), \
 	`axi_field(dir2, 3, prefix, arprot), \
 	`axi_field(dir2, 1, prefix, rready), \
 	`axi_field(dir1, 1, prefix, rvalid), \
@@ -40,7 +40,7 @@
 `define axilite_wire_internal(prefix, data_width) \
 	`axi_wire_field(1, prefix, awready); \
 	`axi_wire_field(1, prefix, awvalid); \
-	`axi_wire_field(32, prefix, awaddr); \
+	`axi_wire_field(40, prefix, awaddr); \
 	`axi_wire_field(3, prefix, awprot); \
 	`axi_wire_field(1, prefix, wready); \
 	`axi_wire_field(1, prefix, wvalid); \
@@ -51,7 +51,7 @@
 	`axi_wire_field(2, prefix, bresp); \
 	`axi_wire_field(1, prefix, arready); \
 	`axi_wire_field(1, prefix, arvalid); \
-	`axi_wire_field(32, prefix, araddr); \
+	`axi_wire_field(40, prefix, araddr); \
 	`axi_wire_field(3, prefix, arprot); \
 	`axi_wire_field(1, prefix, rready); \
 	`axi_wire_field(1, prefix, rvalid); \
