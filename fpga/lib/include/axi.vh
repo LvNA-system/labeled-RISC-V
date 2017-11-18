@@ -93,7 +93,7 @@
 	`axi_field(dir2, 4, prefix, awcache), \
 	`axi_field(dir2, 4, prefix, awqos), \
 	`axi_field(dir2, id_width, prefix, awid), \
-	`axi_field(dir2, 6, prefix, awuser), \
+	/* `axi_field(dir2, 6, prefix, awuser), */ \
 	`axi_field(dir2, 1, prefix, wlast), \
 	`axi_field(dir1, id_width, prefix, bid), \
 	`axi_field(dir2, 8, prefix, arlen), \
@@ -103,7 +103,7 @@
 	`axi_field(dir2, 4, prefix, arcache), \
 	`axi_field(dir2, 4, prefix, arqos), \
 	`axi_field(dir2, id_width, prefix, arid), \
-	`axi_field(dir2, 6, prefix, aruser), \
+	/* `axi_field(dir2, 6, prefix, aruser), */ \
 	`axi_field(dir1, 1, prefix, rlast), \
 	`axi_field(dir1, id_width, prefix, rid)
 
@@ -122,7 +122,7 @@
 	`axi_wire_field(4, prefix, awcache); \
 	`axi_wire_field(4, prefix, awqos); \
 	`axi_wire_field(id_width, prefix, awid); \
-	`axi_wire_field(6, prefix, awuser); \
+	/* `axi_wire_field(6, prefix, awuser); */ \
 	`axi_wire_field(1, prefix, wlast); \
 	`axi_wire_field(id_width, prefix, bid); \
 	`axi_wire_field(8, prefix, arlen); \
@@ -132,7 +132,7 @@
 	`axi_wire_field(4, prefix, arcache); \
 	`axi_wire_field(4, prefix, arqos); \
 	`axi_wire_field(id_width, prefix, arid); \
-	`axi_wire_field(6, prefix, aruser); \
+	/* `axi_wire_field(6, prefix, aruser); */ \
 	`axi_wire_field(1, prefix, rlast); \
 	`axi_wire_field(id_width, prefix, rid)
 
@@ -145,7 +145,7 @@
 	`axi_connect_field(io_prefix, wire_prefix, awcache), \
 	`axi_connect_field(io_prefix, wire_prefix, awqos), \
 	`axi_connect_field(io_prefix, wire_prefix, awid), \
-	`axi_connect_field(io_prefix, wire_prefix, awuser), \
+	/* `axi_connect_field(io_prefix, wire_prefix, awuser), */ \
 	`axi_connect_field(io_prefix, wire_prefix, wlast), \
 	`axi_connect_field(io_prefix, wire_prefix, bid), \
 	`axi_connect_field(io_prefix, wire_prefix, arlen), \
@@ -155,6 +155,6 @@
 	`axi_connect_field(io_prefix, wire_prefix, arcache), \
 	`axi_connect_field(io_prefix, wire_prefix, arqos), \
 	`axi_connect_field(io_prefix, wire_prefix, arid), \
-	`axi_connect_field(io_prefix, wire_prefix, aruser), \
+	/* `axi_connect_field(io_prefix, wire_prefix, aruser), */ \
 	`axi_connect_field(io_prefix, wire_prefix, rlast), \
 	`axi_connect_field(io_prefix, wire_prefix, rid)
