@@ -26,15 +26,12 @@ module system_top (
 
   `axi_wire(AXI_MEM_MAPPED, 64, 4);
   `axi_wire(AXI_MEM, 64, 4);
+  `axilite_wire(AXILITE_MMIO);
 
   wire pardcore_coreclk;
   wire [1:0] pardcore_corerstn;
   wire pardcore_uncoreclk;
   wire pardcore_uncorerstn;
-  wire SYS_UART0_rxd;
-  wire SYS_UART0_txd;
-  wire SYS_UART1_rxd;
-  wire SYS_UART1_txd;
 
   zynq_soc zynq_soc_i (
     .DDR_addr(DDR_addr),
@@ -60,11 +57,7 @@ module system_top (
     .FIXED_IO_ps_srstb(FIXED_IO_ps_srstb),
 
     `axi_connect_if(S_AXI_MEM, AXI_MEM_MAPPED),
-
-    .UART_0_txd(SYS_UART0_txd),
-    .UART_0_rxd(SYS_UART0_rxd),
-    .UART_1_txd(SYS_UART1_txd),
-    .UART_1_rxd(SYS_UART1_rxd),
+    `axilite_connect_if(S_AXILITE_MMIO, AXILITE_MMIO),
 
     .pardcore_coreclk(pardcore_coreclk),
     .pardcore_corerstn(pardcore_corerstn),
@@ -78,16 +71,14 @@ module system_top (
   );
 
   pardcore pardcore_i(
+    `axi_connect_if(M_AXI_MEM, AXI_MEM),
+    `axilite_connect_if(M_AXILITE_MMIO, AXILITE_MMIO),
+
     .coreclk(pardcore_coreclk),
     .corersts(~pardcore_corerstn),
     .uncoreclk(pardcore_uncoreclk),
-    .uncore_rstn(pardcore_uncorerstn),
-    `axi_connect_if(M_AXI_MEM, AXI_MEM),
+    .uncore_rstn(pardcore_uncorerstn)
 //    `axi_connect_if(S_AXI_CDMA, AXI_CDMA),
-    .UART0_rxd(SYS_UART0_txd),
-    .UART0_txd(SYS_UART0_rxd),
-    .UART1_rxd(SYS_UART1_txd),
-    .UART1_txd(SYS_UART1_rxd)
   );
 
 endmodule
