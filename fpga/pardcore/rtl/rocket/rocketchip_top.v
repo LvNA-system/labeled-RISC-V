@@ -78,8 +78,6 @@ PARDFPGATop top(
    .tcrs_1_clock(coreclk1),
    .tcrs_1_reset(corerst1),
    .interrupts(io_interrupts_0),
-   .L1enable_0(L1enable[0]),
-   .L1enable_1(L1enable[1]),
    .trafficGeneratorEnable(L1enable[2]),
 
    `axi_connect_if(mem_axi4_0, M_AXI_MEM),

@@ -24,6 +24,7 @@ class PARDFPGAConfigvc709 extends Config(new FPGAConfig
   ++ new WithNBigCores(2)
   ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithRTCPeriod(50) // gives 10 MHz RTC assuming 50 MHz uncore clock
+  ++ new BucketConfig
   ++ new BaseConfig)
 
 class PARDFPGAConfigzedboard extends Config(new FPGAConfig
@@ -33,6 +34,7 @@ class PARDFPGAConfigzedboard extends Config(new FPGAConfig
   ++ new WithNBigCores(2)
   ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithRTCPeriod(50) // gives 10 MHz RTC assuming 50 MHz uncore clock
+  ++ new BucketConfig
   ++ new BaseConfig)
 
 class PARDFPGAConfigzcu102 extends Config(new FPGAConfig
@@ -42,4 +44,5 @@ class PARDFPGAConfigzcu102 extends Config(new FPGAConfig
   ++ new WithNBigCores(2)
   ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithRTCPeriod(100)
+  ++ new BucketConfig
   ++ new BaseConfig)
