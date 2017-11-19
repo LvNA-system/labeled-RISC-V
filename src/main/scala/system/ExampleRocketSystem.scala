@@ -27,4 +27,9 @@ class ExampleRocketSystemModule[+L <: ExampleRocketSystem](_outer: L) extends Ro
     with HasMasterAXI4MMIOPortModuleImp
     with HasSlaveAXI4PortModuleImp
     with HasPeripheryBootROMModuleImp
-    with DontTouch
+    with DontTouch {
+
+  outer.tiles.map(_.module) zip buckets foreach { case (tile, bucket) =>
+    tile.io.trafficEnable := bucket.io.enable
+  }
+}

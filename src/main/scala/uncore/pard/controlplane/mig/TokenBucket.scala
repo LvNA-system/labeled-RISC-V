@@ -35,7 +35,8 @@ class TokenBucket(implicit p: Parameters) extends Module {
   // val bucketFreq = io.bucket.freq
   // val bucketInc = io.bucket.inc
   val bucketSize = 32.U
-  val bucketFreq = 32.U
+  // we bypass tokenBucket by default
+  val bucketFreq = 0.U
   val bucketInc = 32.U
 
   val nTokensNext = Wire(UInt())

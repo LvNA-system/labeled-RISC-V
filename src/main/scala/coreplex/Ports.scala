@@ -88,12 +88,11 @@ trait HasMasterAXI4MemPortModuleImp extends LazyModuleImp
   (mem_axi4 zip outer.mem_axi4.in) foreach { case (i, (o, _)) => i <> o }
   val nMemoryChannels = outer.nMemoryChannels
 
-  val tokenBucketL1enable = IO(Vec(p(NTiles), Bool()).asOutput)
-
   val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
   val (bundleIn, _) = outer.mem_axi4.in.unzip
   val axiIn = bundleIn(0)
-  buckets.zipWithIndex.foreach { case (bucket, i) =>
+
+  buckets.foreach { case bucket =>
     val bucketIO = bucket.io
     // for now, we do not match dsid bits
     List((bucketIO.read, axiIn.ar), (bucketIO.write, axiIn.aw)).foreach { case (bktCh, axiCh) =>
@@ -101,7 +100,6 @@ trait HasMasterAXI4MemPortModuleImp extends LazyModuleImp
       bktCh.ready := axiCh.ready
       bktCh.bits := (axiCh.bits.len + 1.U) << axiCh.bits.size
     }
-    tokenBucketL1enable(i) := bucketIO.enable
   }
 }
 

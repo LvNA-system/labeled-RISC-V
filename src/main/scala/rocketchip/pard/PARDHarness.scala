@@ -37,8 +37,6 @@ class TestHarness()(implicit p: Parameters) extends Module {
   }
 
   // Make cores always runnable
-  // dut.L1enable.foreach(_ := Bool(true))
-  dut.L1enable zip dut.tokenBucketL1enable foreach { case (in, out) => in := out}
   dut.trafficGeneratorEnable := Bool(false)
 
   val mmio_axi4 = dut.mmio_axi4(0)
