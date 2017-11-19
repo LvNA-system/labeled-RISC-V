@@ -12,7 +12,7 @@
 `define axilite_if(dir1, dir2, prefix, data_width) \
 	`axi_field(dir1, 1, prefix, awready), \
 	`axi_field(dir2, 1, prefix, awvalid), \
-	`axi_field(dir2, 32, prefix, awaddr), \
+	`axi_field(dir2, 40, prefix, awaddr), \
 	`axi_field(dir2, 3, prefix, awprot), \
 	`axi_field(dir1, 1, prefix, wready), \
 	`axi_field(dir2, 1, prefix, wvalid), \
@@ -23,7 +23,7 @@
 	`axi_field(dir1, 2, prefix, bresp), \
 	`axi_field(dir1, 1, prefix, arready), \
 	`axi_field(dir2, 1, prefix, arvalid), \
-	`axi_field(dir2, 32, prefix, araddr), \
+	`axi_field(dir2, 40, prefix, araddr), \
 	`axi_field(dir2, 3, prefix, arprot), \
 	`axi_field(dir2, 1, prefix, rready), \
 	`axi_field(dir1, 1, prefix, rvalid), \
@@ -40,7 +40,7 @@
 `define axilite_wire_internal(prefix, data_width) \
 	`axi_wire_field(1, prefix, awready); \
 	`axi_wire_field(1, prefix, awvalid); \
-	`axi_wire_field(32, prefix, awaddr); \
+	`axi_wire_field(40, prefix, awaddr); \
 	`axi_wire_field(3, prefix, awprot); \
 	`axi_wire_field(1, prefix, wready); \
 	`axi_wire_field(1, prefix, wvalid); \
@@ -51,7 +51,7 @@
 	`axi_wire_field(2, prefix, bresp); \
 	`axi_wire_field(1, prefix, arready); \
 	`axi_wire_field(1, prefix, arvalid); \
-	`axi_wire_field(32, prefix, araddr); \
+	`axi_wire_field(40, prefix, araddr); \
 	`axi_wire_field(3, prefix, arprot); \
 	`axi_wire_field(1, prefix, rready); \
 	`axi_wire_field(1, prefix, rvalid); \
@@ -93,7 +93,7 @@
 	`axi_field(dir2, 4, prefix, awcache), \
 	`axi_field(dir2, 4, prefix, awqos), \
 	`axi_field(dir2, id_width, prefix, awid), \
-	`axi_field(dir2, 6, prefix, awuser), \
+	/* `axi_field(dir2, 6, prefix, awuser), */ \
 	`axi_field(dir2, 1, prefix, wlast), \
 	`axi_field(dir1, id_width, prefix, bid), \
 	`axi_field(dir2, 8, prefix, arlen), \
@@ -103,7 +103,7 @@
 	`axi_field(dir2, 4, prefix, arcache), \
 	`axi_field(dir2, 4, prefix, arqos), \
 	`axi_field(dir2, id_width, prefix, arid), \
-	`axi_field(dir2, 6, prefix, aruser), \
+	/* `axi_field(dir2, 6, prefix, aruser), */ \
 	`axi_field(dir1, 1, prefix, rlast), \
 	`axi_field(dir1, id_width, prefix, rid)
 
@@ -122,7 +122,7 @@
 	`axi_wire_field(4, prefix, awcache); \
 	`axi_wire_field(4, prefix, awqos); \
 	`axi_wire_field(id_width, prefix, awid); \
-	`axi_wire_field(6, prefix, awuser); \
+	/* `axi_wire_field(6, prefix, awuser); */ \
 	`axi_wire_field(1, prefix, wlast); \
 	`axi_wire_field(id_width, prefix, bid); \
 	`axi_wire_field(8, prefix, arlen); \
@@ -132,7 +132,7 @@
 	`axi_wire_field(4, prefix, arcache); \
 	`axi_wire_field(4, prefix, arqos); \
 	`axi_wire_field(id_width, prefix, arid); \
-	`axi_wire_field(6, prefix, aruser); \
+	/* `axi_wire_field(6, prefix, aruser); */ \
 	`axi_wire_field(1, prefix, rlast); \
 	`axi_wire_field(id_width, prefix, rid)
 
@@ -145,7 +145,7 @@
 	`axi_connect_field(io_prefix, wire_prefix, awcache), \
 	`axi_connect_field(io_prefix, wire_prefix, awqos), \
 	`axi_connect_field(io_prefix, wire_prefix, awid), \
-	`axi_connect_field(io_prefix, wire_prefix, awuser), \
+	/* `axi_connect_field(io_prefix, wire_prefix, awuser), */ \
 	`axi_connect_field(io_prefix, wire_prefix, wlast), \
 	`axi_connect_field(io_prefix, wire_prefix, bid), \
 	`axi_connect_field(io_prefix, wire_prefix, arlen), \
@@ -155,6 +155,6 @@
 	`axi_connect_field(io_prefix, wire_prefix, arcache), \
 	`axi_connect_field(io_prefix, wire_prefix, arqos), \
 	`axi_connect_field(io_prefix, wire_prefix, arid), \
-	`axi_connect_field(io_prefix, wire_prefix, aruser), \
+	/* `axi_connect_field(io_prefix, wire_prefix, aruser), */ \
 	`axi_connect_field(io_prefix, wire_prefix, rlast), \
 	`axi_connect_field(io_prefix, wire_prefix, rid)

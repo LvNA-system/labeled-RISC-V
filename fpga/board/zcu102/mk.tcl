@@ -42,6 +42,7 @@ set_property is_global_include true [get_files "[file normalize "${lib_dir}/incl
 set_property is_global_include true [get_files "[file normalize "${lib_dir}/include/dmi.vh"]"]
 
 # Add files for system top
+add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/addr_mapper.v"]"
 add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/system_top.v"]"
 
 

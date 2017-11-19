@@ -32,7 +32,7 @@ class AddressMapper(implicit p: Parameters) extends LazyModule {
     })
 
     // Jump the 0 element as dsid starts from 1.
-    val bases = Vec(0.U +: Seq.tabulate(nTiles) { i => (mem.base + mem.size * i).U })
+    val bases = Vec(0.U +: Seq.tabulate(nTiles) { i => (mem.size * i).U })
 
     (io.in zip io.out) foreach { case (in, out) =>
       out <> in

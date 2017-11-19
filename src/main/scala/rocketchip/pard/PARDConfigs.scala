@@ -41,5 +41,5 @@ class PARDFPGAConfigzcu102 extends Config(new FPGAConfig
   ++ new WithExtMemSize(0x10000000L) // 256MB
   ++ new WithNBigCores(2)
   ++ new WithAynchronousRocketTiles(8, 3)
-  ++ new WithRTCPeriod(50) // gives 10 MHz RTC assuming 50 MHz uncore clock
+  ++ new WithRTCPeriod(100)
   ++ new BaseConfig)
