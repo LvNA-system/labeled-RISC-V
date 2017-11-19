@@ -136,7 +136,6 @@ trait HasTilesModuleImp extends LazyModuleImp
     case SharedMemoryTLEdge => outer.sharedMemoryTLEdge
   })))
 
-  val L1enable = IO(Vec(outer.nRocketTiles, Bool()).asInput)
   // val trafficGeneratorEnable = IO(Vec(outer.nRocketTiles, Bool()).asInput)
   val trafficGeneratorEnable = IO(Bool().asInput)
   val ila = IO(Vec(outer.nRocketTiles, new ILABundle()))
@@ -154,7 +153,6 @@ trait HasTilesModuleImp extends LazyModuleImp
 
     // pard ports
     ila(i) <> tile.io.ila
-    tile.io.L1enable := L1enable(i)
     tile.io.trafficGeneratorEnable := trafficGeneratorEnable
   }
 

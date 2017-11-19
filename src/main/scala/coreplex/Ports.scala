@@ -8,7 +8,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.util._
-import uncore.pard.AddressMapper
+import uncore.pard.{AddressMapper, TokenBucket}
 
 /** Specifies the size and width of external memory ports */
 case class MasterPortParams(
@@ -47,7 +47,7 @@ trait HasMasterAXI4MemPort extends HasMemoryBus {
         supportsWrite = TransferSizes(1, cacheBlockBytes),
         supportsRead  = TransferSizes(1, cacheBlockBytes),
         interleavedId = Some(0))),             // slave does not interleave read responses
-      beatBytes = params.beatBytes)
+    beatBytes = params.beatBytes)
   })
 
   val mapper = LazyModule(new AddressMapper)
@@ -80,11 +80,27 @@ trait HasMasterAXI4MemPortBundle {
 }
 
 /** Actually generates the corresponding IO in the concrete Module */
-trait HasMasterAXI4MemPortModuleImp extends LazyModuleImp with HasMasterAXI4MemPortBundle {
+trait HasMasterAXI4MemPortModuleImp extends LazyModuleImp
+    with HasMasterAXI4MemPortBundle {
+
   val outer: HasMasterAXI4MemPort
   val mem_axi4 = IO(HeterogeneousBag.fromNode(outer.mem_axi4.in))
   (mem_axi4 zip outer.mem_axi4.in) foreach { case (i, (o, _)) => i <> o }
   val nMemoryChannels = outer.nMemoryChannels
+
+  val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
+  val (bundleIn, _) = outer.mem_axi4.in.unzip
+  val axiIn = bundleIn(0)
+
+  buckets.foreach { case bucket =>
+    val bucketIO = bucket.io
+    // for now, we do not match dsid bits
+    List((bucketIO.read, axiIn.ar), (bucketIO.write, axiIn.aw)).foreach { case (bktCh, axiCh) =>
+      bktCh.valid := axiCh.valid
+      bktCh.ready := axiCh.ready
+      bktCh.bits := (axiCh.bits.len + 1.U) << axiCh.bits.size
+    }
+  }
 }
 
 /** Adds a AXI4 port to the system intended to master an MMIO device bus */

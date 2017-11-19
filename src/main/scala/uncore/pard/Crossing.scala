@@ -6,31 +6,29 @@ import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 
-class ControlledCrossing(implicit p: Parameters) extends LazyModule
-{
+class ControlledCrossing(implicit p: Parameters) extends LazyModule {
   val node = new IdentityNode(TLImp)()
+  lazy val module = new ControlledCrossingModule(this)
+}
 
-  lazy val module = new LazyModuleImp(this) {
-    val (bundleIn, _) = node.in.unzip
-    val (bundleOut, _) = node.out.unzip
+class ControlledCrossingIO(outer: ControlledCrossing)(implicit p: Parameters) extends Bundle {
+  val enable = Input(Bool())
+}
 
-    val io = new Bundle {
-      val enable = Input(Bool())
-      val in = bundleIn
-      val out = bundleOut
-    }
+class ControlledCrossingModule(outer: ControlledCrossing) extends LazyModuleImp(outer) {
+  val io = IO(new ControlledCrossingIO(outer))
 
-    (io.in zip io.out) foreach { case (in, out) =>
-      out.a <> in.a
-      in.d <> out.d
-      in.b <> out.b
-      out.c <> in.c
-      out.e <> in.e
-      // If we controlled Acquire's valid bit, it will not be accepted by the following nodes.
-      // Ready signal from the other side should also be masked. Then the master will not go
-      // to the next Acquire.
-      out.a.valid := in.a.valid && io.enable
-      in.a.ready := out.a.ready && io.enable
-    }
+  val (bundleIn, _) = outer.node.in.unzip
+  val (bundleOut, _) = outer.node.out.unzip
+
+  (bundleIn zip bundleOut) foreach { case (in, out) =>
+    // Now IdentityNode automatically connects bundleIn to bundleOut
+    // So we do need to connect each channel manually
+    //
+    // If we controlled Acquire's valid bit, it will not be accepted by the following nodes.
+    // Ready signal from the other side should also be masked. Then the master will not go
+    // to the next Acquire.
+    out.a.valid := in.a.valid && io.enable
+    in.a.ready := out.a.ready && io.enable
   }
 }

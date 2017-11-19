@@ -111,7 +111,8 @@ trait CanHaveInstructionTracePort extends Bundle with HasTileParameters {
 /** pard: dump signal with ILA */
 trait HasPARDBundle extends Bundle {
   val ila = new ILABundle()
-  val L1enable = Bool(INPUT)
+  // token bucket use this to control core generated traffic
+  val trafficEnable = Bool(INPUT)
   val trafficGeneratorEnable = Bool(INPUT)
 }
 
