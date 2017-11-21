@@ -24,7 +24,6 @@ module system_top (
   inout FIXED_IO_ps_srstb
 );
 
-  `axi_wire(AXI_MEM_MAPPED, 64, 4);
   `axi_wire(AXI_MEM, 64, 4);
   `axilite_wire(AXILITE_MMIO);
 
@@ -56,18 +55,13 @@ module system_top (
     .FIXED_IO_ps_porb(FIXED_IO_ps_porb),
     .FIXED_IO_ps_srstb(FIXED_IO_ps_srstb),
 
-    `axi_connect_if(S_AXI_MEM, AXI_MEM_MAPPED),
+    `axi_connect_if(S_AXI_MEM, AXI_MEM),
     `axilite_connect_if(S_AXILITE_MMIO, AXILITE_MMIO),
 
     .pardcore_coreclk(pardcore_coreclk),
     .pardcore_corerstn(pardcore_corerstn),
     .pardcore_uncoreclk(pardcore_uncoreclk),
     .pardcore_uncorerstn(pardcore_uncorerstn)
-  );
-
-  addr_mapper addr_mapper_i(
-    `axi_connect_if(s_axi, AXI_MEM),
-    `axi_connect_if(m_axi, AXI_MEM_MAPPED)
   );
 
   pardcore pardcore_i(
