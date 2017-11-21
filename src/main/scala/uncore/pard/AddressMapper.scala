@@ -6,6 +6,12 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.coreplex.{ExtMem, NTiles}
 
+case object AddressMapperBase extends Field[BigInt]
+
+class WithAddressMapperBase(n: BigInt) extends Config((site, here, up) => {
+   case AddressMapperBase => n
+})
+
 class AddressMapper(implicit p: Parameters) extends LazyModule {
   private val mem = p(ExtMem)
   private val nTiles = p(NTiles)
@@ -32,7 +38,7 @@ class AddressMapper(implicit p: Parameters) extends LazyModule {
     })
 
     // Jump the 0 element as dsid starts from 1.
-    val bases = Vec(0.U +: Seq.tabulate(nTiles) { i => (mem.size * i).U })
+    val bases = Vec(0.U +: Seq.tabulate(nTiles) { i => (p(AddressMapperBase) + mem.size * i).U })
 
     (io.in zip io.out) foreach { case (in, out) =>
       out <> in
