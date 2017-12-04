@@ -1,6 +1,9 @@
 #--------------------------------------------------------------------
 # Verilator Generation 
 #--------------------------------------------------------------------
+mem_init = ./meminit.sh
+prm = $(generated_dir)/$(long_name).prm
+
 firrtl = $(generated_dir)/$(long_name).fir
 firrtl_debug = $(generated_dir_debug)/$(long_name).fir
 verilog = $(generated_dir)/$(long_name).v
@@ -16,9 +19,10 @@ $(generated_dir_debug)/%.fir $(generated_dir_debug)/%.prm $(generated_dir_debug)
 	mkdir -p $(dir $@)
 	cd $(base_dir) && $(SBT) "run-main $(PROJECT).Generator $(generated_dir_debug) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
 
-%.v: %.fir $(FIRRTL_JAR)
+%.v: %.fir $(FIRRTL_JAR) $(prm)
 	mkdir -p $(dir $@)
 	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog
+	bash $(mem_init) $@ `grep MEM_SIZE $(prm) | grep -o [0-9]*` bin.txt
 
 # Build and install our own Verilator, to work around versionining issues.
 VERILATOR_VERSION=3.884
