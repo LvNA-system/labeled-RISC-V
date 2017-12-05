@@ -1,6 +1,9 @@
 #--------------------------------------------------------------------
 # Verilator Generation 
 #--------------------------------------------------------------------
+mem_init = ./meminit.sh
+prm = $(generated_dir)/$(long_name).prm
+
 firrtl = $(generated_dir)/$(long_name).fir
 firrtl_debug = $(generated_dir_debug)/$(long_name).fir
 verilog = $(generated_dir)/$(long_name).v
@@ -16,9 +19,10 @@ $(generated_dir_debug)/%.fir $(generated_dir_debug)/%.prm $(generated_dir_debug)
 	mkdir -p $(dir $@)
 	cd $(base_dir) && $(SBT) "run-main $(PROJECT).Generator $(generated_dir_debug) $(PROJECT) $(MODEL) $(CFG_PROJECT) $(CONFIG)"
 
-%.v: %.fir $(FIRRTL_JAR)
+%.v: %.fir $(FIRRTL_JAR) $(prm)
 	mkdir -p $(dir $@)
 	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) -o $@ -X verilog
+	bash $(mem_init) $@ `grep MEM_SIZE $(prm) | grep -o [0-9]*` bin.txt
 
 # Build and install our own Verilator, to work around versionining issues.
 VERILATOR_VERSION=3.884
@@ -52,6 +56,7 @@ VERILATOR_FLAGS := --top-module $(MODEL) \
   +define+PRINTF_COND=\$$c\(\"verbose\",\"\&\&\"\,\"done_reset\"\) \
   +define+STOP_COND=\$$c\(\"done_reset\"\) --assert \
   --output-split 20000 \
+  --output-split-cfuncs 20000 \
 	-Wno-STMTDLY --x-assign unique \
   -I$(base_dir)/vsrc \
   -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -include $(base_dir)/csrc/verilator.h"
