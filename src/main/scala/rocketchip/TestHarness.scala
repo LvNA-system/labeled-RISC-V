@@ -136,13 +136,21 @@ class SimDTM(implicit p: Parameters) extends BlackBox {
       dutsuccess: Bool, tbsuccess: Bool) = {
     io.clk := tbclk
     io.reset := tbreset
-    dutio <> io.debug
+    // dutio <> io.debug
+    io.debug.req.ready := true.B
+    io.debug.resp.valid := false.B
 
-    tbsuccess := dutsuccess || io.exit === UInt(1)
+    dutio.req.valid := false.B
+    dutio.resp.ready := true.B
+
+    // tbsuccess := dutsuccess || io.exit === UInt(1)
+    tbsuccess := false.B
+    /*
     when (io.exit >= UInt(2)) {
       printf("*** FAILED *** (exit code = %d)\n", io.exit >> UInt(1))
       stop(1)
     }
+    */
   }
 }
 
