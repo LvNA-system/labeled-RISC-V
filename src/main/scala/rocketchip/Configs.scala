@@ -213,3 +213,10 @@ class WithNBreakpoints(hwbp: Int) extends Config (
     case _ => throw new CDEMatchError
   }
 )
+
+class WithRTCPeriod(p: Int) extends Config(
+  (pname, site, here) => pname match {
+    case RTCPeriod => p
+    case _ => throw new CDEMatchError
+  }
+)
