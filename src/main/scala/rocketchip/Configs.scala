@@ -64,6 +64,10 @@ class BasePlatformConfig extends Config(
         case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
         case BuildExampleTop =>
           (p: Parameters) => LazyModule(new ExampleTop(new DefaultCoreplex()(_))(p))
+        case BuildPARDSimTop =>
+          (p: Parameters) => LazyModule(new PARDSimTop(new DefaultCoreplex()(_))(p))
+        case BuildPARDFPGATop =>
+          (p: Parameters) => LazyModule(new PARDFPGATop(new DefaultCoreplex()(_))(p))
         case SimMemLatency => 0
         case _ => throw new CDEMatchError
       }
