@@ -1,19 +1,19 @@
-base_dir = $(abspath ../..)
 fpga_dir = $(abspath ..)
-fpga_script_dir = $(fpga_dir)/scripts
+base_dir = $(fpga_dir)/..
 build_dir = $(fpga_dir)/build
 generated_dir = $(build_dir)/generated-src
 
--include $(base_dir)/Makefrag
+CONFIG = PARDSimConfig
 
 #--------------------------------------------------------------------
 # Emulator generation
 #--------------------------------------------------------------------
 
-SIM_CONFIG ?= PARDSimConfig
-original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(SIM_CONFIG)
+-include $(base_dir)/Makefrag
+
+original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(CONFIG)
 emu = $(build_dir)/emu
-emu_bin_file = bbl
+emu_bin_file = $(build_dir)/emu.bin
 emu_gen_script = gen_bin.sh
 emu_bin_hex_file = $(dir $(emu))/bin.txt
 
@@ -21,11 +21,11 @@ $(emu): $(original_emu)
 	ln -sf $< $@
 
 $(original_emu):
-	$(MAKE) all -C $(base_dir)/emulator CONFIG=$(SIM_CONFIG) \
+	$(MAKE) all -C $(base_dir)/emulator CONFIG=$(CONFIG) MODEL=$(MODEL) \
 		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir)
 
 $(emu_bin_hex_file): $(emu_bin_file)
-	bash $(emu_gen_script) $<
+	bash $(emu_gen_script) $< $@
 
 emu: $(emu)
 

@@ -61,6 +61,7 @@ bbl: $(BBL_BIN)
 
 $(BBL_BIN): $(BBL_ELF)
 	$(RISCV_COPY) $(RISCV_COPY_FLAGS) $< $@
+	truncate -s \%8 $@
 
 $(BBL_ELF): $(BBL_ELF_BUILD)
 	ln -sf $(abspath $<) $@
