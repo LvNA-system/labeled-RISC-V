@@ -32,6 +32,7 @@ case object NBreakpoints extends Field[Int]
 case object NPerfCounters extends Field[Int]
 case object NPerfEvents extends Field[Int]
 case object DataScratchpadSize extends Field[Int]
+case object DebugLog extends Field[Boolean]
 
 trait HasCoreParameters extends HasAddrMapParameters {
   implicit val p: Parameters
@@ -653,6 +654,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p) {
   io.rocc.cmd.bits.rs1 := wb_reg_wdata
   io.rocc.cmd.bits.rs2 := wb_reg_rs2
 
+  if (p(DebugLog)) {
   if (enableCommitLog) {
     val pc = Wire(SInt(width=xLen))
     pc := wb_reg_pc
@@ -691,6 +693,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p) {
         wb_reg_inst(24,20), Reg(next=Reg(next=ex_rs(1))),
         wb_reg_inst, wb_reg_inst)
     }
+  }
   }
 
   def checkExceptions(x: Seq[(Bool, UInt)]) =

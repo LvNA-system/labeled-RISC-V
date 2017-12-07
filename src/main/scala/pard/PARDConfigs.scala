@@ -23,6 +23,7 @@ import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
 class PARDSimConfig extends Config(
   new WithBlockingL1
 //  ++ new WithoutFPU
+  ++ new WithoutDebugLog
 //  ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x2000000L) // 32MB
 //  ++ new WithAddressMapperBase(0x80000000L)
