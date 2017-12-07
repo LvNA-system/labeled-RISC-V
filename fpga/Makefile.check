@@ -1,6 +1,6 @@
 ifneq ($(MAKECMDGOALS),clean) # ignore check for make clean
 
-BOARD ?= vc709
+BOARD ?= zcu102
 
 BOARDS  = $(shell ls board/)
 

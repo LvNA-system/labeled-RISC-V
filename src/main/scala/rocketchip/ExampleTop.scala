@@ -8,13 +8,14 @@ import junctions._
 import coreplex._
 import rocketchip._
 
+import sifive.blocks.devices.uart.{UARTConfig, PeripheryUART, PeripheryUARTBundle, PeripheryUARTModule, UARTGPIOPort}
+
 /** Example Top with Periphery */
 class ExampleTop[+C <: BaseCoreplex](_coreplex: Parameters => C)(implicit p: Parameters) extends BaseTop(_coreplex)
     with PeripheryBootROM
     with PeripheryDebug
     with PeripheryExtInterrupts
     with PeripheryMasterMem
-    with PeripheryMasterAXI4MMIO
     with PeripherySlave
     with DirectConnection {
   override lazy val module = new ExampleTopModule(this, () => new ExampleTopBundle(this))
@@ -25,7 +26,6 @@ class ExampleTopBundle[+L <: ExampleTop[BaseCoreplex]](_outer: L) extends BaseTo
     with PeripheryDebugBundle
     with PeripheryExtInterruptsBundle
     with PeripheryMasterMemBundle
-    with PeripheryMasterAXI4MMIOBundle
     with PeripherySlaveBundle
 
 class ExampleTopModule[+L <: ExampleTop[BaseCoreplex], +B <: ExampleTopBundle[L]](_outer: L, _io: () => B) extends BaseTopModule(_outer, _io)
@@ -33,7 +33,6 @@ class ExampleTopModule[+L <: ExampleTop[BaseCoreplex], +B <: ExampleTopBundle[L]
     with PeripheryDebugModule
     with PeripheryExtInterruptsModule
     with PeripheryMasterMemModule
-    with PeripheryMasterAXI4MMIOModule
     with PeripherySlaveModule
     with HardwiredResetVector
     with DirectConnectionModule

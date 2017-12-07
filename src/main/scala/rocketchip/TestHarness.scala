@@ -63,11 +63,12 @@ class TestHarness(q: Parameters) extends Module {
     bus_axi.b.ready  := Bool(false)
   }
 
+  /*
   for (mmio_axi <- dut.io.mmio_axi) {
     val slave = Module(new NastiErrorSlave)
     slave.io <> mmio_axi
   }
-
+  */
 }
 
 class SimAXIMem(size: BigInt)(implicit p: Parameters) extends NastiModule()(p) {

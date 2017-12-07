@@ -11,7 +11,7 @@ CONFIG ?= DefaultConfig
 long_name = $(PROJECT).$(CONFIG)
 
 CXX ?= g++
-CXXFLAGS := -O1
+CXXFLAGS := -O3
 
 SBT ?= java -Xmx2G -Xss8M -XX:MaxPermSize=256M -jar $(base_dir)/sbt-launch.jar
 SHELL := /bin/bash

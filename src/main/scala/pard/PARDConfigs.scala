@@ -3,32 +3,21 @@
 package rocketchip
 
 import Chisel._
-import junctions._
-import rocket._
-import diplomacy._
-import uncore.agents._
-import uncore.tilelink._
-import uncore.devices._
-import uncore.converters._
-import util._
 import coreplex._
-import scala.math.max
-import scala.collection.mutable.{LinkedHashSet, ListBuffer}
-import scala.collection.immutable.HashMap
-import DefaultTestSuites._
 import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
 
 // To correctly override the RTCPeriod in BaseConfig
 // WithRTCPeriod should be put in front of BaseConfig
 class PARDSimConfig extends Config(
   new WithBlockingL1
-//  ++ new WithoutFPU
+  ++ new WithoutDebugLog
+  ++ new WithoutFPU
 //  ++ new WithAynchronousRocketTiles(8, 3)
-  ++ new WithExtMemSize(0x2000000L) // 32MB
+  ++ new WithExtMemSize(0x1000000L) // 16MB
 //  ++ new WithAddressMapperBase(0x80000000L)
   ++ new WithRTCPeriod(5)
 //  ++ new BucketConfig
-  ++ new BaseConfig)
+  ++ new DefaultL2Config)
 
 class PARDFPGAConfigzedboard extends Config(
   new WithBlockingL1
