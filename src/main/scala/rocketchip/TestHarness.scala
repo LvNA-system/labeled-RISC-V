@@ -9,15 +9,13 @@ import junctions.NastiConstants._
 import util.LatencyPipe
 
 case object BuildExampleTop extends Field[Parameters => ExampleTop[coreplex.BaseCoreplex]]
-case object BuildPARDSimTop extends Field[Parameters => PARDSimTop[coreplex.BaseCoreplex]]
-case object BuildPARDFPGATop extends Field[Parameters => PARDFPGATop[coreplex.BaseCoreplex]]
 case object SimMemLatency extends Field[Int]
 
 class TestHarness(q: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
   }
-  val dut = Module(q(BuildPARDSimTop)(q).module)
+  val dut = Module(q(BuildExampleTop)(q).module)
   implicit val p = dut.p
 
   // This test harness isn't especially flexible yet
