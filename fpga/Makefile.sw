@@ -21,39 +21,32 @@ $(SW_PATH):
 RISCV_PREFIX=riscv64-unknown-linux-gnu-
 CC = $(RISCV_PREFIX)gcc
 LD = $(RISCV_PREFIX)ld
-RISCV_DUMP = $(RISCV_PREFIX)objdump
 RISCV_COPY = $(RISCV_PREFIX)objcopy
-RISCV_READELF = $(RISCV_PREFIX)readelf
-CFLAGS = -static -Wa,-march=RVIMAFD -ffast-math -fno-builtin-printf -O2 #-fPIC
-RISCV_DUMP_OPTS = -D
-RISCV_LINK_OPTS = -nostdlib -nostartfiles -ffast-math #-lc -lgcc
+RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .sbss=alloc,contents -O binary
 
 #--------------------------------------------------------------------
 # BBL variables
 #--------------------------------------------------------------------
 
 BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = a41b32799babc6937a0866210c9cf75313ad4d5a
+BBL_BUILD_COMMIT = 3f87f5b817157912f8ae59edf031bef961ea6c30
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
 
 BBL_PAYLOAD = $(LINUX_ELF)
-#BBL_CONFIG = --host=riscv64-unknown-linux-gnu --enable-logo
 BBL_CONFIG = --host=riscv64-unknown-linux-gnu --with-payload=$(BBL_PAYLOAD) --enable-logo
-BBL_CFLAGS =
+BBL_CFLAGS = -msoft-float -march=RV64IMAC
 
 BBL_ELF = $(build_dir)/bbl.elf
-BBL_BIN = $(build_dir)/bbl.bin
+BBL_BIN = $(build_dir)/linux.bin
 
 #--------------------------------------------------------------------
 # Linux variables
 #--------------------------------------------------------------------
 
-#LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
-#LINUX_BUILD_COMMIT = b949d3aefcd334d75a94fafbc4909752a5ebf2b8
-LINUX_REPO_PATH = ~/riscv-official/riscv-linux
-LINUX_BUILD_COMMIT = 1bbd78ead089e3fe7fdc3616dae8955437ce0f28
+LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
+LINUX_BUILD_COMMIT = dec79847a558ecee2411e16e46bf12a1c0ef7cc2
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
@@ -67,7 +60,7 @@ ROOTFS_PATH = $(LINUX_REPO_PATH)/arch/riscv/rootfs
 bbl: $(BBL_BIN)
 
 $(BBL_BIN): $(BBL_ELF)
-	$(RISCV_COPY) --set-section-flags .bss=alloc,contents -O binary $< $@
+	$(RISCV_COPY) $(RISCV_COPY_FLAGS) $< $@
 
 $(BBL_ELF): $(BBL_ELF_BUILD)
 	ln -sf $(abspath $<) $@
@@ -86,7 +79,7 @@ $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 $(BBL_ELF_BUILD): | $(BBL_BUILD_PATH)
 	cd $(@D) && \
 		git checkout $(BBL_BUILD_COMMIT) && \
-		(CFLAGS=$(BBL_CFLAGS) $(MAKE) || (git checkout @{-1}; false)) && \
+		(CFLAGS="$(BBL_CFLAGS)" $(MAKE) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 bbl-clean:
@@ -99,10 +92,10 @@ bbl-clean:
 # Linux rules
 #--------------------------------------------------------------------
 
-#$(LINUX_REPO_PATH): | $(SW_PATH)
-#	mkdir -p $@
-#	git clone git@10.30.7.141:pard/riscv_linux $@
-#	cd $@ && (curl -L https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.2.tar.xz | tar -xJ --strip-components=1) && git checkout . && cp arch/riscv/configs/riscv64_pard .config && make ARCH=riscv menuconfig
+$(LINUX_REPO_PATH): | $(SW_PATH)
+	mkdir -p $@
+	git clone git@10.30.7.141:pard/riscv_linux $@
+	cd $@ && (curl -L https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.2.tar.xz | tar -xJ --strip-components=1) && git checkout . && cp arch/riscv/configs/riscv64_pard .config && make ARCH=riscv menuconfig
 
 linux: $(LINUX_ELF)
 
@@ -112,10 +105,9 @@ $(LINUX_ELF): $(LINUX_ELF_BUILD)
 $(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) 
 	cd $(@D) && \
 		git checkout $(LINUX_BUILD_COMMIT) && \
-		(($(MAKE) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
+		(($(MAKE) -C $(ROOTFS_PATH) && $(MAKE) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
-#		(($(MAKE) -C $(ROOTFS_PATH) && $(MAKE) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
 
 linux-clean:
 	-rm $(LINUX_ELF)
