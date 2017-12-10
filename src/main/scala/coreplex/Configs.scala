@@ -86,7 +86,6 @@ class BaseCoreplexConfig extends Config (
       case FetchWidth => if (site(UseCompressed)) 2 else 1
       case RetireWidth => 1
       case UseVM => true
-      case DebugLog => true
       case UseUser => false
       case UseDebug => true
       case NBreakpoints => 1
@@ -401,13 +400,6 @@ class WithoutFPU extends Config(
 class WithFPUWithoutDivSqrt extends Config (
   (pname, site, here) => pname match {
     case FPUKey => Some(FPUConfig(divSqrt = false))
-    case _ => throw new CDEMatchError
-  }
-)
-
-class WithoutDebugLog extends Config (
-  (pname, site, here) => pname match {
-    case DebugLog => false
     case _ => throw new CDEMatchError
   }
 )
