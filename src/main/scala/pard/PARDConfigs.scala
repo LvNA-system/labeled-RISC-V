@@ -10,7 +10,6 @@ import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
 // WithRTCPeriod should be put in front of BaseConfig
 class PARDSimConfig extends Config(
   new WithBlockingL1
-  ++ new WithoutDebugLog
   ++ new WithoutFPU
 //  ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x1000000L) // 16MB
