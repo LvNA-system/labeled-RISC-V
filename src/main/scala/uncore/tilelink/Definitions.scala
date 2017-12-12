@@ -11,6 +11,7 @@ import cde.{Parameters, Field}
 
 case object CacheBlockOffsetBits extends Field[Int]
 case object AmoAluOperandBits extends Field[Int]
+case object DsidBits extends Field[Int]
 
 case object TLId extends Field[String]
 case class TLKey(id: String) extends Field[TileLinkParameters]
@@ -65,6 +66,7 @@ trait HasTileLinkParameters {
   val tlClientXactIdBits = log2Up(tlMaxClientXacts*tlMaxClientsPerPort)
   val tlManagerXactIdBits = log2Up(tlMaxManagerXacts)
   val tlBlockAddrBits = p(PAddrBits) - p(CacheBlockOffsetBits)
+  val tlDsidBits = p(DsidBits)
   val tlDataBeats = tlExternal.dataBeats
   val tlDataBits = tlExternal.dataBitsPerBeat
   val tlDataBytes = tlDataBits/8
@@ -115,6 +117,10 @@ trait HasCacheBlockAddress extends HasTileLinkParameters {
 
   def conflicts(that: HasCacheBlockAddress) = this.addr_block === that.addr_block
   def conflicts(addr: UInt) = this.addr_block === addr
+}
+
+trait HasDsid extends HasTileLinkParameters {
+  val dsid = UInt(width = tlDsidBits)
 }
 
 /** Sub-block address or beat id of multi-beat data */
@@ -290,6 +296,7 @@ trait HasGrantType extends HasTileLinkParameters with MightBeVoluntary {
   */
 class AcquireMetadata(implicit p: Parameters) extends ClientToManagerChannel
     with HasCacheBlockAddress 
+    with HasDsid
     with HasClientTransactionId
     with HasTileLinkBeatId
     with HasAcquireType
@@ -669,6 +676,7 @@ object PutAtomic {
   */
 class Probe(implicit p: Parameters) extends ManagerToClientChannel
   with HasCacheBlockAddress 
+  with HasDsid
   with HasProbeType
 
 /** [[uncore.Probe]] with an extra field stating its destination id */
@@ -709,6 +717,7 @@ object Probe {
 class ReleaseMetadata(implicit p: Parameters) extends ClientToManagerChannel
     with HasTileLinkBeatId
     with HasCacheBlockAddress 
+    with HasDsid
     with HasClientTransactionId 
     with HasReleaseType {
   def full_addr(dummy: Int = 0) = Cat(this.addr_block, this.addr_beat, UInt(0, width = tlByteAddrBits))

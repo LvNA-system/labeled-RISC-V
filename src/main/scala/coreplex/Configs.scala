@@ -159,6 +159,7 @@ class BaseCoreplexConfig extends Config (
       case BankIdLSB => 0
       case CacheBlockBytes => Dump("CACHE_BLOCK_BYTES", 64)
       case CacheBlockOffsetBits => log2Up(here(CacheBlockBytes))
+      case DsidBits => 5
       case EnableL2Logging => false
       case _ => throw new CDEMatchError
   }},

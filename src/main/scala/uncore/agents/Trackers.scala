@@ -201,6 +201,7 @@ trait HasByteWriteMaskBuffer extends HasDataBuffer {
 }
 
 trait HasBlockAddressBuffer extends HasCoherenceAgentParameters {
+  // FIXME: this may need dsid
   val xact_addr_block = Reg(init = UInt(0, width = blockAddrBits))
 }
 
