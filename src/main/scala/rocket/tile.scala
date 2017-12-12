@@ -143,6 +143,20 @@ class RocketTile(implicit p: Parameters) extends LazyTile {
     require(uncachedPorts.size == nUncachedTileLinkPorts)
     require(cachedPorts.size == nCachedTileLinkPorts)
 
+    val dsid = io.hartid + UInt(1)
+    io.uncached.foreach {
+      x => {
+        x.acquire.bits.dsid := dsid
+      }
+    }
+
+    io.cached.foreach {
+      x => {
+        x.acquire.bits.dsid := dsid
+        x.release.bits.dsid := dsid
+      }
+    }
+
     if (p(UseVM)) {
       val ptw = Module(new PTW(ptwPorts.size)(dcacheParams))
       ptw.io.requestor <> ptwPorts
