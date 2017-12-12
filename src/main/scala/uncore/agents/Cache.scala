@@ -464,6 +464,12 @@ class L2HellaCacheBank(implicit p: Parameters) extends HierarchicalCoherenceAgen
   data.io <> tshrfile.io.data
 
   disconnectOuterProbeAndFinish()
+
+  when(io.inner.acquire.valid) {
+    assert(io.inner.acquire.bits.dsid === UInt(1))
+  }
+
+  // TODO: should add dsid for io.outer
 }
 
 class TSHRFileIO(implicit p: Parameters) extends HierarchicalTLIO()(p)
