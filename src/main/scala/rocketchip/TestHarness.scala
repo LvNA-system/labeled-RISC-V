@@ -54,7 +54,7 @@ class TestHarness(q: Parameters) extends Module {
     val dtm = Module(new SimDTM).connect(dtm_clock, dtm_reset, dut.io.debug.get,
       dut.io.success, io.success)
   } else {
-    val jtag = Module(new JTAGVPI).connect(dut.io.jtag.get, reset, io.success)
+    val jtag = Module(new JTAGDTM).connect(clock, reset, dut.io.jtag.get, io.success)
   }
 
   for (bus_axi <- dut.io.bus_axi) {
@@ -175,6 +175,31 @@ class JTAGVPI(implicit val p: Parameters) extends BlackBox {
     // Neither OpenOCD nor JtagVPI drive TRST.
 
     dutio.TRST := tbreset
+    io.enable := ~tbreset
+    io.init_done := ~tbreset
+
+    // Success is determined by the gdbserver
+    // which is controlling this simulation.
+    tbsuccess := Bool(false)
+  }
+}
+
+
+class JTAGDTM(implicit val p: Parameters) extends BlackBox {
+  val io = new Bundle {
+    val clk = Clock(INPUT)
+    val reset = Bool(INPUT)
+    val jtag = new JTAGIO(false)
+    val enable = Bool(INPUT)
+    val init_done = Bool(INPUT)
+  }
+
+  def connect(tbclk: Clock, tbreset: Bool, dutio: JTAGIO, tbsuccess: Bool) = {
+    io.clk := tbclk
+    io.reset := tbreset
+    dutio <> io.jtag
+
+    // to properly reset the tap, we use TRST
     io.enable := ~tbreset
     io.init_done := ~tbreset
 
