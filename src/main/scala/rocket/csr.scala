@@ -160,6 +160,7 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle {
   val interrupt_cause = UInt(OUTPUT, xLen)
   val bp = Vec(nBreakpoints, new BP).asOutput
   val events = Vec(nPerfEvents, Bool()).asInput
+  val simlog = Bool(OUTPUT)
 }
 
 class CSRFile(implicit p: Parameters) extends CoreModule()(p)
@@ -248,6 +249,8 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
 
   val reg_instret = WideCounter(64, io.retire)
   val reg_cycle = if (enableCommitLog) reg_instret else WideCounter(64)
+  val reg_simlog = Reg(init=Bool(false))
+  io.simlog := reg_simlog
   val reg_hpmevent = Seq.fill(nPerfCounters)(if (nPerfEvents > 1) Reg(UInt(width = log2Ceil(nPerfEvents))) else UInt(0))
   val reg_hpmcounter = reg_hpmevent.map(e => WideCounter(64, ((UInt(0) +: io.events): Seq[UInt])(e)))
 
@@ -364,6 +367,7 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
     read_mapping += CSRs.cycle -> reg_cycle
     read_mapping += CSRs.instret -> reg_instret
   }
+  read_mapping += CSRs.simlog -> reg_simlog
 
   if (xLen == 32) {
     read_mapping += CSRs.mcycleh -> (reg_cycle >> 32)
@@ -506,6 +510,7 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
   }
 
   when (wen) {
+    when (decoded_addr(CSRs.simlog)) { reg_simlog := wdata }
     when (decoded_addr(CSRs.mstatus)) {
       val new_mstatus = new MStatus().fromBits(wdata)
       reg_mstatus.mie := new_mstatus.mie

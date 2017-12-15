@@ -653,6 +653,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p) {
   io.rocc.cmd.bits.rs1 := wb_reg_wdata
   io.rocc.cmd.bits.rs2 := wb_reg_rs2
 
+  when (csr.io.simlog) {
   if (enableCommitLog) {
     val pc = Wire(SInt(width=xLen))
     pc := wb_reg_pc
@@ -691,6 +692,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p) {
         wb_reg_inst(24,20), Reg(next=Reg(next=ex_rs(1))),
         wb_reg_inst, wb_reg_inst)
     }
+  }
   }
 
   def checkExceptions(x: Seq[(Bool, UInt)]) =
