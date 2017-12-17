@@ -310,7 +310,40 @@ class AcquireMetadata(implicit p: Parameters) extends ClientToManagerChannel
 
 /** [[uncore.AcquireMetadata]] with an extra field containing the data beat */
 class Acquire(implicit p: Parameters) extends AcquireMetadata
-  with HasTileLinkData
+  with HasTileLinkData {
+  def dump() = {
+    printf("Acquire cache block addr %x, dsid = %d, tranID = %d, beatID = %d\n", addr_block << p(CacheBlockOffsetBits), dsid, client_xact_id, addr_beat)
+    when (a_type === Acquire.getType) {
+      printf("  addr_byte = %d, operand_size = %d, opcode = %d, alloc = %d", addr_byte(), op_size(), op_code(), allocate())
+    }
+    .elsewhen (a_type === Acquire.getBlockType) {
+      printf("  operand_size = %d, opcode = %d, alloc = %d", op_size(), op_code(), allocate())
+    }
+    .elsewhen (a_type === Acquire.putType) {
+      printf("  wmask = %x, alloc = %d", wmask(), allocate())
+    }
+    .elsewhen (a_type === Acquire.putBlockType) {
+      printf("  wmask = %x, alloc = %d", wmask(), allocate())
+    }
+    .elsewhen (a_type === Acquire.putAtomicType) {
+      printf("  addr_byte = %d, operand_size = %d, opcode = %d, alloc = %d", addr_byte(), op_size(), op_code(), allocate())
+    }
+    .elsewhen (a_type === Acquire.getPrefetchType) {
+      printf("  opcode = %d, alloc = %d", op_code(), allocate())
+    }
+    .elsewhen (a_type === Acquire.putPrefetchType) {
+      printf("  opcode = %d, alloc = %d", op_code(), allocate())
+    }
+    .otherwise {
+      printf("  @@@ unsupported type")
+    }
+
+    when (hasData()) {
+      printf(" data = %x", data)
+    }
+    printf("\n")
+  }
+}
 
 /** [[uncore.AcquireMetadata]] with an extra field containing the entire cache block */
 class BufferedAcquire(implicit p: Parameters) extends AcquireMetadata
@@ -677,7 +710,11 @@ object PutAtomic {
 class Probe(implicit p: Parameters) extends ManagerToClientChannel
   with HasCacheBlockAddress 
   with HasDsid
-  with HasProbeType
+  with HasProbeType {
+  def dump() = {
+    printf("Probe cache block addr %x\n", addr_block << p(CacheBlockOffsetBits))
+  }
+}
 
 /** [[uncore.Probe]] with an extra field stating its destination id */
 class ProbeToDst(implicit p: Parameters) extends Probe()(p) with HasClientId
@@ -725,7 +762,15 @@ class ReleaseMetadata(implicit p: Parameters) extends ClientToManagerChannel
 
 /** [[uncore.ReleaseMetadata]] with an extra field containing the data beat */
 class Release(implicit p: Parameters) extends ReleaseMetadata
-  with HasTileLinkData
+  with HasTileLinkData {
+  def dump() = {
+    printf("Release cache block addr %x, tranID = %d, beatID = %d, isVoluntary = %d", addr_block << p(CacheBlockOffsetBits), client_xact_id, addr_beat, isVoluntary())
+    when (hasData()) {
+      printf(" data = %x", data)
+    }
+    printf("\n")
+  }
+}
 
 /** [[uncore.ReleaseMetadata]] with an extra field containing the entire cache block */
 class BufferedRelease(implicit p: Parameters) extends ReleaseMetadata
@@ -812,7 +857,22 @@ class GrantMetadata(implicit p: Parameters) extends ManagerToClientChannel
 
 /** [[uncore.GrantMetadata]] with an extra field containing a single beat of data */
 class Grant(implicit p: Parameters) extends GrantMetadata
-  with HasTileLinkData
+  with HasTileLinkData {
+  def dump() = {
+    printf("Grant managerTranID = %d, clientTranID = %d, beatID = %d", client_xact_id, manager_xact_id, addr_beat)
+    when (g_type === Grant.voluntaryAckType) { printf(" voluntaryAck") }
+    .elsewhen (g_type === Grant.prefetchAckType) { printf(" prefetchAck") }
+    .elsewhen (g_type === Grant.putAckType) { printf(" putAck") }
+    .elsewhen (g_type === Grant.getDataBeatType) { printf(" getDataBeat") }
+    .elsewhen (g_type === Grant.getDataBlockType) { printf(" getDataBlock") }
+    .otherwise { printf("  @@@ unsupported type")}
+
+    when (hasData()) {
+      printf("  data = %x", data)
+    }
+    printf("\n")
+  }
+}
 
 /** [[uncore.Grant]] with an extra field stating its destination */
 class GrantToDst(implicit p: Parameters) extends Grant
@@ -910,6 +970,9 @@ class Finish(implicit p: Parameters) extends ClientToManagerChannel()(p)
     with HasManagerTransactionId {
   def hasData(dummy: Int = 0) = Bool(false)
   def hasMultibeatData(dummy: Int = 0) = Bool(false)
+  def dump() = {
+    printf("Finish managerTranID = %d\n", manager_xact_id)
+  }
 }
 
 /** [[uncore.Finish]] with an extra field stating its destination */
@@ -944,6 +1007,16 @@ class TileLinkIO(implicit p: Parameters) extends UncachedTileLinkIO()(p) {
 class ClientUncachedTileLinkIO(implicit p: Parameters) extends TLBundle()(p) {
   val acquire   = new DecoupledIO(new Acquire)
   val grant     = new DecoupledIO(new Grant).flip
+  def dump(s: String = "") = {
+    when (acquire.fire()) {
+      printf(s)
+      acquire.bits.dump()
+    }
+    when (grant.fire()) {
+      printf(s)
+      grant.bits.dump()
+    }
+  }
 }
 
 /** This version of TileLinkIO does not contain network headers. 
