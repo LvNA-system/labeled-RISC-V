@@ -201,8 +201,8 @@ trait HasByteWriteMaskBuffer extends HasDataBuffer {
 }
 
 trait HasBlockAddressBuffer extends HasCoherenceAgentParameters {
-  // FIXME: this may need dsid
   val xact_addr_block = Reg(init = UInt(0, width = blockAddrBits))
+  val xact_dsid = Reg(init = UInt(0, width = p(DsidBits)))
 }
 
 
@@ -258,6 +258,9 @@ trait AcceptsVoluntaryReleases extends HasVoluntaryReleaseMetadataBuffer {
 
     when(irel_is_allocating) {
       xact_addr_block := io.irel().addr_block
+      // FIXME: may need this in the future
+      //xact_dsid := io.irel().dsid
+
       // Set all of them to pending in the beginning as a precaution
       // If it turns out we don't need some or all of the beats, they will
       // be overridden below
@@ -361,6 +364,7 @@ trait EmitsVoluntaryReleases extends HasVoluntaryReleaseMetadataBuffer {
       addr_block = xact_addr_block,
       addr_beat = vol_ognt_counter.up.idx,
       data = data)
+    io.outer.release.bits.dsid := xact_dsid
 
     when (vol_ognt_counter.pending) { io.outer.grant.ready := Bool(true) }
 
@@ -491,6 +495,7 @@ trait AcceptsInnerAcquires extends HasAcquireMetadataBuffer
     // Intialize transaction metadata for accepted Acquire
     when(iacq_is_allocating) {
       xact_addr_block := io.iacq().addr_block
+      xact_dsid := io.iacq().dsid
       xact_allocate := io.iacq().allocate() && can_alloc
       xact_amo_shift_bytes := io.iacq().amo_shift_bytes()
       xact_op_code := io.iacq().op_code()
@@ -628,6 +633,7 @@ trait EmitsOuterAcquires extends AcceptsInnerAcquires {
           wmask = wmask,
           alloc = Bool(false))
           (p.alterPartial({ case TLId => p(OuterTLId)})))
+    io.outer.acquire.bits.dsid := xact_dsid
 
     when(state === s_outer_acquire && ognt_counter.up.done) { state := next }
 

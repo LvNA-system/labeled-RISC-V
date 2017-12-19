@@ -469,7 +469,13 @@ class L2HellaCacheBank(implicit p: Parameters) extends HierarchicalCoherenceAgen
     assert(io.inner.acquire.bits.dsid === UInt(1))
   }
 
-  // TODO: should add dsid for io.outer
+  when(io.outer.acquire.valid) {
+    assert(io.outer.acquire.bits.dsid === UInt(1))
+  }
+
+  when(io.outer.release.valid) {
+    assert(io.outer.release.bits.dsid === UInt(1))
+  }
 }
 
 class TSHRFileIO(implicit p: Parameters) extends HierarchicalTLIO()(p)
@@ -1139,6 +1145,8 @@ class L2WritebackUnit(val trackerId: Int)(implicit p: Parameters) extends XactTr
     xact_way_en := io.wb.req.bits.way_en
     xact_addr_block := (if (cacheIdBits == 0) Cat(io.wb.req.bits.tag, io.wb.req.bits.idx)
                         else Cat(io.wb.req.bits.tag, io.wb.req.bits.idx, UInt(cacheId, cacheIdBits)))
+    // FIXME: propagate dsid in the cache metadata
+    xact_dsid := UInt(1)
     state := s_meta_read
   }
 
