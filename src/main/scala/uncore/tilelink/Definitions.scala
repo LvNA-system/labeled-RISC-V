@@ -1050,4 +1050,37 @@ class ManagerTileLinkIO(implicit p: Parameters) extends TLBundle()(p) {
   val finish    = new DecoupledIO(new Finish).flip
   val probe     = new DecoupledIO(new ProbeToDst)
   val release   = new DecoupledIO(new ReleaseFromSrc).flip
+
+  def dump(s: String = "") = {
+    acquire match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    grant match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    finish match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    probe match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    release match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+  }
 }
