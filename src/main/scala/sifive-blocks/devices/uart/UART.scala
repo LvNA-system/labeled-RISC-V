@@ -226,10 +226,12 @@ trait UARTTopModule extends Module with MixUARTParameters with HasUARTParameters
   txm.io.nstop := nstop
   io.port.txd := txm.io.out
 
-  val printer = Module(new UARTPrinter(s"serial${c.address.toInt.toHexString}"))
+  val printer = Module(new UARTPrinter)
   printer.io.clock := clock
   printer.io.valid := txm.io.in.fire()
   printer.io.data := txm.io.in.bits
+  printer.io.addr := c.address.toInt.asUInt(width=32)
+
 
   rxm.io.en := rxen
   rxm.io.in := io.port.rxd
