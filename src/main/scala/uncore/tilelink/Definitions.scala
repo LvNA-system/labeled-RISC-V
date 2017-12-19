@@ -712,7 +712,7 @@ class Probe(implicit p: Parameters) extends ManagerToClientChannel
   with HasDsid
   with HasProbeType {
   def dump() = {
-    printf("Probe cache block addr %x\n", addr_block << p(CacheBlockOffsetBits))
+    printf("Probe cache block addr %x, dsid = %d\n", addr_block << p(CacheBlockOffsetBits), dsid)
   }
 }
 
@@ -764,7 +764,7 @@ class ReleaseMetadata(implicit p: Parameters) extends ClientToManagerChannel
 class Release(implicit p: Parameters) extends ReleaseMetadata
   with HasTileLinkData {
   def dump() = {
-    printf("Release cache block addr %x, tranID = %d, beatID = %d, isVoluntary = %d", addr_block << p(CacheBlockOffsetBits), client_xact_id, addr_beat, isVoluntary())
+    printf("Release cache block addr %x, dsid = %d, tranID = %d, beatID = %d, isVoluntary = %d", addr_block << p(CacheBlockOffsetBits), dsid, client_xact_id, addr_beat, isVoluntary())
     when (hasData()) {
       printf(" data = %x", data)
     }
