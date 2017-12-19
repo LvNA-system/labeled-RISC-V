@@ -251,7 +251,10 @@ trait CoreplexRISCVPlatformModule {
       icPort <> TileLinkIOUnwrapper(enqueued)
     }
 
-    io.mem <> mem_ic.io.out
+    val addr_map = Module(new AddressMapper()(outerMemParams))
+
+    addr_map.io.in <> mem_ic.io.out
+    io.mem <> addr_map.io.out
   }
 
   // connect coreplex-internal interrupts to tiles
