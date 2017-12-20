@@ -38,6 +38,15 @@
   FIELD(abussize, 7) \
   FIELD(reserved0, 2)
 
+#define SBADDR0_FIELDS \
+  FIELD(addr, 32) \
+  FIELD(rw, 1) \
+  FIELD(busy, 1)
+
+#define SBDATA0_FIELDS \
+  FIELD(data, 32) \
+  FIELD(reserved0, 2)
+
 struct DMI_Req {
   int opcode;
   int addr;
@@ -62,5 +71,7 @@ struct DMI_Resp {
 
 DEF(DMCONTROL);
 DEF(DMINFO);
+DEF(SBADDR0);
+DEF(SBDATA0);
 
 #undef FIELD

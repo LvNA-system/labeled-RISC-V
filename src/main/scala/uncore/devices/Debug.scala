@@ -8,6 +8,7 @@ import util._
 import regmapper._
 import uncore.tilelink2._
 import cde.{Parameters, Config, Field}
+import rocketchip.{ControlPlaneIO, ControlPlaneModule, ControlPlaneConsts}
 
 // *****************************************
 // Constants which are interesting even
@@ -355,6 +356,7 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   import DsbRegAddrs._
   import DsbBusConsts._
   import DbBusConsts._
+  import ControlPlaneConsts._
 
   //--------------------------------------------------------------
   // Sanity Check Configuration For this implementation.
@@ -425,6 +427,22 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
     
   }
 
+  // ControlPlaneAddr and ControlPlaneData occupy the position of
+  // sbaddr0 and sbdata0 in debug bus address space
+  class ControlPlaneAddrFields() extends Bundle {
+    val busy     = Bool() // read only
+    val rw       = Bool() // 0 for write, 1 for read; write only
+    val addr   = Bits(width = 32) // write only
+
+    override def cloneType = new ControlPlaneAddrFields().asInstanceOf[this.type]
+  }
+
+  class ControlPlaneDataFields() extends Bundle {
+    val reserved = Bits(width = 2)
+    val data   = Bits(width = 32)
+
+    override def cloneType = new ControlPlaneDataFields().asInstanceOf[this.type]
+  }
 
   //--------------------------------------------------------------
   // Register & Wire Declarations
@@ -625,6 +643,87 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   }
   
   //--------------------------------------------------------------
+  // ControlPlane related modules and wires
+  //--------------------------------------------------------------
+  val cp = Module(new ControlPlaneModule)
+
+  val cpAddr = Wire(new ControlPlaneAddrFields())
+  val cpData = Wire(new ControlPlaneDataFields())
+
+  val cpAddrReg = Reg(UInt(width=cpAddrSize))
+  val cpDataReg = Reg(UInt(width=cpDataSize))
+  val dbCPResult = Wire(io.db.resp.bits)
+
+  val isCP = Wire(Bool(false))
+
+  // since we can read out the registers in cp within one cycle
+  // so cp read does not need to set the cpBusy flag
+  // cp write consists of two steps:
+  // 1. write addr to cpaddr (set cpBusy flag)
+  // 2. write data to cpdata (clear cpBusy flag)
+  // so we set cpBusy between 1 and 2 to indicate that there is an inflight write
+  val cpBusy = Reg(Bool(false))
+
+  cpAddr := new ControlPlaneAddrFields().fromBits(dbReq.data)
+  cpData := new ControlPlaneDataFields().fromBits(dbReq.data)
+
+  isCP := (dbReq.addr === SBUSADDRESS0 || dbReq.addr === SBDATA0)
+  // we always return sucessful
+  dbCPResult.resp := db_RESP_SUCCESS
+
+  val isCPAddrWrite = (dbReq.op === db_OP_READ_WRITE && dbReq.addr === SBUSADDRESS0)
+  val isCPDataWrite = (dbReq.op === db_OP_READ_WRITE && dbReq.addr === SBDATA0)
+
+  val isCPAddrRead = (dbReq.op === db_OP_READ && dbReq.addr === SBUSADDRESS0)
+  val isCPDataRead = (dbReq.op === db_OP_READ && dbReq.addr === SBDATA0)
+
+  val dbReqFire = io.db.req.fire()
+  val cpAddrWriteFire = isCPAddrWrite && dbReqFire
+  val cpDataWriteFire = isCPDataWrite && dbReqFire
+  val cpAddrReadFire = isCPAddrRead && dbReqFire
+  val cpDataReadFire = isCPDataRead && dbReqFire
+
+  cp.io.ren := cpAddrWriteFire && (cpAddr.rw === cpRead)
+  cp.io.raddr := cpAddr.addr
+  // if cpBusy is set, we know that, we already write the cp addr
+  cp.io.wen := cpDataWriteFire && cpBusy
+  cp.io.waddr := cpAddrReg
+  cp.io.wdata := cpData.data
+
+  // handle write on sbusaddr0 and sdata0
+  when (cpAddrWriteFire) {
+    cpAddrReg := cpAddr.addr
+    when (cpAddr.rw === cpWrite) { cpBusy := true.B }
+  }
+
+  when (cpDataWriteFire) {
+    cpDataReg := cpData.data
+    cpBusy := false.B
+  }
+
+  when (cp.io.ren) { cpDataReg := cp.io.rdata }
+
+  // handle read on sbusaddr0 and sdata0
+  when (cpAddrReadFire) {
+    // due to chisel3 versioning issue, we can not use concat here
+    // so we have to use wire
+    val cpAddrResp = Wire(new ControlPlaneAddrFields())
+    cpAddrResp.busy := cpBusy
+    cpAddrResp.rw := UInt(0)
+    cpAddrResp.addr := cpAddrReg
+
+    dbCPResult.data := cpAddrResp.asUInt
+  }
+
+  when (cpDataReadFire) {
+    val cpDataResp = Wire(new ControlPlaneDataFields())
+    cpDataResp.reserved := UInt(0)
+    cpDataResp.data := cpDataReg
+
+    dbCPResult.data := cpDataResp.asUInt
+  }
+
+  //--------------------------------------------------------------
   // Debug Bus Access
   //--------------------------------------------------------------
 
@@ -750,10 +849,10 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   ((dbReq.op === db_OP_READ_COND_WRITE) && ~rdCondWrFailure)
 
   // This is only relevant at end of s_DB_READ.
-  dbResult.resp := Mux(rdCondWrFailure,
+  dbResult.resp := Mux(isCP, dbCPResult.resp, Mux(rdCondWrFailure,
     db_RESP_FAILURE,
-    db_RESP_SUCCESS)
-  dbResult.data := dbRdData
+    db_RESP_SUCCESS))
+  dbResult.data := Mux(isCP, dbCPResult.data, dbRdData)
 
   // -----------------------------------------
   // DB Access State Machine Decode (Combo)
