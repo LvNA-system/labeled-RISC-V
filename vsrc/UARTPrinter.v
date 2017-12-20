@@ -1,22 +1,29 @@
-module UARTPrinter
-#(
-  parameter FILENAME = "serial"
-)(
-  input       clock,
-  input       valid,
-  input [7:0] data   // Always expect an ASCII character
+// See LICENSE for license details.
+
+import "DPI-C" function void uart_tick
+(
+  input  byte       data,
+  input  int        addr
 );
 
-integer fd;
 
-initial begin
-  fd = $fopen(FILENAME, "w");
-end
+module UARTPrinter
+(
+  input       clock,
+  input       valid,
+  input [7:0] data,   // Always expect an ASCII character
+  input [31:0] addr
+);
+
+wire [7:0] #0.1 __data = data;
+wire [31:0] #0.1 __addr = addr;
 
 always @(posedge clock) begin
   if (valid) begin
-    $fwrite(fd, "%c", data);
-    $fflush(fd);
+    uart_tick(
+    __data,
+    __addr
+  );
   end
 end
 
