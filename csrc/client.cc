@@ -8,105 +8,12 @@
 
 #include "JTAGDTM.h"
 #include "dmi.h"
+#include "common.h"
 
 #define DEBUG_INFO 0
 
 // server fd
 int sfd;
-
-// ********************* utility functions ******************************
-
-// get bits in range [high, low]
-uint64_t get_bits(uint64_t data, int high, int low) {
-  assert(high >= low && high <= 63 && low >= 0);
-  int left_shift = 63 - high;
-  // firstly, remove the higher bits, then remove the lower bits
-  return ((data << left_shift) >> left_shift) >> low;
-}
-
-int get_bit(unsigned char value, int index) {
-  assert(index >= 0 && index <= 7);
-  return (value >> index) & 0x1;
-}
-
-void set_bit(unsigned char &value, int index, int bit) {
-  assert(index >= 0 && index <= 7 && (bit == 0 || bit == 1));
-  unsigned char mask = 1 << index;
-  if (bit) {
-	// set bit
-	value |= mask;
-  } else {
-	// clear bit
-	value &= ~mask;
-  }
-}
-
-void str_to_bits(const char *str, int &length,
-	int &nb_bits, unsigned char *buffer) {
-  nb_bits = 0;
-  while (*str) {
-	assert(*str == '0' || *str == '1');
-	// which byte are we handling?
-	int index = nb_bits / 8;
-	set_bit(buffer[index], nb_bits % 8, *str - '0');
-	str++;
-	nb_bits++;
-	assert(nb_bits <= XFERT_MAX_SIZE * 8);
-  }
-  length = (nb_bits + 7) / 8;
-}
-
-char *bits_to_str(int length,
-	int nb_bits, unsigned char *buffer) {
-  assert(nb_bits <= XFERT_MAX_SIZE * 8);
-  char *str = (char *)malloc(sizeof(char) * (nb_bits + 1));
-  assert(str);
-  for (int i = 0; i < nb_bits; i++) {
-	// which byte are we handling?
-	int index = i / 8;
-	int bit = get_bit(buffer[index], i % 8);
-	str[i] = '0' + bit;
-  }
-  str[nb_bits] = '\0';
-  return str;
-}
-
-// shift a uint64_t value into a buffer
-void shift_bits_into_buffer(uint64_t value, int nb_bits,int &ret_length,
-	int &ret_nb_bits, unsigned char *buffer) {
-  assert(nb_bits > 0 && nb_bits <= 64);
-  for (int i = 0; i < nb_bits; i++) {
-	// which byte are we handling?
-	int index = i / 8;
-	set_bit(buffer[index], i % 8, value & 0x1);
-	value >>= 1;
-  }
-  ret_nb_bits = nb_bits;
-  ret_length = (nb_bits + 7) / 8;
-}
-
-// shift a uint64_t value out of a buffer
-uint64_t shift_bits_outof_buffer(int nb_bits, 
-	unsigned char *buffer) {
-  assert(nb_bits > 0 && nb_bits <= 64);
-  uint64_t value = 0;
-  // 1 should be unsigned long long
-  // if we simply write 1
-  // it will be int32_t and sign extended to 64bit, which means mask will be 0xffffffff80000000
-  uint64_t mask = 1ULL << (nb_bits - 1);
-  for (int i = 0; i < nb_bits; i++) {
-	// which byte are we handling?
-	int index = i / 8;
-	int bit = get_bit(buffer[index], i % 8);
-	// be careful about the bit order here
-	value >>= 1;
-	if (bit)
-	  value |= mask;
-	// printf("bit: %d valud: %lx\n", bit, value);
-  }
-  return value;
-}
-
 
 // ********************* jtag related functions ******************************
 // do tms_seq
@@ -144,12 +51,12 @@ uint64_t scan(uint64_t value, int nb_bits) {
 
 // // goto test logic reset state
 // goto test logic reset state
-void reset() {
+void reset_soft() {
   if (DEBUG_INFO)
 	printf("CMD_RESET\n");
   struct vpi_cmd command;
   memset(&command, 0, sizeof(command));
-  command.cmd = CMD_RESET;
+  command.cmd = CMD_RESET_SOFT;
   send(sfd, &command, sizeof(command), 0);
 }
 
@@ -158,7 +65,7 @@ void reset_hard() {
 	printf("CMD_RESET_HARD\n");
   struct vpi_cmd command;
   memset(&command, 0, sizeof(command));
-  command.cmd = CMD_RESET_HARD;
+  command.cmd = CMD_RESET;
   send(sfd, &command, sizeof(command), 0);
 }
 
@@ -221,7 +128,7 @@ uint64_t write_dr(uint64_t value, int nb_bits) {
 }
 
 uint64_t rw_jtag_reg(uint64_t ir_val, uint64_t dr_val, int nb_bits) {
-  reset();
+  reset_soft();
   write_ir(ir_val);
   return write_dr(dr_val, nb_bits);
 }

@@ -1,3 +1,6 @@
+#ifndef DMI_H
+#define DMI_H
+
 /*
  * Debug Module Interface
  * This tracks rocketchip commit 87cbd5c89391763d42a8ffbdcf48548f68de0bb1
@@ -75,3 +78,5 @@ DEF(SBADDR0);
 DEF(SBDATA0);
 
 #undef FIELD
+
+#endif

@@ -9,7 +9,7 @@
 #define CMD_SCAN_CHAIN		2
 #define CMD_SCAN_CHAIN_FLIP_TMS	3
 #define CMD_STOP_SIMU		4
-#define CMD_RESET_HARD    5
+#define CMD_RESET_SOFT    5
 
 const char * cmd_to_string_table[] = {
   "CMD_RESET",
@@ -17,7 +17,7 @@ const char * cmd_to_string_table[] = {
   "CMD_SCAN_CHAIN",
   "CMD_SCAN_CHAIN_FLIP_TMS",
   "CMD_STOP_SIMU",
-  "CMD_RESET_HARD"
+  "CMD_RESET_SOFT"
 };
 
 const char *cmd_to_string(int cmd) {

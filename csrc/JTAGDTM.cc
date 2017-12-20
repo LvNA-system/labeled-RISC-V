@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/times.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdint.h>
@@ -12,6 +13,7 @@
 #include <svdpi.h>
 
 #include "JTAGDTM.h"
+#include "common.h"
 
 #define DEBUG_INFO 0
 #define TCK_HALF_PERIOD 10
@@ -42,14 +44,6 @@ unsigned char tdo;
 unsigned char trst;
 
 uint64_t get_time_stamp();
-
-void Pthread_mutex_init(pthread_mutex_t *mp,
-	const pthread_mutexattr_t *mattr);
-void Pthread_mutex_lock(pthread_mutex_t *mutex);
-void Pthread_mutex_unlock(pthread_mutex_t *mutex);
-void Pthread_mutex_destroy(pthread_mutex_t *mutex);
-void set_bit(unsigned char &value, int index, int bit);
-int get_bit(unsigned char value, int index);
 
   extern "C" void jtag_tick
 (
@@ -272,6 +266,13 @@ void do_scan_chain() {
   set_tms(0);
 }
 
+void check_bits(int length, int nb_bits) {
+  if (length > XFERT_MAX_SIZE || nb_bits > length * 8) {
+	printf("Invalid command");
+	exit(-1);
+  }
+}
+
 static void host_mainloop(int server_fd) {
   struct sockaddr_in client;
   socklen_t sock_len = sizeof(struct sockaddr_in);
@@ -282,6 +283,9 @@ static void host_mainloop(int server_fd) {
   }
   puts("Connect established");
 
+  clock_t start;
+  start = Times(nullptr);
+
   struct vpi_cmd command;
   while (recv(client_fd, &command, sizeof(command), 0) > 0) {
 	cmd = command.cmd;
@@ -289,35 +293,40 @@ static void host_mainloop(int server_fd) {
 	length = command.length;
 
 	printf("**************************************\n\n");
-	printf("recv: cmd %s, length %d, nb_bits %d\n", cmd_to_string(cmd), length, nb_bits);
-	if (length > XFERT_MAX_SIZE || nb_bits > length * 8) {
-	  perror("Invalid command");
-	  exit(-1);
-	}
+	printf("[%.6f] recv: cmd %s, length %d, nb_bits %d\n",
+		get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
 
-	memcpy(buffer_out, command.buffer_out, length);
+	// openocd jtag driver does not init vpi_cmd structure properly
+	// when cmd == CMD_RESET, all fields except cmd may be garbage values
+	// so do not check_bits on these cmds
 
 	// now switch on the command
 	switch(cmd) {
 	  case CMD_RESET:
 		if (DEBUG_INFO)
 		  printf("CMD_RESET\n");
-		reset_tap_soft();
+		reset_tap_hard();
 		goto_run_test_idle_from_reset();
 		break;
 
 	  case CMD_TMS_SEQ:
 		if (DEBUG_INFO)
 		  printf("CMD_TMS_SEQ\n");
+		check_bits(length, nb_bits);
+		memcpy(buffer_out, command.buffer_out, length);
 		do_tms_seq();
 		break;
 
 	  case CMD_SCAN_CHAIN:
 		if (DEBUG_INFO)
 		  printf("CMD_SCAN_CHAIN\n");
+		check_bits(length, nb_bits);
+		memcpy(buffer_out, command.buffer_out, length);
 		flip_tms = 0;
 		do_scan_chain();
 		// send result back
+		printf("[%.6f] send: cmd %s, length %d, nb_bits %d\n",
+			get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
 		memcpy(command.buffer_in, buffer_in, length);
 		send(client_fd, &command, sizeof(command), 0);
 		break;
@@ -325,9 +334,13 @@ static void host_mainloop(int server_fd) {
 	  case CMD_SCAN_CHAIN_FLIP_TMS:
 		if(DEBUG_INFO)
 		  printf("CMD_SCAN_CHAIN\n");
+		check_bits(length, nb_bits);
+		memcpy(buffer_out, command.buffer_out, length);
 		flip_tms = 1;
 		do_scan_chain();
 		// send result back
+		printf("[%.6f] send: cmd %s, length %d, nb_bits %d\n",
+			get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
 		memcpy(command.buffer_in, buffer_in, length);
 		send(client_fd, &command, sizeof(command), 0);
 		break;
@@ -338,10 +351,10 @@ static void host_mainloop(int server_fd) {
 		exit(0);
 		break;
 
-	  case CMD_RESET_HARD:
+	  case CMD_RESET_SOFT:
 		if (DEBUG_INFO)
 		  printf("CMD_RESET_HARD\n");
-		reset_tap_hard();
+		reset_tap_soft();
 		goto_run_test_idle_from_reset();
 		break;
 
@@ -377,65 +390,6 @@ void init_jtag_vpi(void)
   trst = 0;
   pthread_t tid;
   pthread_create(&tid, NULL, create_jtag_vpi_server, NULL);
-}
-
-/*******************************
- * bit helpers
- *******************************/
-void set_bit(unsigned char &value, int index, int bit) {
-  assert(index >= 0 && index <= 7 && (bit == 0 || bit == 1));
-  unsigned char mask = 1 << index;
-  if (bit) {
-	// set bit
-	value |= mask;
-  } else {
-	// clear bit
-	value &= ~mask;
-  }
-}
-
-int get_bit(unsigned char value, int index) {
-  assert(index >= 0 && index <= 7);
-  return (value >> index) & 0x1;
-}
-
-/*******************************
- * Wrappers for Posix mutexs
- *******************************/
-
-void posix_error(int code, const char *msg) /* posix-style error */
-{
-  fprintf(stderr, "%s: %s\n", msg, strerror(code));
-  exit(0);
-}
-
-void Pthread_mutex_init(pthread_mutex_t *mp,
-	const pthread_mutexattr_t *mattr)
-{
-  int rc;
-  if ((rc = pthread_mutex_init(mp, mattr)) != 0)
-	posix_error(rc, "Pthread_mutex_init error");
-}
-
-void Pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-  int rc;
-  if ((rc = pthread_mutex_lock(mutex)) != 0)
-	posix_error(rc, "Pthread_mutex_lock error");
-}
-
-void Pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-  int rc;
-  if ((rc = pthread_mutex_unlock(mutex)) != 0)
-	posix_error(rc, "Pthread_mutex_unlock error");
-}
-
-void Pthread_mutex_destroy(pthread_mutex_t *mutex)
-{
-  int rc;
-  if ((rc = pthread_mutex_destroy(mutex)) != 0)
-	posix_error(rc, "Pthread_mutex_destroy error");
 }
 
 // we put this here, just to make the original dtm happy
