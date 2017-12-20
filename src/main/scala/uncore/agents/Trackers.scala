@@ -258,8 +258,7 @@ trait AcceptsVoluntaryReleases extends HasVoluntaryReleaseMetadataBuffer {
 
     when(irel_is_allocating) {
       xact_addr_block := io.irel().addr_block
-      // FIXME: may need this in the future
-      //xact_dsid := io.irel().dsid
+      xact_dsid := io.irel().dsid
 
       // Set all of them to pending in the beginning as a precaution
       // If it turns out we don't need some or all of the beats, they will
