@@ -57,6 +57,10 @@ class L2BroadcastHub(implicit p: Parameters) extends HierarchicalCoherenceAgent(
   doInputRouting(io.inner.finish, trackerList.map(_.io.inner.finish))
 
   disconnectOuterProbeAndFinish()
+
+  when (io.inner.probe.fire()) {
+    io.inner.probe.bits.dump()
+  }
 }
 
 class BroadcastXactTracker(implicit p: Parameters) extends XactTracker()(p) {
@@ -154,6 +158,7 @@ class BufferedBroadcastAcquireTracker(trackerId: Int)(implicit p: Parameters)
   innerProbe(
     inner_coh.makeProbe(curr_probe_dst, xact_iacq, xact_addr_block),
     Mux(!skip_outer_acquire, s_outer_acquire, s_busy))
+  io.inner.probe.bits.dsid := xact_dsid
 
   // Handle incoming releases from clients, which may reduce sharer counts
   // and/or write back dirty data, and may be unexpected voluntary releases
