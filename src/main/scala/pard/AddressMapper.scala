@@ -17,9 +17,10 @@ class AddressMapper(implicit p: Parameters) extends TLModule()(p) {
 
   (io.in zip io.out) foreach { case (in, out) =>
     out <> in
-//    out.acquire.bits.addr_block := (in.acquire.bits.addr_block & (size - 1).U) | bases(in.acquire.bits.dsid)
+    out.acquire.bits.addr_block := (in.acquire.bits.addr_block & (size - 1).U) | bases(in.acquire.bits.dsid)
     when (in.acquire.fire()) {
-      assert(in.acquire.bits.dsid === UInt(1))
+//      printf("addr = %x, addr_map = %x\n", in.acquire.bits.full_addr(), out.acquire.bits.full_addr())
+      assert(in.acquire.bits.dsid === UInt(1) || in.acquire.bits.dsid === UInt(2))
     }
   }
 }
