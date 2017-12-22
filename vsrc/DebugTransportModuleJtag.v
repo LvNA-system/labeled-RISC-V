@@ -228,6 +228,7 @@ module DebugTransportModuleJtag (
                        default: // BYPASS
                         shiftReg <= {{(SHIFT_REG_BITS- 1){1'b0}} , jtag_TDI};
                      endcase // case (irReg)  
+		default    : ;
       endcase // case (jtagStateReg)
    end
 
@@ -278,6 +279,7 @@ module DebugTransportModuleJtag (
               skipOpReg      <= 1'b0;
               downgradeOpReg <= 1'b0;
            end
+		  default: ;
          endcase // case (jtagStateReg)
       end else if (irReg == REG_DTM_INFO) begin
          case(jtagStateReg)
@@ -287,6 +289,7 @@ module DebugTransportModuleJtag (
                  stickyBusyReg        <= 1'b0;
               end
            end
+		   default: ;
          endcase // case (jtagStateReg)
       end
    end // always @ (posedge jtag_TCK or posedge jtag_TRST)
