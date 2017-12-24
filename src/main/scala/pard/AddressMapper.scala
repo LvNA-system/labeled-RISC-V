@@ -13,11 +13,11 @@ class AddressMapper(implicit p: Parameters) extends TLModule()(p) {
   })
 
   val size = p(ExtMemSize) / p(NTiles)
-  val bases = Vec(0.U +: Seq.tabulate(p(NTiles)) { i => (0x80000000L + size * i).U >> p(CacheBlockOffsetBits) })
+  val bases = Vec(0.U +: Seq.tabulate(p(NTiles)) { i => UInt(0x80000000L + size * i) >> p(CacheBlockOffsetBits) })
 
   (io.in zip io.out) foreach { case (in, out) =>
     out <> in
-    out.acquire.bits.addr_block := (in.acquire.bits.addr_block & (size - 1).U) | bases(in.acquire.bits.dsid)
+    out.acquire.bits.addr_block := (in.acquire.bits.addr_block & UInt(size - 1)) | bases(in.acquire.bits.dsid)
     when (in.acquire.fire()) {
 //      printf("addr = %x, addr_map = %x\n", in.acquire.bits.full_addr(), out.acquire.bits.full_addr())
       assert(in.acquire.bits.dsid === UInt(1) || in.acquire.bits.dsid === UInt(2))

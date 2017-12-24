@@ -859,7 +859,7 @@ class GrantMetadata(implicit p: Parameters) extends ManagerToClientChannel
 class Grant(implicit p: Parameters) extends GrantMetadata
   with HasTileLinkData {
   def dump() = {
-    printf("Grant managerTranID = %d, clientTranID = %d, beatID = %d", client_xact_id, manager_xact_id, addr_beat)
+    printf("Grant managerTranID = %d, clientTranID = %d, beatID = %d", manager_xact_id, client_xact_id, addr_beat)
     when (g_type === Grant.voluntaryAckType) { printf(" voluntaryAck") }
     .elsewhen (g_type === Grant.prefetchAckType) { printf(" prefetchAck") }
     .elsewhen (g_type === Grant.putAckType) { printf(" putAck") }
