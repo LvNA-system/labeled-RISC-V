@@ -38,7 +38,7 @@ class PARDFPGAConfigzedboard extends Config(
 class PARDFPGAConfigzcu102 extends Config(
   new WithBlockingL1
   ++ new WithoutFPU
-  //++ new WithJtagDTM
+  ++ new WithJtagDTM
   ++ new WithExtMemSize(0x80000000L)
 //  ++ new WithAddressMapperBase(0x0L)
   ++ new WithNCores(1)

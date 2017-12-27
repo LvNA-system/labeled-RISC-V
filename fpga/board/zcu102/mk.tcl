@@ -40,6 +40,9 @@ add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/include/axi
 add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/include/dmi.vh"]"
 set_property is_global_include true [get_files "[file normalize "${lib_dir}/include/axi.vh"]"]
 set_property is_global_include true [get_files "[file normalize "${lib_dir}/include/dmi.vh"]"]
+add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/jtag/axi4_lite_if.v"]"
+add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/jtag/axi_jtag_v1_0.v"]"
+add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/jtag/jtag_proc.v"]"
 
 # Add files for system top
 add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/addr_mapper.v"]"
