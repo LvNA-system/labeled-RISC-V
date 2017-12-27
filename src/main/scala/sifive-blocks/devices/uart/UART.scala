@@ -243,7 +243,7 @@ trait UARTTopModule extends Module with MixUARTParameters with HasUARTParameters
 
   ip.txwm := (txq.io.count < txwm)
   ip.rxwm := (rxq.io.count > rxwm)
-  // interrupts(0) := (ip.txwm && ie.txwm) || (ip.rxwm && ie.rxwm)
+  interrupts(0) := (ip.txwm && ie.txwm) || (ip.rxwm && ie.rxwm)
 
   regmap(
     UARTCtrlRegs.txfifo -> NonBlockingEnqueue(txq.io.enq),
