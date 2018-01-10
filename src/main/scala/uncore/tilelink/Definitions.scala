@@ -1028,6 +1028,39 @@ class ClientTileLinkIO(implicit p: Parameters) extends TLBundle()(p) {
   val release   = new DecoupledIO(new Release)
   val grant     = new DecoupledIO(new GrantFromSrc).flip
   val finish    = new DecoupledIO(new FinishToDst)
+
+  def dump(s: String = "") = {
+    acquire match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    grant match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    finish match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    probe match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    release match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+  }
 }
 
 /** This version of TileLinkIO does not contain network headers, but
