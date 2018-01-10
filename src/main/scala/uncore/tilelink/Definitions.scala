@@ -312,7 +312,7 @@ class AcquireMetadata(implicit p: Parameters) extends ClientToManagerChannel
 class Acquire(implicit p: Parameters) extends AcquireMetadata
   with HasTileLinkData {
   def dump() = {
-    printf("Acquire cache block addr %x, dsid = %d, tranID = %d, beatID = %d\n", addr_block << p(CacheBlockOffsetBits), dsid, client_xact_id, addr_beat)
+    printf("time %d: Acquire cache block addr %x, dsid = %d, tranID = %d, beatID = %d\n", GTimer(), addr_block << p(CacheBlockOffsetBits), dsid, client_xact_id, addr_beat)
     when (a_type === Acquire.getType) {
       printf("  addr_byte = %d, operand_size = %d, opcode = %d, alloc = %d", addr_byte(), op_size(), op_code(), allocate())
     }
@@ -712,7 +712,7 @@ class Probe(implicit p: Parameters) extends ManagerToClientChannel
   with HasDsid
   with HasProbeType {
   def dump() = {
-    printf("Probe cache block addr %x, dsid = %d\n", addr_block << p(CacheBlockOffsetBits), dsid)
+    printf("time %d: Probe cache block addr %x, dsid = %d\n", GTimer(), addr_block << p(CacheBlockOffsetBits), dsid)
   }
 }
 
@@ -764,7 +764,7 @@ class ReleaseMetadata(implicit p: Parameters) extends ClientToManagerChannel
 class Release(implicit p: Parameters) extends ReleaseMetadata
   with HasTileLinkData {
   def dump() = {
-    printf("Release cache block addr %x, dsid = %d, tranID = %d, beatID = %d, isVoluntary = %d", addr_block << p(CacheBlockOffsetBits), dsid, client_xact_id, addr_beat, isVoluntary())
+    printf("time %d: Release cache block addr %x, dsid = %d, tranID = %d, beatID = %d, isVoluntary = %d", GTimer(), addr_block << p(CacheBlockOffsetBits), dsid, client_xact_id, addr_beat, isVoluntary())
     when (hasData()) {
       printf(" data = %x", data)
     }
@@ -859,7 +859,7 @@ class GrantMetadata(implicit p: Parameters) extends ManagerToClientChannel
 class Grant(implicit p: Parameters) extends GrantMetadata
   with HasTileLinkData {
   def dump() = {
-    printf("Grant managerTranID = %d, clientTranID = %d, beatID = %d", manager_xact_id, client_xact_id, addr_beat)
+    printf("time %d: Grant managerTranID = %d, clientTranID = %d, beatID = %d", GTimer(), manager_xact_id, client_xact_id, addr_beat)
     when (g_type === Grant.voluntaryAckType) { printf(" voluntaryAck") }
     .elsewhen (g_type === Grant.prefetchAckType) { printf(" prefetchAck") }
     .elsewhen (g_type === Grant.putAckType) { printf(" putAck") }
@@ -971,7 +971,7 @@ class Finish(implicit p: Parameters) extends ClientToManagerChannel()(p)
   def hasData(dummy: Int = 0) = Bool(false)
   def hasMultibeatData(dummy: Int = 0) = Bool(false)
   def dump() = {
-    printf("Finish managerTranID = %d\n", manager_xact_id)
+    printf("time %d: Finish managerTranID = %d\n", GTimer(), manager_xact_id)
   }
 }
 
