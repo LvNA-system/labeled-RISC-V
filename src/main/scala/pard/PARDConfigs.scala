@@ -17,7 +17,8 @@ class PARDSimConfig extends Config(
 //  ++ new WithAddressMapperBase(0x80000000L)
 //  ++ new WithRTCPeriod(5)
 //  ++ new BucketConfig
-  ++ new DefaultConfig)
+//  ++ new DefaultConfig)
+  ++ new DefaultL2Config)
 
 class PARDFPGAConfigzedboard extends Config(
   new WithBlockingL1

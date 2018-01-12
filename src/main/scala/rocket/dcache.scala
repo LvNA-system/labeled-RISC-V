@@ -46,6 +46,8 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
     val cpu = (new HellaCacheIO).flip
     val ptw = new TLBPTWIO()
     val mem = new ClientTileLinkIO
+    val base = UInt(INPUT, width = p(XLen))
+    val size = UInt(INPUT, width = p(XLen))
   }
 
   val fq = Module(new FinishQueue(1))
@@ -119,7 +121,11 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   when (!tlb.io.req.ready && !io.cpu.req.bits.phys) { io.cpu.req.ready := false }
   when (s1_valid && s1_readwrite && tlb.io.resp.miss) { s1_nack := true }
 
-  val s1_paddr = Cat(tlb.io.resp.ppn, s1_req.addr(pgIdxBits-1,0))
+  val isMMIO = (tlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
+  val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
+  val ppn = Mux(isMMIO, tlb.io.resp.ppn, (tlb.io.resp.ppn & ((io.size - 1) >> pgIdxBits)) | base)
+
+  val s1_paddr = Cat(ppn, s1_req.addr(pgIdxBits-1,0))
   val s1_tag = Mux(s1_probe, probe_bits.addr_block >> idxBits, s1_paddr(paddrBits-1, untagBits))
   val s1_victim_way = Wire(init = replacer.way)
   val (s1_hit_way, s1_hit_state, s1_victim_meta) =

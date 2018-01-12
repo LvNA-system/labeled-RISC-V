@@ -33,6 +33,10 @@ class TileIO(c: TileBundleConfig, node: Option[TLInwardNode] = None)(implicit p:
   val cached = Vec(c.nCachedTileLinkPorts, new ClientTileLinkIO)
   val uncached = Vec(c.nUncachedTileLinkPorts, new ClientUncachedTileLinkIO)
   val hartid = UInt(INPUT, c.xLen)
+  // memory base
+  val base = UInt(INPUT, c.xLen)
+  // memory size
+  val size = UInt(INPUT, c.xLen)
   val interrupts = new TileInterrupts().asInput
   val slave = node.map(_.inward.bundleIn)
   val resetVector = UInt(INPUT, c.xLen)
@@ -73,6 +77,12 @@ class RocketTile(implicit p: Parameters) extends LazyTile {
     val core = Module(new Rocket)
     val icache = Module(new Frontend()(p.alterPartial({ case CacheName => "L1I" })))
     val dcache = HellaCache(p(DCacheKey))(dcacheParams)
+
+    // address map bases
+    icache.io.base := io.base
+    icache.io.size := io.size
+    dcache.base := io.base
+    dcache.size := io.size
 
     val ptwPorts = collection.mutable.ArrayBuffer(icache.io.ptw, dcache.ptw)
     val dcPorts = collection.mutable.ArrayBuffer(core.io.dmem)
