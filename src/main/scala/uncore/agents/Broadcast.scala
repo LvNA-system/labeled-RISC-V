@@ -57,14 +57,6 @@ class L2BroadcastHub(implicit p: Parameters) extends HierarchicalCoherenceAgent(
   doInputRouting(io.inner.finish, trackerList.map(_.io.inner.finish))
 
   disconnectOuterProbeAndFinish()
-
-  // record client_id to dsid mapping
-  // client_id comes as follows
-  // core 0 DCache，core 1 DCache，core 0 ICache，core 1 ICache
-  val client_dsids = RegInit(Vec.fill(2 * innerNCachingClients)(UInt(0, width = p(DsidBits))))
-
-  // Propagate client_dsids mapping
-  iacqTrackerList.map(_.io.client_dsids) foreach { _ := client_dsids }
 }
 
 class BroadcastXactTracker(implicit p: Parameters) extends XactTracker()(p) {
@@ -95,7 +87,7 @@ abstract class BroadcastAcquireTracker(trackerId: Int)(implicit p: Parameters)
     extends AcquireTracker(trackerId)(p) 
     with EmitsVoluntaryReleases
     with BroadcastsToAllClients {
-  val io = new XactTrackerDsidIO
+  val io = new HierarchicalXactTrackerIO
   pinAllReadyValidLow(io)
 
   val alwaysWriteFullBeat = false
@@ -141,10 +133,7 @@ class BufferedBroadcastVoluntaryReleaseTracker(trackerId: Int)(implicit p: Param
 
 class BufferedBroadcastAcquireTracker(trackerId: Int)(implicit p: Parameters)
     extends BroadcastAcquireTracker(trackerId)(p)
-    with HasClientDsidMap
     with HasByteWriteMaskBuffer {
-
-  client_dsids := io.client_dsids
 
   // Setup IOs used for routing in the parent
   routeInParent(iacqCanAlloc = Bool(true))

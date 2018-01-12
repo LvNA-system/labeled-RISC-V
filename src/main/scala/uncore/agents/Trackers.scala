@@ -39,10 +39,6 @@ class ManagerXactTrackerIO(implicit p: Parameters) extends ManagerTLIO()(p)
 class HierarchicalXactTrackerIO(implicit p: Parameters) extends HierarchicalTLIO()(p)
   with HasTrackerAllocationIO
 
-class XactTrackerDsidIO(implicit p: Parameters) extends HierarchicalXactTrackerIO {
-  val client_dsids = Vec(2 * innerNCachingClients, UInt(width = p(DsidBits))).asInput
-}
-
 abstract class XactTracker(implicit p: Parameters) extends CoherenceAgentModule()(p)
     with HasXactTrackerStates
     with HasPendingBitHelpers {
@@ -207,10 +203,6 @@ trait HasByteWriteMaskBuffer extends HasDataBuffer {
 trait HasBlockAddressBuffer extends HasCoherenceAgentParameters {
   val xact_addr_block = Reg(init = UInt(0, width = blockAddrBits))
   val xact_dsid = Reg(init = UInt(0, width = p(DsidBits)))
-}
-
-trait HasClientDsidMap extends HasCoherenceAgentParameters {
-  val client_dsids = Wire(Vec(2 * innerNCachingClients, UInt(width = p(DsidBits))))
 }
 
 trait HasAcquireMetadataBuffer extends HasBlockAddressBuffer {
@@ -379,7 +371,6 @@ trait EmitsVoluntaryReleases extends HasVoluntaryReleaseMetadataBuffer {
 }
 
 trait EmitsInnerProbes extends HasBlockAddressBuffer
-    with HasClientDsidMap
     with HasXactTrackerStates 
     with HasPendingBitHelpers {
   def io: HierarchicalXactTrackerIO
@@ -390,12 +381,8 @@ trait EmitsInnerProbes extends HasBlockAddressBuffer
 
   def full_representation: UInt
   def initializeProbes() {
-    if (needs_probes) {
-      // currently, hart dsid starts from 1
-      // client_dsids are initialized to all zero
-      val dsid_mask = Vec(client_dsids.map { dsid => dsid === io.iacq().dsid }).asUInt
-      pending_iprbs := full_representation & ~io.incoherent.asUInt & dsid_mask
-    }
+    if (needs_probes)
+      pending_iprbs := full_representation & ~io.incoherent.asUInt
     else
       pending_iprbs := UInt(0)
   }

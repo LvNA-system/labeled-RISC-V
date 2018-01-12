@@ -10,7 +10,7 @@ include $(base_dir)/Makefrag
 
 CXXSRCS := emulator SimDTM UART
 CXXFLAGS := $(CXXFLAGS) -std=c++11 -I$(RISCV)/include -I$(base_dir)/csrc
-LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_dir)) -lfesvr -lpthread
+LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_dir)) -lpthread -static
 
 emu = emulator-$(PROJECT)-$(CONFIG)
 emu_debug = emulator-$(PROJECT)-$(CONFIG)-debug
