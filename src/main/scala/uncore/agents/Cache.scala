@@ -12,6 +12,7 @@ import uncore.tilelink._
 import uncore.constants._
 import uncore.util._
 import util._
+import rocketchip.{NDsids}
 import cde.{Parameters, Field}
 
 case object CacheName extends Field[String]
@@ -67,6 +68,45 @@ class RandomReplacement(ways: Int) extends ReplacementPolicy {
   def hit = {}
 }
 
+class DsidRandomReplacement(ways: Int, ndsids: Int, dsid: UInt) extends ReplacementPolicy {
+  private val replace = Wire(Bool())
+  replace := Bool(false)
+  val lfsr = LFSR16(replace)
+
+  // the number of ways each dsid can occupy
+  val dsid_nways = Reg(Vec(ndsids, UInt(width = log2Up(ways))))
+  dsid_nways(0.U) := UInt(ways)
+  // only give core 0 one cache way
+  dsid_nways(1.U) := UInt(1)
+  // core 1 can use half of the cache
+  dsid_nways(2.U) := UInt(ways / 2)
+
+  // map a dsid's way number to real way number
+  val dsid_way_map = Reg(Vec(ndsids, Vec(ways, UInt(width = log2Up(ways)))))
+  // for now, we initialize it manually
+  for (i <- 0 until ways) {
+	dsid_way_map(UInt(0))(UInt(i)) := UInt(i)
+  }
+  for (i <- 0 until ways / 2) {
+	dsid_way_map(UInt(1))(UInt(i)) := UInt(i)
+  }
+  for (i <- 0 until ways / 2) {
+	dsid_way_map(UInt(2))(UInt(i)) := UInt(i + ways / 2)
+  }
+
+  // the number of ways this dsid can use
+  val nway = dsid_nways(dsid)
+  val target_way = Wire(UInt(width = log2Up(ways)))
+  when (nway === UInt(1)) {
+	target_way := UInt(0)
+  }.otherwise {
+	target_way := dsid_way_map(dsid)(lfsr(log2Up(ways)-1,0) & (nway - UInt(1)))
+  }
+  def way = target_way
+  def miss = replace := Bool(true)
+  def hit = {}
+}
+
 abstract class SeqReplacementPolicy {
   def access(set: UInt): Unit
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt): Unit
@@ -75,6 +115,15 @@ abstract class SeqReplacementPolicy {
 
 class SeqRandom(n_ways: Int) extends SeqReplacementPolicy {
   val logic = new RandomReplacement(n_ways)
+  def access(set: UInt) = { }
+  def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
+    when (valid && !hit) { logic.miss }
+  }
+  def way = logic.way
+}
+
+class DsidSeqRandom(n_ways: Int, ndsids: Int, dsid: UInt) extends SeqReplacementPolicy {
+  val logic = new DsidRandomReplacement(n_ways, ndsids, dsid)
   def access(set: UInt) = { }
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
     when (valid && !hit) { logic.miss }
@@ -290,6 +339,7 @@ object L2Metadata {
 
 class L2MetaReadReq(implicit p: Parameters) extends MetaReadReq()(p) with HasL2Id {
   val tag = Bits(width = tagBits)
+  val dsid = Bits(width = p(DsidBits))
 }
 
 class L2MetaWriteReq(implicit p: Parameters) extends MetaWriteReq[L2Metadata](new L2Metadata)(p)
@@ -334,6 +384,7 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
 
   val s1_tag = RegEnable(io.read.bits.tag, io.read.valid)
   val s1_id = RegEnable(io.read.bits.id, io.read.valid)
+  val s1_dsid = RegEnable(io.read.bits.dsid, io.read.valid)
   def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
   val s1_clk_en = Reg(next = io.read.fire())
   val s1_tag_eq_way = wayMap((w: Int) => meta.io.resp(w).tag === s1_tag)
@@ -343,7 +394,7 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
   val s2_tag_match = s2_tag_match_way.orR
   val s2_hit_coh = Mux1H(s2_tag_match_way, wayMap((w: Int) => RegEnable(meta.io.resp(w).coh, s1_clk_en)))
 
-  val replacer = p(L2Replacer)()
+  val replacer = new DsidSeqRandom(p(NWays), p(NDsids), s1_dsid)
   val s1_hit_way = Wire(Bits())
   s1_hit_way := Bits(0)
   (0 until nWays).foreach(i => when (s1_tag_match_way(i)) { s1_hit_way := Bits(i) })
@@ -723,6 +774,7 @@ trait HasCoherenceMetadataBuffer extends HasOuterCacheParameters
     port.read.bits.idx := xact_addr_idx
     port.read.bits.tag := xact_addr_tag
     port.read.bits.way_en := Mux(way_en_known, xact_way_en, ~UInt(0, nWays))
+    port.read.bits.dsid := xact_dsid
 
     when(state === s_meta_read && port.read.ready) { state := s_meta_resp }
 
@@ -751,6 +803,7 @@ trait TriggersWritebacks extends HasCoherenceMetadataBuffer {
     wb.req.bits.idx := xact_addr_idx
     wb.req.bits.tag := xact_old_meta.tag
     wb.req.bits.way_en := xact_way_en
+    wb.req.bits.dsid := xact_dsid
 
     when(state === s_wb_req && wb.req.ready) { state := s_wb_resp }
     when(state === s_wb_resp && wb.resp.valid) { state := s_outer_acquire }
@@ -1035,6 +1088,7 @@ class L2WritebackReq(implicit p: Parameters)
   val tag  = Bits(width = tagBits)
   val idx  = Bits(width = idxBits)
   val way_en = Bits(width = nWays)
+  val dsid = Bits(width = p(DsidBits))
 }
 
 class L2WritebackResp(implicit p: Parameters) extends L2HellaCacheBundle()(p) with HasL2Id
@@ -1133,10 +1187,12 @@ class L2WritebackUnit(val trackerId: Int)(implicit p: Parameters) extends XactTr
     xact_way_en := io.wb.req.bits.way_en
     xact_addr_block := (if (cacheIdBits == 0) Cat(io.wb.req.bits.tag, io.wb.req.bits.idx)
                         else Cat(io.wb.req.bits.tag, io.wb.req.bits.idx, UInt(cacheId, cacheIdBits)))
-    // FIXME: propagate dsid in the cache metadata
-    xact_dsid := UInt(1)
+    xact_dsid := io.wb.req.bits.dsid
     state := s_meta_read
   }
+
+  val addr_block = (if (cacheIdBits == 0) Cat(io.wb.req.bits.tag, io.wb.req.bits.idx)
+	else Cat(io.wb.req.bits.tag, io.wb.req.bits.idx, UInt(cacheId, cacheIdBits))) 
 
   when (state === s_meta_resp && io.meta.resp.valid) {
     pending_reads := Fill(innerDataBeats, needs_outer_release)
