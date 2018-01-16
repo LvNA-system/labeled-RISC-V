@@ -55,6 +55,8 @@ scp system_top.bit liuzhigang@10.30.6.123:~
 切换到arm的minicom窗口，窗口提示符为：zynq-uboot>
 输入bootm 0x3000000 - 0x2a00000，则arm核开始启动Linux kernel。
 如果莫名奇妙地挂住，请重新`source noop.tcl`。
+若在启动时遇到错误"ARP Retry count exceeded"，请在 ZynqMP> 下输入命令： run netboot
+此错误是因为网络原因，开发板不能正确获得IP地址所致，重启网络服务即可。
 
 启动linux核之后，提示符为：`debian-airbook login:`，则说明成功启动linux。
 
