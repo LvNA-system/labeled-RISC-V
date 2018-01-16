@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+// although we don't use the original dtm anymore
+// we put it here, just to make it compilable
+dtm_t* dtm;
 static uint64_t trace_count = 0;
 bool verbose;
 bool done_reset;
@@ -22,6 +25,12 @@ void handle_sigterm(int sig)
 }
 
 double sc_time_stamp()
+{
+  return trace_count;
+}
+
+// JTAGDTM.cc use this to get timestamp
+uint64_t get_time_stamp()
 {
   return trace_count;
 }
@@ -79,6 +88,10 @@ int main(int argc, char** argv)
   }
 #endif
 
+  dtm = new dtm_t(std::vector<std::string>(argv + 1, argv + argc));
+
+  void init_jtag_vpi(void);
+  init_jtag_vpi();
   signal(SIGTERM, handle_sigterm);
 
   // reset for several cycles to handle pipelined reset

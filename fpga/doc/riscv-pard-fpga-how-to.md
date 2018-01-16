@@ -24,7 +24,7 @@ make BOARD=zedboard
 
 上述编译完成之后，得到的是一个vivado project以及bbl.bin文件。
 
-接下来，我们打开vivado工程，单击refresh module。再单击generatebitstream。经过漫长的等待后，我们得到了bitstream文件system_top.bit。
+接下来，我们打开vivado工程，单击refresh module。再单击generate bitstream。经过漫长的等待后，我们得到了bitstream文件system_top.bit。
 
 ## 运行
 
