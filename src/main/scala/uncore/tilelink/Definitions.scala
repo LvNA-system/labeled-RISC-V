@@ -11,6 +11,7 @@ import cde.{Parameters, Field}
 
 case object CacheBlockOffsetBits extends Field[Int]
 case object AmoAluOperandBits extends Field[Int]
+case object DsidBits extends Field[Int]
 
 case object TLId extends Field[String]
 case class TLKey(id: String) extends Field[TileLinkParameters]
@@ -65,6 +66,7 @@ trait HasTileLinkParameters {
   val tlClientXactIdBits = log2Up(tlMaxClientXacts*tlMaxClientsPerPort)
   val tlManagerXactIdBits = log2Up(tlMaxManagerXacts)
   val tlBlockAddrBits = p(PAddrBits) - p(CacheBlockOffsetBits)
+  val tlDsidBits = p(DsidBits)
   val tlDataBeats = tlExternal.dataBeats
   val tlDataBits = tlExternal.dataBitsPerBeat
   val tlDataBytes = tlDataBits/8
@@ -115,6 +117,10 @@ trait HasCacheBlockAddress extends HasTileLinkParameters {
 
   def conflicts(that: HasCacheBlockAddress) = this.addr_block === that.addr_block
   def conflicts(addr: UInt) = this.addr_block === addr
+}
+
+trait HasDsid extends HasTileLinkParameters {
+  val dsid = UInt(width = tlDsidBits)
 }
 
 /** Sub-block address or beat id of multi-beat data */
@@ -290,6 +296,7 @@ trait HasGrantType extends HasTileLinkParameters with MightBeVoluntary {
   */
 class AcquireMetadata(implicit p: Parameters) extends ClientToManagerChannel
     with HasCacheBlockAddress 
+    with HasDsid
     with HasClientTransactionId
     with HasTileLinkBeatId
     with HasAcquireType
@@ -303,7 +310,40 @@ class AcquireMetadata(implicit p: Parameters) extends ClientToManagerChannel
 
 /** [[uncore.AcquireMetadata]] with an extra field containing the data beat */
 class Acquire(implicit p: Parameters) extends AcquireMetadata
-  with HasTileLinkData
+  with HasTileLinkData {
+  def dump() = {
+    printf("time %d: Acquire cache block addr %x, dsid = %d, tranID = %d, beatID = %d\n", GTimer(), addr_block << p(CacheBlockOffsetBits), dsid, client_xact_id, addr_beat)
+    when (a_type === Acquire.getType) {
+      printf("  addr_byte = %d, operand_size = %d, opcode = %d, alloc = %d", addr_byte(), op_size(), op_code(), allocate())
+    }
+    .elsewhen (a_type === Acquire.getBlockType) {
+      printf("  operand_size = %d, opcode = %d, alloc = %d", op_size(), op_code(), allocate())
+    }
+    .elsewhen (a_type === Acquire.putType) {
+      printf("  wmask = %x, alloc = %d", wmask(), allocate())
+    }
+    .elsewhen (a_type === Acquire.putBlockType) {
+      printf("  wmask = %x, alloc = %d", wmask(), allocate())
+    }
+    .elsewhen (a_type === Acquire.putAtomicType) {
+      printf("  addr_byte = %d, operand_size = %d, opcode = %d, alloc = %d", addr_byte(), op_size(), op_code(), allocate())
+    }
+    .elsewhen (a_type === Acquire.getPrefetchType) {
+      printf("  opcode = %d, alloc = %d", op_code(), allocate())
+    }
+    .elsewhen (a_type === Acquire.putPrefetchType) {
+      printf("  opcode = %d, alloc = %d", op_code(), allocate())
+    }
+    .otherwise {
+      printf("  @@@ unsupported type")
+    }
+
+    when (hasData()) {
+      printf(" data = %x", data)
+    }
+    printf("\n")
+  }
+}
 
 /** [[uncore.AcquireMetadata]] with an extra field containing the entire cache block */
 class BufferedAcquire(implicit p: Parameters) extends AcquireMetadata
@@ -669,7 +709,12 @@ object PutAtomic {
   */
 class Probe(implicit p: Parameters) extends ManagerToClientChannel
   with HasCacheBlockAddress 
-  with HasProbeType
+  with HasDsid
+  with HasProbeType {
+  def dump() = {
+    printf("time %d: Probe cache block addr %x, dsid = %d\n", GTimer(), addr_block << p(CacheBlockOffsetBits), dsid)
+  }
+}
 
 /** [[uncore.Probe]] with an extra field stating its destination id */
 class ProbeToDst(implicit p: Parameters) extends Probe()(p) with HasClientId
@@ -709,6 +754,7 @@ object Probe {
 class ReleaseMetadata(implicit p: Parameters) extends ClientToManagerChannel
     with HasTileLinkBeatId
     with HasCacheBlockAddress 
+    with HasDsid
     with HasClientTransactionId 
     with HasReleaseType {
   def full_addr(dummy: Int = 0) = Cat(this.addr_block, this.addr_beat, UInt(0, width = tlByteAddrBits))
@@ -716,7 +762,15 @@ class ReleaseMetadata(implicit p: Parameters) extends ClientToManagerChannel
 
 /** [[uncore.ReleaseMetadata]] with an extra field containing the data beat */
 class Release(implicit p: Parameters) extends ReleaseMetadata
-  with HasTileLinkData
+  with HasTileLinkData {
+  def dump() = {
+    printf("time %d: Release cache block addr %x, dsid = %d, tranID = %d, beatID = %d, isVoluntary = %d", GTimer(), addr_block << p(CacheBlockOffsetBits), dsid, client_xact_id, addr_beat, isVoluntary())
+    when (hasData()) {
+      printf(" data = %x", data)
+    }
+    printf("\n")
+  }
+}
 
 /** [[uncore.ReleaseMetadata]] with an extra field containing the entire cache block */
 class BufferedRelease(implicit p: Parameters) extends ReleaseMetadata
@@ -803,7 +857,22 @@ class GrantMetadata(implicit p: Parameters) extends ManagerToClientChannel
 
 /** [[uncore.GrantMetadata]] with an extra field containing a single beat of data */
 class Grant(implicit p: Parameters) extends GrantMetadata
-  with HasTileLinkData
+  with HasTileLinkData {
+  def dump() = {
+    printf("time %d: Grant managerTranID = %d, clientTranID = %d, beatID = %d", GTimer(), manager_xact_id, client_xact_id, addr_beat)
+    when (g_type === Grant.voluntaryAckType) { printf(" voluntaryAck") }
+    .elsewhen (g_type === Grant.prefetchAckType) { printf(" prefetchAck") }
+    .elsewhen (g_type === Grant.putAckType) { printf(" putAck") }
+    .elsewhen (g_type === Grant.getDataBeatType) { printf(" getDataBeat") }
+    .elsewhen (g_type === Grant.getDataBlockType) { printf(" getDataBlock") }
+    .otherwise { printf("  @@@ unsupported type")}
+
+    when (hasData()) {
+      printf("  data = %x", data)
+    }
+    printf("\n")
+  }
+}
 
 /** [[uncore.Grant]] with an extra field stating its destination */
 class GrantToDst(implicit p: Parameters) extends Grant
@@ -901,6 +970,9 @@ class Finish(implicit p: Parameters) extends ClientToManagerChannel()(p)
     with HasManagerTransactionId {
   def hasData(dummy: Int = 0) = Bool(false)
   def hasMultibeatData(dummy: Int = 0) = Bool(false)
+  def dump() = {
+    printf("time %d: Finish managerTranID = %d\n", GTimer(), manager_xact_id)
+  }
 }
 
 /** [[uncore.Finish]] with an extra field stating its destination */
@@ -935,6 +1007,16 @@ class TileLinkIO(implicit p: Parameters) extends UncachedTileLinkIO()(p) {
 class ClientUncachedTileLinkIO(implicit p: Parameters) extends TLBundle()(p) {
   val acquire   = new DecoupledIO(new Acquire)
   val grant     = new DecoupledIO(new Grant).flip
+  def dump(s: String = "") = {
+    when (acquire.fire()) {
+      printf(s)
+      acquire.bits.dump()
+    }
+    when (grant.fire()) {
+      printf(s)
+      grant.bits.dump()
+    }
+  }
 }
 
 /** This version of TileLinkIO does not contain network headers. 
@@ -946,6 +1028,39 @@ class ClientTileLinkIO(implicit p: Parameters) extends TLBundle()(p) {
   val release   = new DecoupledIO(new Release)
   val grant     = new DecoupledIO(new GrantFromSrc).flip
   val finish    = new DecoupledIO(new FinishToDst)
+
+  def dump(s: String = "") = {
+    acquire match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    grant match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    finish match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    probe match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    release match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+  }
 }
 
 /** This version of TileLinkIO does not contain network headers, but
@@ -968,4 +1083,37 @@ class ManagerTileLinkIO(implicit p: Parameters) extends TLBundle()(p) {
   val finish    = new DecoupledIO(new Finish).flip
   val probe     = new DecoupledIO(new ProbeToDst)
   val release   = new DecoupledIO(new ReleaseFromSrc).flip
+
+  def dump(s: String = "") = {
+    acquire match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    grant match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    finish match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    probe match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    release match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+  }
 }

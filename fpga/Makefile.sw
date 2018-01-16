@@ -29,7 +29,7 @@ RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .
 #--------------------------------------------------------------------
 
 BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = 9da7d98e851570e42488573697daca762ad01029
+BBL_BUILD_COMMIT = 9e30e8b6e97a7344f47591fbfbf8c69a153617c5
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl

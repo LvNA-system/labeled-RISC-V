@@ -154,6 +154,7 @@ class BufferedBroadcastAcquireTracker(trackerId: Int)(implicit p: Parameters)
   innerProbe(
     inner_coh.makeProbe(curr_probe_dst, xact_iacq, xact_addr_block),
     Mux(!skip_outer_acquire, s_outer_acquire, s_busy))
+  io.inner.probe.bits.dsid := xact_dsid
 
   // Handle incoming releases from clients, which may reduce sharer counts
   // and/or write back dirty data, and may be unexpected voluntary releases

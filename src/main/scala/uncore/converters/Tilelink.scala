@@ -96,6 +96,7 @@ class ClientTileLinkIOUnwrapper(implicit p: Parameters) extends TLModule()(p) {
     addr_beat = iacq.addr_beat,
     data = iacq.data,
     union = iacq.union)
+  acqArb.io.in(0).bits.dsid := iacq.dsid
   io.in.acquire.ready := acq_helper.fire(io.in.acquire.valid)
 
   relRoq.io.enq.valid := rel_helper.fire(rel_roq_ready, rel_roq_enq)
@@ -108,6 +109,7 @@ class ClientTileLinkIOUnwrapper(implicit p: Parameters) extends TLModule()(p) {
     addr_block = irel.addr_block,
     addr_beat = irel.addr_beat,
     data = irel.data)
+  acqArb.io.in(1).bits.dsid := irel.dsid
   io.in.release.ready := rel_helper.fire(io.in.release.valid)
 
   io.out.acquire <> acqArb.io.out

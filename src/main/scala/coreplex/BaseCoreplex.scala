@@ -13,6 +13,7 @@ import uncore.util._
 import uncore.converters._
 import rocket._
 import util._
+import rocketchip.{ExtMemSize}
 
 /** Number of memory channels */
 case object NMemoryChannels extends Field[Int]
@@ -254,9 +255,12 @@ trait CoreplexRISCVPlatformModule {
     io.mem <> mem_ic.io.out
   }
 
+  val size = p(ExtMemSize) / p(NTiles)
   // connect coreplex-internal interrupts to tiles
   for ((tile, i) <- (uncoreTileIOs zipWithIndex)) {
     tile.hartid := UInt(i)
+	tile.base := UInt(0x80000000L + size * i)
+	tile.size := UInt(size)
     tile.resetVector := io.resetVector
     tile.interrupts := outer.clint.module.io.tiles(i)
     tile.interrupts.debug := outer.debug.module.io.debugInterrupts(i)

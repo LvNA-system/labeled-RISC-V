@@ -37,6 +37,8 @@ class Frontend(implicit p: Parameters) extends CoreModule()(p) with HasL1CachePa
     val ptw = new TLBPTWIO()
     val mem = new ClientUncachedTileLinkIO
     val resetVector = UInt(INPUT, vaddrBitsExtended)
+    val base = UInt(INPUT, width = p(XLen))
+    val size = UInt(INPUT, width = p(XLen))
   }
 
   val icache = Module(new ICache(latency = 2))
@@ -116,7 +118,12 @@ class Frontend(implicit p: Parameters) extends CoreModule()(p) with HasL1CachePa
   icache.io.req.valid := !stall && !s0_same_block
   icache.io.req.bits.addr := io.cpu.npc
   icache.io.invalidate := io.cpu.flush_icache
-  icache.io.s1_ppn := tlb.io.resp.ppn
+
+  val isMMIO = (tlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
+  val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
+  val ppn = Mux(isMMIO, tlb.io.resp.ppn, (tlb.io.resp.ppn & ((io.size - 1) >> pgIdxBits)) | base)
+
+  icache.io.s1_ppn := ppn
   icache.io.s1_kill := io.cpu.req.valid || tlb.io.resp.miss || tlb.io.resp.xcpt_if || icmiss || io.cpu.flush_tlb
   icache.io.s2_kill := s2_speculative && !s2_cacheable
   icache.io.resp.ready := !stall && !s1_same_block

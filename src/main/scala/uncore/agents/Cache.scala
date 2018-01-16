@@ -1133,6 +1133,8 @@ class L2WritebackUnit(val trackerId: Int)(implicit p: Parameters) extends XactTr
     xact_way_en := io.wb.req.bits.way_en
     xact_addr_block := (if (cacheIdBits == 0) Cat(io.wb.req.bits.tag, io.wb.req.bits.idx)
                         else Cat(io.wb.req.bits.tag, io.wb.req.bits.idx, UInt(cacheId, cacheIdBits)))
+    // FIXME: propagate dsid in the cache metadata
+    xact_dsid := UInt(1)
     state := s_meta_read
   }
 
