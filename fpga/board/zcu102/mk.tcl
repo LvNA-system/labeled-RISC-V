@@ -10,8 +10,8 @@ if {[llength $argv] > 0} {
   return 1
 }
 
-set device xczu9eg-ffvb1156-2-i
-set board xilinx.com:zcu102:part0:3.0
+set device xczu9eg-ffvb1156-2-e
+set board xilinx.com:zcu102:part0:3.1
 set topmodule system_top
 
 set fpga_dir  [file dirname [info script]]/../..

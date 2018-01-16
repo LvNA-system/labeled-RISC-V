@@ -13,6 +13,7 @@ case object NDsids extends Field[Int]
 // WithRTCPeriod should be put in front of BaseConfig
 class PARDSimConfig extends Config(
   new WithBlockingL1
+  ++ new WithJtagDTM 
   ++ new WithoutFPU
   ++ new WithNCores(2)
   ++ new WithNDsids(3)

@@ -71,7 +71,7 @@ class BasePlatformConfig extends Config(
   })
 
 class BaseConfig extends Config(new BaseCoreplexConfig ++ new BasePlatformConfig)
-class DefaultConfig extends Config(new WithBlockingL1 ++ new BaseConfig)
+class DefaultConfig extends Config(new WithBlockingL1 ++ new WithJtagDTM ++ new BaseConfig)
 
 class DefaultL2Config extends Config(new WithL2Cache ++ new BaseConfig)
 class DefaultBufferlessConfig extends Config(
