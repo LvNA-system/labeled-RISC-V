@@ -150,7 +150,8 @@ class NastiIOTileLinkIOConverter(implicit p: Parameters) extends TLModule()(p)
     size = Mux(is_subblock,
       io.tl.acquire.bits.op_size(),
       UInt(log2Ceil(tlDataBytes))),
-    len = Mux(is_subblock, UInt(0), UInt(tlDataBeats - 1)))
+    len = Mux(is_subblock, UInt(0), UInt(tlDataBeats - 1)),
+	dsid = io.tl.acquire.bits.dsid)
 
   def mask_helper(all_inside_0: Seq[Bool], defsize: Int): (Seq[Bool], UInt, UInt) = {
     val len = all_inside_0.size
@@ -178,7 +179,8 @@ class NastiIOTileLinkIOConverter(implicit p: Parameters) extends TLModule()(p)
     addr = io.tl.acquire.bits.full_addr() |
            Mux(is_multibeat, UInt(0), put_offset),
     size = Mux(is_multibeat, UInt(log2Ceil(tlDataBytes)), put_size),
-    len = Mux(is_multibeat, UInt(tlDataBeats - 1), UInt(0)))
+    len = Mux(is_multibeat, UInt(tlDataBeats - 1), UInt(0)),
+	dsid = io.tl.acquire.bits.dsid)
 
   io.nasti.w.valid := put_helper.fire(io.nasti.w.ready)
   io.nasti.w.bits := NastiWriteDataChannel(

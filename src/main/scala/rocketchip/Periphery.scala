@@ -14,6 +14,7 @@ import uncore.converters._
 import uncore.devices._
 import uncore.agents._
 import uncore.util._
+import uncore.pard.TokenBucket
 import util._
 import rocket.XLen
 import scala.math.max
@@ -185,6 +186,30 @@ trait PeripheryMasterMemModule {
       if (!p(AsyncMemChannels)) axi_sync
       else AsyncNastiTo(io.mem_clk.get(idx), io.mem_rst.get(idx), axi_sync)
     )
+  }
+
+  io.mem_axi.zipWithIndex.foreach { case (axi, i) => axi.dump(s"mem_axi $i: ") }
+
+  // one dsid one bucket
+  val buckets = Seq.fill(p(NDsids)){ Module(new TokenBucket) }
+  val axiIn = io.mem_axi(0)
+  buckets.zipWithIndex.foreach { case (bucket, i) =>
+    val bucketIO = bucket.io
+    // for now, we do not match dsid bits
+    List((bucketIO.read, axiIn.ar), (bucketIO.write, axiIn.aw)).foreach { case (bktCh, axiCh) =>
+      bktCh.valid := axiCh.valid
+      bktCh.ready := axiCh.ready
+      bktCh.bits := (axiCh.bits.len + 1.U) << axiCh.bits.size
+    }
+    bucketIO.rmatch := axiIn.ar.bits.user === UInt(i)
+    bucketIO.wmatch := axiIn.aw.bits.user === UInt(i)
+
+    coreplexTrafficEnable(i).dsid := UInt(i)
+    coreplexTrafficEnable(i).enable := bucketIO.enable
+
+    bucketIO.bucket.size := UInt(32)
+    bucketIO.bucket.freq := UInt(32)
+    bucketIO.bucket.inc := UInt(32)
   }
 
   (io.mem_ahb zip edgeMem) foreach { case (ahb, mem) =>
