@@ -391,21 +391,3 @@ void init_jtag_vpi(void)
   pthread_t tid;
   pthread_create(&tid, NULL, create_jtag_vpi_server, NULL);
 }
-
-// we put this here, just to make the original dtm happy
-namespace {
-  // Remove args that will confuse dtm, such as those that require two tokens, like VCS code coverage "-cm line+cond"
-  std::vector<std::string> filter_argv_for_dtm(int argc, char** argv)
-  {
-	std::vector<std::string> out;
-	for (int i = 1; i < argc; ++i) { // start with 1 to skip my executable name
-	  if (!strncmp(argv[i], "-cm", 3)) {
-		++i; // skip this one and the next one
-	  }
-	  else {
-		out.push_back(argv[i]);
-	  }
-	}
-	return out;
-  }
-}

@@ -11,9 +11,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-// although we don't use the original dtm anymore
-// we put it here, just to make it compilable
-dtm_t* dtm;
 static uint64_t trace_count = 0;
 bool verbose;
 bool done_reset;
@@ -87,8 +84,6 @@ int main(int argc, char** argv)
     tfp->open("");
   }
 #endif
-
-  dtm = new dtm_t(std::vector<std::string>(argv + 1, argv + argc));
 
   void init_jtag_vpi(void);
   init_jtag_vpi();
