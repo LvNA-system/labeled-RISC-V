@@ -5,12 +5,15 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <assert.h>
+#include <string>
 
 #include "JTAGDTM.h"
 #include "dmi.h"
 #include "common.h"
 
 #define DEBUG_INFO 0
+
+using std::string;
 
 // server fd
 int sfd;
@@ -316,7 +319,7 @@ int tbIncsBase = tbFreqsBase + NDsids;
 int cpNWaysBase = tbIncsBase + NDsids;
 int cpDsidMapsBase = cpNWaysBase + NDsids;
 
-void handle_mask(int dsid, int mask) {
+void change_mask(int dsid, int mask) {
   int cnt = 0;
   int cp_addr;
   int cp_value;
@@ -334,7 +337,30 @@ void handle_mask(int dsid, int mask) {
   write_cp_reg(cp_addr, cp_value);
 }
 
+void change_size(int dsid, int size) {
+  write_cp_reg(tbSizesBase + dsid, size);
+}
+
+void change_freq(int dsid, int freq) {
+  write_cp_reg(tbFreqsBase + dsid, freq);
+}
+
+void change_inc(int dsid, int inc) {
+  write_cp_reg(tbIncsBase + dsid, inc);
+}
+
 int main(int argc, char *argv[]) {
+  srand(time(NULL));
+  int port;
+  bool automatic_test = false;
+  for (int i = 1; i < argc; i++) {
+	std::string arg = argv[i];
+	if (arg.substr(0, 2) == "-p")
+	  port = atoi(argv[i]+2);
+	else if (arg.substr(0, 2) == "-a")
+	  automatic_test = true;
+  }
+
   // Socket
   sfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sfd == -1) {
@@ -346,7 +372,7 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in server;
   server.sin_addr.s_addr = inet_addr("127.0.0.1");
   server.sin_family = AF_INET;
-  server.sin_port = htons(8080);
+  server.sin_port = htons(port == 0 ? 8080 : port);
 
   // Connect
   if (connect(sfd, (struct sockaddr *)&server, sizeof(server)) < 0) {
@@ -370,41 +396,46 @@ int main(int argc, char *argv[]) {
 	  dbusIdleCycles, dbusStatus, debugAddrBits, debugVersion);
 
   while (1) {
-	printf("> ");
-	fflush(stdout);
-	char buf[1024];
-	if(!fgets(buf, 1024, stdin))
-	  break;
 	int dsid;
-	int cp_addr;
-	int cp_value;
-	char *s = buf;
-	while (s != NULL) {
-	  char *eq = strchr(s, '='); 
-	  *eq = '\0';
-	  uint32_t value = (uint32_t)strtol(eq + 1, NULL, 16);
-	  if (!strcmp(s, "dsid")) {
-		dsid = value;
-	  } else if(!strcmp(s, "size")) {
-		cp_addr = tbSizesBase + dsid;
-		cp_value = value;
-		write_cp_reg(cp_addr, cp_value);
-	  } else if(!strcmp(s, "freq")) {
-		cp_addr = tbFreqsBase + dsid;
-		cp_value = value;
-		write_cp_reg(cp_addr, cp_value);
-	  } else if(!strcmp(s, "inc")) {
-		cp_addr = tbIncsBase + dsid;
-		cp_value = value;
-		write_cp_reg(cp_addr, cp_value);
-	  } else if(!strcmp(s, "mask")) {
-		handle_mask(dsid, value);
-	  } else {
-		printf("invalid field\n");
+	if (!automatic_test) {
+	  printf("> ");
+	  fflush(stdout);
+	  char buf[1024];
+	  if(!fgets(buf, 1024, stdin))
+		break;
+	  char *s = buf;
+	  while (s != NULL) {
+		char *eq = strchr(s, '='); 
+		*eq = '\0';
+		uint32_t value = (uint32_t)strtol(eq + 1, NULL, 16);
+		if (!strcmp(s, "dsid")) {
+		  dsid = value;
+		} else if(!strcmp(s, "size")) {
+		  change_size(dsid, value);
+		} else if(!strcmp(s, "freq")) {
+		  change_freq(dsid, value);
+		} else if(!strcmp(s, "inc")) {
+		  change_inc(dsid, value);
+		} else if(!strcmp(s, "mask")) {
+		  change_mask(dsid, value);
+		} else {
+		  printf("invalid field\n");
+		}
+		s = strchr(eq + 1, ',');
+		if (s != NULL)
+		  s++;
 	  }
-	  s = strchr(eq + 1, ',');
-	  if (s != NULL)
-		s++;
+	} else {
+	  sleep(0);
+	  int dsid = rand() % NDsids;
+	  int size = rand() % 1000;
+	  int freq = rand() % 1000;
+	  int inc = rand() % 10;
+	  int mask = rand();
+	  change_size(dsid, size);
+	  change_freq(dsid, freq);
+	  change_inc(dsid, inc);
+	  change_mask(dsid, mask);
 	}
   }
 
