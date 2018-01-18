@@ -12,7 +12,7 @@ import uncore.tilelink._
 import uncore.constants._
 import uncore.util._
 import util._
-import rocketchip.{NDsids}
+import rocketchip.{NDsids, CachePartitionConfigIO}
 import cde.{Parameters, Field}
 
 case object CacheName extends Field[String]
@@ -68,31 +68,16 @@ class RandomReplacement(ways: Int) extends ReplacementPolicy {
   def hit = {}
 }
 
-class DsidRandomReplacement(ways: Int, ndsids: Int, dsid: UInt) extends ReplacementPolicy {
+class DsidRandomReplacement(ways: Int, ndsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends ReplacementPolicy {
   private val replace = Wire(Bool())
   replace := Bool(false)
   val lfsr = LFSR16(replace)
 
   // the number of ways each dsid can occupy
-  val dsid_nways = Reg(Vec(ndsids, UInt(width = log2Up(ways))))
-  dsid_nways(0.U) := UInt(ways)
-  // only give core 0 one cache way
-  dsid_nways(1.U) := UInt(1)
-  // core 1 can use half of the cache
-  dsid_nways(2.U) := UInt(ways / 2)
+  val dsid_nways = cachePartitionConfig.nWays
 
   // map a dsid's way number to real way number
-  val dsid_way_map = Reg(Vec(ndsids, Vec(ways, UInt(width = log2Up(ways)))))
-  // for now, we initialize it manually
-  for (i <- 0 until ways) {
-	dsid_way_map(UInt(0))(UInt(i)) := UInt(i)
-  }
-  for (i <- 0 until ways / 2) {
-	dsid_way_map(UInt(1))(UInt(i)) := UInt(i)
-  }
-  for (i <- 0 until ways / 2) {
-	dsid_way_map(UInt(2))(UInt(i)) := UInt(i + ways / 2)
-  }
+  val dsid_way_map = cachePartitionConfig.dsidMaps
 
   // the number of ways this dsid can use
   val nway = dsid_nways(dsid)
@@ -122,8 +107,8 @@ class SeqRandom(n_ways: Int) extends SeqReplacementPolicy {
   def way = logic.way
 }
 
-class DsidSeqRandom(n_ways: Int, ndsids: Int, dsid: UInt) extends SeqReplacementPolicy {
-  val logic = new DsidRandomReplacement(n_ways, ndsids, dsid)
+class DsidSeqRandom(n_ways: Int, ndsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends SeqReplacementPolicy {
+  val logic = new DsidRandomReplacement(n_ways, ndsids, dsid, cachePartitionConfig)
   def access(set: UInt) = { }
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
     when (valid && !hit) { logic.miss }
@@ -371,34 +356,44 @@ trait HasL2MetaRWIO extends HasOuterCacheParameters {
   val meta = new L2MetaRWIO
 }
 
+class L2MetaIO(implicit p: Parameters) extends L2HellaCacheBundle()(p) {
+  val meta = (new L2MetaRWIO).flip
+  val cachePartitionConfig = (new CachePartitionConfigIO).flip
+}
+
 class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
-  val io = new L2MetaRWIO().flip
+  val io = new L2MetaIO
 
   def onReset = L2Metadata(UInt(0), HierarchicalMetadata.onReset)
   val meta = Module(new MetadataArray(onReset _))
-  meta.io.read <> io.read
-  meta.io.write <> io.write
+
+  val metaRead = io.meta.read
+  val metaWrite = io.meta.write
+  val metaResp = io.meta.resp
+
+  meta.io.read <> metaRead
+  meta.io.write <> metaWrite
   val way_en_1h = UInt((BigInt(1) << nWays) - 1)
-  val s1_way_en_1h = RegEnable(way_en_1h, io.read.valid)
+  val s1_way_en_1h = RegEnable(way_en_1h, metaRead.valid)
   meta.io.read.bits.way_en := way_en_1h
 
-  val s1_tag = RegEnable(io.read.bits.tag, io.read.valid)
-  val s1_id = RegEnable(io.read.bits.id, io.read.valid)
-  val s1_dsid = RegEnable(io.read.bits.dsid, io.read.valid)
+  val s1_tag = RegEnable(metaRead.bits.tag, metaRead.valid)
+  val s1_id = RegEnable(metaRead.bits.id, metaRead.valid)
+  val s1_dsid = RegEnable(metaRead.bits.dsid, metaRead.valid)
   def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
-  val s1_clk_en = Reg(next = io.read.fire())
+  val s1_clk_en = Reg(next = metaRead.fire())
   val s1_tag_eq_way = wayMap((w: Int) => meta.io.resp(w).tag === s1_tag)
   val s1_tag_match_way = wayMap((w: Int) => s1_tag_eq_way(w) && meta.io.resp(w).coh.outer.isValid() && s1_way_en_1h(w).toBool).asUInt
-  val s1_idx = RegEnable(io.read.bits.idx, io.read.valid) // deal with stalls?
+  val s1_idx = RegEnable(metaRead.bits.idx, metaRead.valid) // deal with stalls?
   val s2_tag_match_way = RegEnable(s1_tag_match_way, s1_clk_en)
   val s2_tag_match = s2_tag_match_way.orR
   val s2_hit_coh = Mux1H(s2_tag_match_way, wayMap((w: Int) => RegEnable(meta.io.resp(w).coh, s1_clk_en)))
 
-  val replacer = new DsidSeqRandom(p(NWays), p(NDsids), s1_dsid)
+  val replacer = new DsidSeqRandom(p(NWays), p(NDsids), s1_dsid, io.cachePartitionConfig)
   val s1_hit_way = Wire(Bits())
   s1_hit_way := Bits(0)
   (0 until nWays).foreach(i => when (s1_tag_match_way(i)) { s1_hit_way := Bits(i) })
-  replacer.access(io.read.bits.idx)
+  replacer.access(metaRead.bits.idx)
   replacer.update(s1_clk_en, s1_tag_match_way.orR, s1_idx, s1_hit_way)
 
   val s1_replaced_way_en = UIntToOH(replacer.way)
@@ -406,13 +401,13 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
   val s2_repl_meta = Mux1H(s2_replaced_way_en, wayMap((w: Int) => 
     RegEnable(meta.io.resp(w), s1_clk_en && s1_replaced_way_en(w))).toSeq)
 
-  io.resp.valid := Reg(next = s1_clk_en)
-  io.resp.bits.id := RegEnable(s1_id, s1_clk_en)
-  io.resp.bits.tag_match := s2_tag_match
-  io.resp.bits.meta := Mux(s2_tag_match, 
+  metaResp.valid := Reg(next = s1_clk_en)
+  metaResp.bits.id := RegEnable(s1_id, s1_clk_en)
+  metaResp.bits.tag_match := s2_tag_match
+  metaResp.bits.meta := Mux(s2_tag_match, 
     L2Metadata(s2_repl_meta.tag, s2_hit_coh), 
     s2_repl_meta)
-  io.resp.bits.way_en := Mux(s2_tag_match, s2_tag_match_way, s2_replaced_way_en)
+  metaResp.bits.way_en := Mux(s2_tag_match, s2_tag_match_way, s2_replaced_way_en)
 }
 
 class L2DataReadReq(implicit p: Parameters) extends L2HellaCacheBundle()(p)
@@ -508,10 +503,12 @@ class L2HellaCacheBank(implicit p: Parameters) extends HierarchicalCoherenceAgen
   val meta = Module(new L2MetadataArray) // TODO: add delay knob
   val data = Module(new L2DataArray(1))
   val tshrfile = Module(new TSHRFile)
-  io.inner <> tshrfile.io.inner
-  io.outer <> tshrfile.io.outer
-  tshrfile.io.incoherent <> io.incoherent
-  meta.io <> tshrfile.io.meta
+
+  io.tl.inner <> tshrfile.io.inner
+  io.tl.outer <> tshrfile.io.outer
+  tshrfile.io.incoherent <> io.tl.incoherent
+  meta.io.meta <> tshrfile.io.meta
+  meta.io.cachePartitionConfig <> io.cachePartitionConfig
   data.io <> tshrfile.io.data
 
   disconnectOuterProbeAndFinish()

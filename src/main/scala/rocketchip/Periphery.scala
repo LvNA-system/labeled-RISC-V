@@ -207,9 +207,9 @@ trait PeripheryMasterMemModule {
     coreplexTrafficEnable(i).dsid := UInt(i)
     coreplexTrafficEnable(i).enable := bucketIO.enable
 
-    bucketIO.bucket.size := UInt(32)
-    bucketIO.bucket.freq := UInt(32)
-    bucketIO.bucket.inc := UInt(32)
+    bucketIO.bucket.size := tokenBucketConfig.sizes(i)
+    bucketIO.bucket.freq := tokenBucketConfig.freqs(i)
+    bucketIO.bucket.inc := tokenBucketConfig.incs(i)
   }
 
   (io.mem_ahb zip edgeMem) foreach { case (ahb, mem) =>

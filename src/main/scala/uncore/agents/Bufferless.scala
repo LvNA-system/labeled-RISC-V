@@ -21,17 +21,17 @@ class BufferlessBroadcastHub(implicit p: Parameters) extends HierarchicalCoheren
   val trackerList = irelTrackerList ++ iacqTrackerList
 
   // Propagate incoherence flags
-  trackerList.map(_.io.incoherent) foreach { _ := io.incoherent }
+  trackerList.map(_.io.incoherent) foreach { _ := io.tl.incoherent }
 
   // Create an arbiter for the one memory port
   val outerList = trackerList.map(_.io.outer)
   val outer_arb = Module(new ClientTileLinkIOArbiter(outerList.size)
                                                     (p.alterPartial({ case TLId => p(OuterTLId) })))
   outer_arb.io.in <> outerList
-  io.outer <> outer_arb.io.out
+  io.tl.outer <> outer_arb.io.out
 
-  val iacq = Queue(io.inner.acquire, 1, pipe=true)
-  val irel = Queue(io.inner.release, 1, pipe=true)
+  val iacq = Queue(io.tl.inner.acquire, 1, pipe=true)
+  val irel = Queue(io.tl.inner.release, 1, pipe=true)
 
   // Handle acquire transaction initiation
   val irel_vs_iacq_conflict =
@@ -44,9 +44,9 @@ class BufferlessBroadcastHub(implicit p: Parameters) extends HierarchicalCoheren
     outs = trackerList.map(_.io.inner.acquire),
     allocs = trackerList.map(_.io.alloc.iacq),
     allocOverride = Some(!irel_vs_iacq_conflict))
-  io.outer.acquire.bits.data := iacq.bits.data
-  when (io.oacq().hasData()) {
-    io.outer.acquire.bits.addr_beat := iacq.bits.addr_beat
+  io.tl.outer.acquire.bits.data := iacq.bits.data
+  when (io.tl.oacq().hasData()) {
+    io.tl.outer.acquire.bits.addr_beat := iacq.bits.addr_beat
   }
 
   // Handle releases, which might be voluntary and might have data
@@ -54,19 +54,19 @@ class BufferlessBroadcastHub(implicit p: Parameters) extends HierarchicalCoheren
     in = irel,
     outs = trackerList.map(_.io.inner.release),
     allocs = trackerList.map(_.io.alloc.irel))
-  io.outer.release.bits.data := irel.bits.data
-  when (io.orel().hasData()) {
-    io.outer.release.bits.addr_beat := irel.bits.addr_beat
+  io.tl.outer.release.bits.data := irel.bits.data
+  when (io.tl.orel().hasData()) {
+    io.tl.outer.release.bits.addr_beat := irel.bits.addr_beat
   }
 
   // Wire probe requests and grant reply to clients, finish acks from clients
-  doOutputArbitration(io.inner.probe, trackerList.map(_.io.inner.probe))
+  doOutputArbitration(io.tl.inner.probe, trackerList.map(_.io.inner.probe))
 
-  doOutputArbitration(io.inner.grant, trackerList.map(_.io.inner.grant))
-  io.inner.grant.bits.data := io.outer.grant.bits.data
-  io.inner.grant.bits.addr_beat := io.outer.grant.bits.addr_beat
+  doOutputArbitration(io.tl.inner.grant, trackerList.map(_.io.inner.grant))
+  io.tl.inner.grant.bits.data := io.tl.outer.grant.bits.data
+  io.tl.inner.grant.bits.addr_beat := io.tl.outer.grant.bits.addr_beat
 
-  doInputRouting(io.inner.finish, trackerList.map(_.io.inner.finish))
+  doInputRouting(io.tl.inner.finish, trackerList.map(_.io.inner.finish))
 
   disconnectOuterProbeAndFinish()
 }

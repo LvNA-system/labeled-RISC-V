@@ -71,10 +71,11 @@ trait TopNetworkModule extends HasPeripheryParameters {
   implicit val p = outer.p
 
   val coreplexMem  : Vec[ClientUncachedTileLinkIO] = Wire(outer.coreplex.module.io.mem)
-  val coreplexTrafficEnable : Vec[TrafficEnableIO] = Wire(outer.coreplex.module.io.trafficEnable)
   val coreplexSlave: Vec[ClientUncachedTileLinkIO] = Wire(outer.coreplex.module.io.slave)
   val coreplexDebug: DebugBusIO                    = Wire(outer.coreplex.module.io.debug)
   val coreplexRtc  : Bool                          = Wire(outer.coreplex.module.io.rtcTick)
+  val coreplexTrafficEnable : Vec[TrafficEnableIO] = Wire(outer.coreplex.module.io.trafficEnable)
+  val tokenBucketConfig = Wire(new TokenBucketConfigIO)
 
   io.success := outer.coreplex.module.io.success
 
@@ -107,7 +108,8 @@ trait DirectConnectionModule {
   } =>
 
   coreplexMem <> outer.coreplex.module.io.mem
-  outer.coreplex.module.io.trafficEnable <> coreplexTrafficEnable 
   outer.coreplex.module.io.slave <> coreplexSlave
   outer.coreplex.module.io.debug <> coreplexDebug
+  outer.coreplex.module.io.trafficEnable <> coreplexTrafficEnable 
+  tokenBucketConfig <> outer.coreplex.module.io.tokenBucketConfig
 }

@@ -8,7 +8,7 @@ import util._
 import regmapper._
 import uncore.tilelink2._
 import cde.{Parameters, Config, Field}
-import rocketchip.{ControlPlaneIO, ControlPlaneModule, ControlPlaneConsts}
+import rocketchip.{ControlPlaneRWIO, ControlPlaneConsts}
 
 // *****************************************
 // Constants which are interesting even
@@ -322,6 +322,7 @@ trait DebugModuleBundle extends Bundle with HasDebugModuleParameters {
   val debugInterrupts = Vec(cfg.nComponents, Bool()).asOutput
   val ndreset    = Bool(OUTPUT)
   val fullreset  = Bool(OUTPUT)
+  val cpio = new ControlPlaneRWIO
 }
 
 
@@ -645,8 +646,6 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   //--------------------------------------------------------------
   // ControlPlane related modules and wires
   //--------------------------------------------------------------
-  val cp = Module(new ControlPlaneModule)
-
   val cpAddr = Wire(new ControlPlaneAddrFields())
   val cpData = Wire(new ControlPlaneDataFields())
 
@@ -683,12 +682,12 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   val cpAddrReadFire = isCPAddrRead && dbReqFire
   val cpDataReadFire = isCPDataRead && dbReqFire
 
-  cp.io.ren := cpAddrWriteFire && (cpAddr.rw === cpRead)
-  cp.io.raddr := cpAddr.addr
+  io.cpio.ren := cpAddrWriteFire && (cpAddr.rw === cpRead)
+  io.cpio.raddr := cpAddr.addr
   // if cpBusy is set, we know that, we already write the cp addr
-  cp.io.wen := cpDataWriteFire && cpBusy
-  cp.io.waddr := cpAddrReg
-  cp.io.wdata := cpData.data
+  io.cpio.wen := cpDataWriteFire && cpBusy
+  io.cpio.waddr := cpAddrReg
+  io.cpio.wdata := cpData.data
 
   // handle write on sbusaddr0 and sdata0
   when (cpAddrWriteFire) {
@@ -701,7 +700,7 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
     cpBusy := false.B
   }
 
-  when (cp.io.ren) { cpDataReg := cp.io.rdata }
+  when (io.cpio.ren) { cpDataReg := io.cpio.rdata }
 
   // handle read on sbusaddr0 and sdata0
   when (cpAddrReadFire) {

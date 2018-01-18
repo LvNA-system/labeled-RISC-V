@@ -21,9 +21,7 @@ class PARDSimConfig extends Config(
   ++ new WithExtMemSize(0x2000000L) // 32MB
   ++ new WithL2Capacity(128)
   ++ new WithNL2Ways(16)
-//  ++ new WithAddressMapperBase(0x80000000L)
 //  ++ new WithRTCPeriod(5)
-//  ++ new BucketConfig
 //  ++ new DefaultConfig)
   ++ new DefaultL2Config)
 

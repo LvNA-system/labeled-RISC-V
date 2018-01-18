@@ -31,39 +31,39 @@ import cde.{Parameters, Field, Config}
   */
 
 class ManagerToClientStatelessBridge(implicit p: Parameters) extends HierarchicalCoherenceAgent()(p) {
-  val icid = io.inner.tlClientIdBits
-  val ixid = io.inner.tlClientXactIdBits
-  val oxid = io.outer.tlClientXactIdBits
+  val icid = io.tl.inner.tlClientIdBits
+  val ixid = io.tl.inner.tlClientXactIdBits
+  val oxid = io.tl.outer.tlClientXactIdBits
 
-  val innerCoh = io.inner.tlCoh.getClass
-  val outerCoh = io.outer.tlCoh.getClass
+  val innerCoh = io.tl.inner.tlCoh.getClass
+  val outerCoh = io.tl.outer.tlCoh.getClass
 
   // Stateless Bridge is only usable in certain constrained situations.
   // Sanity check its usage here.
 
-  require(io.inner.tlNCachingClients <= 1)
+  require(io.tl.inner.tlNCachingClients <= 1)
   require(icid + ixid <= oxid)
   require(innerCoh eq outerCoh,
     s"Coherence policies do not match: inner is ${innerCoh.getSimpleName}, outer is ${outerCoh.getSimpleName}")
 
-  io.outer.acquire.valid := io.inner.acquire.valid
-  io.inner.acquire.ready := io.outer.acquire.ready
-  io.outer.acquire.bits := io.inner.acquire.bits
-  io.outer.acquire.bits.client_xact_id := Cat(io.inner.acquire.bits.client_id, io.inner.acquire.bits.client_xact_id)
+  io.tl.outer.acquire.valid := io.tl.inner.acquire.valid
+  io.tl.inner.acquire.ready := io.tl.outer.acquire.ready
+  io.tl.outer.acquire.bits := io.tl.inner.acquire.bits
+  io.tl.outer.acquire.bits.client_xact_id := Cat(io.tl.inner.acquire.bits.client_id, io.tl.inner.acquire.bits.client_xact_id)
 
-  io.outer.release.valid := io.inner.release.valid
-  io.inner.release.ready := io.outer.release.ready
-  io.outer.release.bits := io.inner.release.bits
-  io.outer.release.bits.client_xact_id := Cat(io.inner.release.bits.client_id, io.inner.release.bits.client_xact_id)
+  io.tl.outer.release.valid := io.tl.inner.release.valid
+  io.tl.inner.release.ready := io.tl.outer.release.ready
+  io.tl.outer.release.bits := io.tl.inner.release.bits
+  io.tl.outer.release.bits.client_xact_id := Cat(io.tl.inner.release.bits.client_id, io.tl.inner.release.bits.client_xact_id)
 
-  io.inner.grant.valid := io.outer.grant.valid
-  io.outer.grant.ready := io.inner.grant.ready
-  io.inner.grant.bits := io.outer.grant.bits
-  io.inner.grant.bits.client_xact_id := io.outer.grant.bits.client_xact_id(ixid-1, 0)
-  io.inner.grant.bits.client_id := io.outer.grant.bits.client_xact_id(icid+ixid-1, ixid)
+  io.tl.inner.grant.valid := io.tl.outer.grant.valid
+  io.tl.outer.grant.ready := io.tl.inner.grant.ready
+  io.tl.inner.grant.bits := io.tl.outer.grant.bits
+  io.tl.inner.grant.bits.client_xact_id := io.tl.outer.grant.bits.client_xact_id(ixid-1, 0)
+  io.tl.inner.grant.bits.client_id := io.tl.outer.grant.bits.client_xact_id(icid+ixid-1, ixid)
 
-  io.inner.probe.valid := Bool(false)
-  io.inner.finish.ready := Bool(true)
+  io.tl.inner.probe.valid := Bool(false)
+  io.tl.inner.finish.ready := Bool(true)
 
   disconnectOuterProbeAndFinish()
 }
