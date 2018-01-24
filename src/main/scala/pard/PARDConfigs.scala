@@ -12,11 +12,13 @@ class PARDSimConfig extends Config(
   new WithBlockingL1
   ++ new WithJtagDTM 
   ++ new WithoutFPU
+  ++ new WithNCores(2)
 //  ++ new WithAynchronousRocketTiles(8, 3)
-  ++ new WithExtMemSize(0x1000000L) // 16MB
+  ++ new WithExtMemSize(0x2000000L) // 32MB
 //  ++ new WithAddressMapperBase(0x80000000L)
-  ++ new WithRTCPeriod(5)
+//  ++ new WithRTCPeriod(5)
 //  ++ new BucketConfig
+//  ++ new DefaultConfig)
   ++ new DefaultL2Config)
 
 class PARDFPGAConfigzedboard extends Config(
@@ -25,11 +27,12 @@ class PARDFPGAConfigzedboard extends Config(
   //++ new WithJtagDTM
   ++ new WithExtMemSize(0x80000000L)
 //  ++ new WithAddressMapperBase(0x10000000L) // 256MB
-  ++ new WithNCores(1)
+  ++ new WithNCores(4)
+  ++ new WithNBtbEntry(0)
 //  ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithRTCPeriod(4) // gives 10 MHz RTC assuming 40 MHz uncore clock
 //  ++ new BucketConfig
-  ++ new WithL2Capacity(128)
+  ++ new WithL2Capacity(256)
   ++ new WithNL2Ways(16)
   ++ new WithPLRU
   ++ new DefaultL2FPGAConfig

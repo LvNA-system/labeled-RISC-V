@@ -4,7 +4,6 @@
 #if VM_TRACE
 #include "verilated_vcd_c.h"
 #endif
-#include <fesvr/dtm.h>
 #include <iostream>
 #include <fcntl.h>
 #include <signal.h>
@@ -21,7 +20,8 @@ bool done_reset;
 
 void handle_sigterm(int sig)
 {
-  dtm->stop();
+  printf("Interrupted\n");
+  exit(0);
 }
 
 double sc_time_stamp()
@@ -105,7 +105,7 @@ int main(int argc, char** argv)
   }
   done_reset = true;
 
-  while (!dtm->done() && !tile->io_success && trace_count < max_cycles) {
+  while (!tile->io_success && trace_count < max_cycles) {
     tile->clock = 0;
     tile->eval();
 #if VM_TRACE
@@ -131,12 +131,7 @@ int main(int argc, char** argv)
   if (vcdfile)
     fclose(vcdfile);
 
-  if (dtm->exit_code())
-  {
-    fprintf(stderr, "*** FAILED *** (code = %d, seed %d) after %ld cycles\n", dtm->exit_code(), random_seed, trace_count);
-    ret = dtm->exit_code();
-  }
-  else if (trace_count == max_cycles)
+  if (trace_count == max_cycles)
   {
     fprintf(stderr, "*** FAILED *** (timeout, seed %d) after %ld cycles\n", random_seed, trace_count);
     ret = 2;
@@ -146,8 +141,6 @@ int main(int argc, char** argv)
     fprintf(stderr, "Completed after %ld cycles\n", trace_count);
   }
 
-  delete dtm;
   delete tile;
-
   return ret;
 }

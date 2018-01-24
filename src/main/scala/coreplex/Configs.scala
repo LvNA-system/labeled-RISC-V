@@ -159,6 +159,7 @@ class BaseCoreplexConfig extends Config (
       case BankIdLSB => 0
       case CacheBlockBytes => Dump("CACHE_BLOCK_BYTES", 64)
       case CacheBlockOffsetBits => log2Up(here(CacheBlockBytes))
+      case DsidBits => 5
       case EnableL2Logging => false
       case _ => throw new CDEMatchError
   }},
@@ -373,6 +374,13 @@ class WithSplitL2Metadata extends Config(
 class WithDefaultBtb extends Config (
   topDefinitions = { (pname,site,here) => pname match {
     case BtbKey => BtbParameters()
+    case _ => throw new CDEMatchError
+  }}
+)
+
+class WithNBtbEntry(n :Int) extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+    case BtbKey => BtbParameters(nEntries = n)
     case _ => throw new CDEMatchError
   }}
 )

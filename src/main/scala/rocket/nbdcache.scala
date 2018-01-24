@@ -791,6 +791,8 @@ class HellaCache(cfg: DCacheConfig)(implicit p: Parameters) extends L1HellaCache
     val cpu = (new HellaCacheIO).flip
     val ptw = new TLBPTWIO()
     val mem = new ClientTileLinkIO
+    val base = UInt(INPUT, width = p(XLen))
+    val size = UInt(INPUT, width = p(XLen))
   }
  
   require(isPow2(nWays)) // TODO: relax this
@@ -847,7 +849,11 @@ class HellaCache(cfg: DCacheConfig)(implicit p: Parameters) extends L1HellaCache
   when (s2_recycle) {
     s1_req := s2_req
   }
-  val s1_addr = Cat(dtlb.io.resp.ppn, s1_req.addr(pgIdxBits-1,0))
+
+  val isMMIO = (dtlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
+  val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
+  val ppn = Mux(isMMIO, dtlb.io.resp.ppn, (dtlb.io.resp.ppn & ((io.size - 1) >> pgIdxBits)) | base)
+  val s1_addr = Cat(ppn, s1_req.addr(pgIdxBits-1,0))
 
   when (s1_clk_en) {
     s2_req.typ := s1_req.typ
