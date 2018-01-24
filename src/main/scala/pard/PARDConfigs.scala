@@ -28,7 +28,7 @@ class PARDSimConfig extends Config(
 class PARDFPGAConfigzedboard extends Config(
   new WithBlockingL1
   ++ new WithoutFPU
-  //++ new WithJtagDTM
+  ++ new WithJtagDTM
   ++ new WithExtMemSize(0x80000000L)
 //  ++ new WithAddressMapperBase(0x10000000L) // 256MB
   ++ new WithNCores(4)
@@ -45,7 +45,7 @@ class PARDFPGAConfigzedboard extends Config(
 class PARDFPGAConfigzcu102 extends Config(
   new WithBlockingL1
   ++ new WithoutFPU
-  //++ new WithJtagDTM
+  ++ new WithJtagDTM
   ++ new WithExtMemSize(0x80000000L)
 //  ++ new WithAddressMapperBase(0x0L)
   ++ new WithNCores(1)

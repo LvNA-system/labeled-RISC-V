@@ -251,6 +251,11 @@ proc create_root_design { parentCell } {
   # Create ports
   set coreclk [ create_bd_port -dir I coreclk ]
   set corersts [ create_bd_port -dir I -from 1 -to 0 corersts ]
+  set jtag_TCK [ create_bd_port -dir I jtag_TCK ]
+  set jtag_TDI [ create_bd_port -dir I jtag_TDI ]
+  set jtag_TDO [ create_bd_port -dir O jtag_TDO ]
+  set jtag_TMS [ create_bd_port -dir I jtag_TMS ]
+  set jtag_TRST [ create_bd_port -dir I jtag_TRST ]
   set uncore_rstn [ create_bd_port -dir I -from 0 -to 0 -type rst uncore_rstn ]
   set uncoreclk [ create_bd_port -dir I -type clk uncoreclk ]
   set_property -dict [ list \
@@ -322,12 +327,17 @@ CONFIG.MAX_BURST_LENGTH {256} \
   connect_bd_intf_net -intf_net axi_protocol_converter_0_M_AXI [get_bd_intf_ports M_AXILITE_MMIO] [get_bd_intf_pins axi_protocol_converter_0/M_AXI]
 
   # Create port connections
+  connect_bd_net -net PARDFPGATop_0_io_jtag_TDO [get_bd_ports jtag_TDO] [get_bd_pins PARDFPGATop_0/io_jtag_TDO]
   connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins PARDFPGATop_0/clock] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
   connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
+  connect_bd_net -net io_jtag_TDI_1 [get_bd_ports jtag_TDI] [get_bd_pins PARDFPGATop_0/io_jtag_TDI]
+  connect_bd_net -net io_jtag_TRST_1 [get_bd_ports jtag_TRST] [get_bd_pins PARDFPGATop_0/io_jtag_TRST]
+  connect_bd_net -net jtag_TCK_1 [get_bd_ports jtag_TCK] [get_bd_pins PARDFPGATop_0/io_jtag_TCK]
+  connect_bd_net -net jtag_TMS_1 [get_bd_ports jtag_TMS] [get_bd_pins PARDFPGATop_0/io_jtag_TMS]
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
   connect_bd_net -net uncore_rstn_1 [get_bd_ports uncore_rstn] [get_bd_pins proc_sys_reset_0/ext_reset_in]
   connect_bd_net -net xlslice_0_Dout [get_bd_pins PARDFPGATop_0/reset] [get_bd_pins xlslice_0/Dout]
-  connect_bd_net -net xlslice_2_Dout [get_bd_pins PARDFPGATop_0/io_debug_req_valid] [get_bd_pins PARDFPGATop_0/io_interrupts_0_0] [get_bd_pins PARDFPGATop_0/io_interrupts_0_1] [get_bd_pins xlconstant_0/dout]
+  connect_bd_net -net xlslice_2_Dout [get_bd_pins PARDFPGATop_0/io_interrupts_0_0] [get_bd_pins PARDFPGATop_0/io_interrupts_0_1] [get_bd_pins xlconstant_0/dout]
 
   # Create address segments
   create_bd_addr_seg -range 0x20000000 -offset 0x60000000 [get_bd_addr_spaces PARDFPGATop_0/io_mmio_axi_0] [get_bd_addr_segs M_AXILITE_MMIO/Reg] SEG_M_AXILITE_MMIO_Reg
@@ -348,6 +358,4 @@ CONFIG.MAX_BURST_LENGTH {256} \
 
 create_root_design ""
 
-
-common::send_msg_id "BD_TCL-1000" "WARNING" "This Tcl script was generated from a block design that has not been validated. It is possible that design <$design_name> may result in errors during validation."
 
