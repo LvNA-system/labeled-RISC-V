@@ -11,9 +11,10 @@ import uncore.agents._
 import uncore.devices._
 import uncore.util._
 import uncore.converters._
+import uncore.pard.{ClientUncachedTileLinkControlCrossing, ClientTileLinkControlCrossing}
 import rocket._
 import util._
-import rocketchip.{ExtMemSize}
+import rocketchip.{ExtMemSize, NDsids, ControlPlaneModule, TokenBucketConfigIO}
 
 /** Number of memory channels */
 case object NMemoryChannels extends Field[Int]
@@ -161,6 +162,12 @@ trait CoreplexRISCVPlatform {
   tileIntNodes.foreach { _ := plic.intnode }
 }
 
+class TrafficEnableIO(implicit val p: Parameters) extends Bundle {
+  val dsid = UInt(OUTPUT, p(DsidBits))
+  val enable = Bool(OUTPUT)
+  override def cloneType = (new TrafficEnableIO).asInstanceOf[this.type]
+}
+
 trait CoreplexRISCVPlatformBundle {
   this: CoreplexNetworkBundle {
     val outer: CoreplexRISCVPlatform
@@ -172,6 +179,9 @@ trait CoreplexRISCVPlatformBundle {
   val rtcTick = Bool(INPUT)
   val resetVector = UInt(INPUT, p(XLen))
   val success = Bool(OUTPUT) // used for testing
+
+  val trafficEnable = Vec(p(NDsids), new TrafficEnableIO()).flip
+  val tokenBucketConfig = new TokenBucketConfigIO
 }
 
 trait CoreplexRISCVPlatformModule {
@@ -182,6 +192,9 @@ trait CoreplexRISCVPlatformModule {
 
   val tiles = outer.lazyTiles.map(_.module)
   val uncoreTileIOs = (tiles zipWithIndex) map { case (tile, i) => Wire(tile.io) }
+
+  val cp = Module(new ControlPlaneModule()(p.alterPartial({
+                          case CacheName => "L2Bank"})))
 
   println("\nGenerated Address Map")
   for (entry <- p(rocketchip.GlobalAddrMap).flatten) {
@@ -209,6 +222,31 @@ trait CoreplexRISCVPlatformModule {
   val nUncachedPorts = tiles.map(tile => tile.io.uncached.size).reduce(_ + _)
   val nBanks = nMemChannels * nBanksPerMemChannel
 
+  val cachedPorts = uncoreTileIOs.map(_.cached).flatten
+  val uncachedPorts = uncoreTileIOs.map(_.uncached).flatten
+
+  val cachedControlCrossing = Seq.fill(nCachedPorts){
+    Module(new ClientTileLinkControlCrossing()(
+      p.alterPartial({case TLId => "L1toL2"
+  }))) }
+  val uncachedControlCrossing = Seq.fill(nUncachedPorts){
+    Module(new ClientUncachedTileLinkControlCrossing()(
+      p.alterPartial({
+  case TLId => "L1toL2"
+  }))) }
+
+  val controlledCachedPorts = (cachedPorts zip cachedControlCrossing) map {case (p, cross) =>
+    cross.io.in <> p
+    cross.io.enable := io.trafficEnable.map(e => Mux(e.dsid === p.acquire.bits.dsid, e.enable, Bool(true))).reduce(_ && _)
+    cross.io.out
+  }
+
+  val controlledUncachedPorts = (uncachedPorts zip uncachedControlCrossing) map {case (p, cross) =>
+    cross.io.in <> p
+    cross.io.enable := io.trafficEnable.map(e => Mux(e.dsid === p.acquire.bits.dsid, e.enable, Bool(true))).reduce(_ && _)
+    cross.io.out
+  }
+
   buildUncore(p.alterPartial({
     case HastiId => "TL"
     case TLId => "L1toL2"
@@ -230,6 +268,7 @@ trait CoreplexRISCVPlatformModule {
     // Create point(s) of coherence serialization
     val managerEndpoints = List.tabulate(nBanks){id => p(BuildL2CoherenceManager)(id, p)}
     managerEndpoints.flatMap(_.incoherent).foreach(_ := Bool(false))
+    managerEndpoints.map(_.cachePartitionConfig).foreach(_ <> cp.io.cachePartitionConfig)
 
     val mmioManager = Module(new MMIOTileLinkManager()(p.alterPartial({
         case TLId => "L1toL2"
@@ -239,8 +278,9 @@ trait CoreplexRISCVPlatformModule {
 
     // Wire the tiles to the TileLink client ports of the L1toL2 network,
     // and coherence manager(s) to the other side
-    l1tol2net.io.clients_cached <> uncoreTileIOs.map(_.cached).flatten
-    l1tol2net.io.clients_uncached <> uncoreTileIOs.map(_.uncached).flatten ++ io.slave
+    l1tol2net.io.clients_cached <> controlledCachedPorts
+    l1tol2net.io.clients_uncached <> controlledUncachedPorts ++ io.slave
+
     l1tol2net.io.managers <> managerEndpoints.map(_.innerTL) :+ mmioManager.io.inner
     outer.legacy.module.io.legacy <>  mmioManager.io.outer 
 
@@ -259,8 +299,8 @@ trait CoreplexRISCVPlatformModule {
   // connect coreplex-internal interrupts to tiles
   for ((tile, i) <- (uncoreTileIOs zipWithIndex)) {
     tile.hartid := UInt(i)
-	tile.base := UInt(0x80000000L + size * i)
-	tile.size := UInt(size)
+    tile.base := cp.io.addressMapperConfig.bases(UInt(i))
+    tile.size := cp.io.addressMapperConfig.sizes(UInt(i))
     tile.resetVector := io.resetVector
     tile.interrupts := outer.clint.module.io.tiles(i)
     tile.interrupts.debug := outer.debug.module.io.debugInterrupts(i)
@@ -269,6 +309,8 @@ trait CoreplexRISCVPlatformModule {
   }
 
   outer.debug.module.io.db <> io.debug
+  cp.io.rw <> outer.debug.module.io.cpio
+  io.tokenBucketConfig <> cp.io.tokenBucketConfig
   outer.clint.module.io.rtcTick := io.rtcTick
 
   // Coreplex doesn't know when to stop running

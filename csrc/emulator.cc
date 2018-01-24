@@ -11,9 +11,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-// although we don't use the original dtm anymore
-// we put it here, just to make it compilable
-dtm_t* dtm;
 static uint64_t trace_count = 0;
 bool verbose;
 bool done_reset;
@@ -39,6 +36,11 @@ extern "C" int vpi_get_vlog_info(void* arg)
 {
   return 0;
 }
+
+// TCP port on which to accpet jtag debug connection
+int port = 0;
+FILE *trace = NULL;
+FILE *replay_trace = NULL;
 
 int main(int argc, char** argv)
 {
@@ -67,10 +69,29 @@ int main(int argc, char** argv)
       start = atoll(argv[i]+7);
     else if (arg.substr(0, 12) == "+cycle-count")
       print_cycles = true;
+    else if (arg.substr(0, 2) == "-p")
+      port = atoi(argv[i]+2);
+    else if (arg.substr(0, 7) == "+trace=") {
+      const char* filename = argv[i]+7;
+      trace = strcmp(filename, "-") == 0 ? stdout : fopen(filename, "w");
+      if (!trace)
+        abort();
+	}
+    else if (arg.substr(0, 14) == "+replay_trace=") {
+      const char* filename = argv[i]+14;
+      replay_trace = strcmp(filename, "-") == 0 ? stdout : fopen(filename, "r");
+      if (!replay_trace)
+        abort();
+	}
   }
 
   if (verbose)
     fprintf(stderr, "using random seed %u\n", random_seed);
+
+  if (replay_trace && trace) {
+    fprintf(stderr, "You can not simutaneously trace and replay trace");
+	abort();
+  }
 
   srand(random_seed);
   srand48(random_seed);
@@ -87,8 +108,6 @@ int main(int argc, char** argv)
     tfp->open("");
   }
 #endif
-
-  dtm = new dtm_t(std::vector<std::string>(argv + 1, argv + argc));
 
   void init_jtag_vpi(void);
   init_jtag_vpi();
@@ -130,6 +149,12 @@ int main(int argc, char** argv)
 
   if (vcdfile)
     fclose(vcdfile);
+
+  if (trace)
+    fclose(trace);
+
+  if (replay_trace)
+    fclose(replay_trace);
 
   if (trace_count == max_cycles)
   {

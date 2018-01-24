@@ -12,6 +12,7 @@ import uncore.tilelink._
 import uncore.constants._
 import uncore.util._
 import util._
+import rocketchip.{NDsids, CachePartitionConfigIO}
 import cde.{Parameters, Field}
 
 case object CacheName extends Field[String]
@@ -67,6 +68,30 @@ class RandomReplacement(ways: Int) extends ReplacementPolicy {
   def hit = {}
 }
 
+class DsidRandomReplacement(ways: Int, ndsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends ReplacementPolicy {
+  private val replace = Wire(Bool())
+  replace := Bool(false)
+  val lfsr = LFSR16(replace)
+
+  // the number of ways each dsid can occupy
+  val dsid_nways = cachePartitionConfig.nWays
+
+  // map a dsid's way number to real way number
+  val dsid_way_map = cachePartitionConfig.dsidMaps
+
+  // the number of ways this dsid can use
+  val nway = dsid_nways(dsid)
+  val target_way = Wire(UInt(width = log2Up(ways)))
+  when (nway === UInt(1)) {
+	target_way := UInt(0)
+  }.otherwise {
+	target_way := dsid_way_map(dsid)(lfsr(log2Up(ways)-1,0) & (nway - UInt(1)))
+  }
+  def way = target_way
+  def miss = replace := Bool(true)
+  def hit = {}
+}
+
 abstract class SeqReplacementPolicy {
   def access(set: UInt): Unit
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt): Unit
@@ -75,6 +100,15 @@ abstract class SeqReplacementPolicy {
 
 class SeqRandom(n_ways: Int) extends SeqReplacementPolicy {
   val logic = new RandomReplacement(n_ways)
+  def access(set: UInt) = { }
+  def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
+    when (valid && !hit) { logic.miss }
+  }
+  def way = logic.way
+}
+
+class DsidSeqRandom(n_ways: Int, ndsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends SeqReplacementPolicy {
+  val logic = new DsidRandomReplacement(n_ways, ndsids, dsid, cachePartitionConfig)
   def access(set: UInt) = { }
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
     when (valid && !hit) { logic.miss }
@@ -290,6 +324,7 @@ object L2Metadata {
 
 class L2MetaReadReq(implicit p: Parameters) extends MetaReadReq()(p) with HasL2Id {
   val tag = Bits(width = tagBits)
+  val dsid = Bits(width = p(DsidBits))
 }
 
 class L2MetaWriteReq(implicit p: Parameters) extends MetaWriteReq[L2Metadata](new L2Metadata)(p)
@@ -321,33 +356,44 @@ trait HasL2MetaRWIO extends HasOuterCacheParameters {
   val meta = new L2MetaRWIO
 }
 
+class L2MetaIO(implicit p: Parameters) extends L2HellaCacheBundle()(p) {
+  val meta = (new L2MetaRWIO).flip
+  val cachePartitionConfig = (new CachePartitionConfigIO).flip
+}
+
 class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
-  val io = new L2MetaRWIO().flip
+  val io = new L2MetaIO
 
   def onReset = L2Metadata(UInt(0), HierarchicalMetadata.onReset)
   val meta = Module(new MetadataArray(onReset _))
-  meta.io.read <> io.read
-  meta.io.write <> io.write
+
+  val metaRead = io.meta.read
+  val metaWrite = io.meta.write
+  val metaResp = io.meta.resp
+
+  meta.io.read <> metaRead
+  meta.io.write <> metaWrite
   val way_en_1h = UInt((BigInt(1) << nWays) - 1)
-  val s1_way_en_1h = RegEnable(way_en_1h, io.read.valid)
+  val s1_way_en_1h = RegEnable(way_en_1h, metaRead.valid)
   meta.io.read.bits.way_en := way_en_1h
 
-  val s1_tag = RegEnable(io.read.bits.tag, io.read.valid)
-  val s1_id = RegEnable(io.read.bits.id, io.read.valid)
+  val s1_tag = RegEnable(metaRead.bits.tag, metaRead.valid)
+  val s1_id = RegEnable(metaRead.bits.id, metaRead.valid)
+  val s1_dsid = RegEnable(metaRead.bits.dsid, metaRead.valid)
   def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
-  val s1_clk_en = Reg(next = io.read.fire())
+  val s1_clk_en = Reg(next = metaRead.fire())
   val s1_tag_eq_way = wayMap((w: Int) => meta.io.resp(w).tag === s1_tag)
   val s1_tag_match_way = wayMap((w: Int) => s1_tag_eq_way(w) && meta.io.resp(w).coh.outer.isValid() && s1_way_en_1h(w).toBool).asUInt
-  val s1_idx = RegEnable(io.read.bits.idx, io.read.valid) // deal with stalls?
+  val s1_idx = RegEnable(metaRead.bits.idx, metaRead.valid) // deal with stalls?
   val s2_tag_match_way = RegEnable(s1_tag_match_way, s1_clk_en)
   val s2_tag_match = s2_tag_match_way.orR
   val s2_hit_coh = Mux1H(s2_tag_match_way, wayMap((w: Int) => RegEnable(meta.io.resp(w).coh, s1_clk_en)))
 
-  val replacer = p(L2Replacer)()
+  val replacer = new DsidSeqRandom(p(NWays), p(NDsids), s1_dsid, io.cachePartitionConfig)
   val s1_hit_way = Wire(Bits())
   s1_hit_way := Bits(0)
   (0 until nWays).foreach(i => when (s1_tag_match_way(i)) { s1_hit_way := Bits(i) })
-  replacer.access(io.read.bits.idx)
+  replacer.access(metaRead.bits.idx)
   replacer.update(s1_clk_en, s1_tag_match_way.orR, s1_idx, s1_hit_way)
 
   val s1_replaced_way_en = UIntToOH(replacer.way)
@@ -355,13 +401,13 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
   val s2_repl_meta = Mux1H(s2_replaced_way_en, wayMap((w: Int) => 
     RegEnable(meta.io.resp(w), s1_clk_en && s1_replaced_way_en(w))).toSeq)
 
-  io.resp.valid := Reg(next = s1_clk_en)
-  io.resp.bits.id := RegEnable(s1_id, s1_clk_en)
-  io.resp.bits.tag_match := s2_tag_match
-  io.resp.bits.meta := Mux(s2_tag_match, 
+  metaResp.valid := Reg(next = s1_clk_en)
+  metaResp.bits.id := RegEnable(s1_id, s1_clk_en)
+  metaResp.bits.tag_match := s2_tag_match
+  metaResp.bits.meta := Mux(s2_tag_match, 
     L2Metadata(s2_repl_meta.tag, s2_hit_coh), 
     s2_repl_meta)
-  io.resp.bits.way_en := Mux(s2_tag_match, s2_tag_match_way, s2_replaced_way_en)
+  metaResp.bits.way_en := Mux(s2_tag_match, s2_tag_match_way, s2_replaced_way_en)
 }
 
 class L2DataReadReq(implicit p: Parameters) extends L2HellaCacheBundle()(p)
@@ -457,10 +503,12 @@ class L2HellaCacheBank(implicit p: Parameters) extends HierarchicalCoherenceAgen
   val meta = Module(new L2MetadataArray) // TODO: add delay knob
   val data = Module(new L2DataArray(1))
   val tshrfile = Module(new TSHRFile)
-  io.inner <> tshrfile.io.inner
-  io.outer <> tshrfile.io.outer
-  tshrfile.io.incoherent <> io.incoherent
-  meta.io <> tshrfile.io.meta
+
+  io.tl.inner <> tshrfile.io.inner
+  io.tl.outer <> tshrfile.io.outer
+  tshrfile.io.incoherent <> io.tl.incoherent
+  meta.io.meta <> tshrfile.io.meta
+  meta.io.cachePartitionConfig <> io.cachePartitionConfig
   data.io <> tshrfile.io.data
 
   disconnectOuterProbeAndFinish()
@@ -723,6 +771,7 @@ trait HasCoherenceMetadataBuffer extends HasOuterCacheParameters
     port.read.bits.idx := xact_addr_idx
     port.read.bits.tag := xact_addr_tag
     port.read.bits.way_en := Mux(way_en_known, xact_way_en, ~UInt(0, nWays))
+    port.read.bits.dsid := xact_dsid
 
     when(state === s_meta_read && port.read.ready) { state := s_meta_resp }
 
@@ -751,6 +800,7 @@ trait TriggersWritebacks extends HasCoherenceMetadataBuffer {
     wb.req.bits.idx := xact_addr_idx
     wb.req.bits.tag := xact_old_meta.tag
     wb.req.bits.way_en := xact_way_en
+    wb.req.bits.dsid := xact_dsid
 
     when(state === s_wb_req && wb.req.ready) { state := s_wb_resp }
     when(state === s_wb_resp && wb.resp.valid) { state := s_outer_acquire }
@@ -1035,6 +1085,7 @@ class L2WritebackReq(implicit p: Parameters)
   val tag  = Bits(width = tagBits)
   val idx  = Bits(width = idxBits)
   val way_en = Bits(width = nWays)
+  val dsid = Bits(width = p(DsidBits))
 }
 
 class L2WritebackResp(implicit p: Parameters) extends L2HellaCacheBundle()(p) with HasL2Id
@@ -1133,10 +1184,12 @@ class L2WritebackUnit(val trackerId: Int)(implicit p: Parameters) extends XactTr
     xact_way_en := io.wb.req.bits.way_en
     xact_addr_block := (if (cacheIdBits == 0) Cat(io.wb.req.bits.tag, io.wb.req.bits.idx)
                         else Cat(io.wb.req.bits.tag, io.wb.req.bits.idx, UInt(cacheId, cacheIdBits)))
-    // FIXME: propagate dsid in the cache metadata
-    xact_dsid := UInt(1)
+    xact_dsid := io.wb.req.bits.dsid
     state := s_meta_read
   }
+
+  val addr_block = (if (cacheIdBits == 0) Cat(io.wb.req.bits.tag, io.wb.req.bits.idx)
+	else Cat(io.wb.req.bits.tag, io.wb.req.bits.idx, UInt(cacheId, cacheIdBits))) 
 
   when (state === s_meta_resp && io.meta.resp.valid) {
     pending_reads := Fill(innerDataBeats, needs_outer_release)

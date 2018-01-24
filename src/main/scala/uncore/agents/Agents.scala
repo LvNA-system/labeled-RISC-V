@@ -10,6 +10,7 @@ import uncore.converters._
 import uncore.coherence._
 import uncore.util._
 import util._
+import rocketchip.{NDsids, CachePartitionConfigIO}
 
 case object NReleaseTransactors extends Field[Int]
 case object NProbeTransactors extends Field[Int]
@@ -133,6 +134,7 @@ abstract class CoherenceAgent(implicit p: Parameters) extends CoherenceAgentModu
   def innerTL: ManagerTileLinkIO
   def outerTL: ClientTileLinkIO
   def incoherent: Vec[Bool]
+  def cachePartitionConfig: CachePartitionConfigIO
 }
 
 abstract class ManagerCoherenceAgent(implicit p: Parameters) extends CoherenceAgent()(p)
@@ -147,17 +149,23 @@ class HierarchicalTLIO(implicit p: Parameters) extends CoherenceAgentBundle()(p)
   with HasInnerTLIO
   with HasCachedOuterTLIO
 
+class HierarchicalCoherenceAgentIO(implicit p: Parameters) extends CoherenceAgentBundle()(p) {
+  val tl = new HierarchicalTLIO
+  val cachePartitionConfig = (new CachePartitionConfigIO).flip
+}
+
 abstract class HierarchicalCoherenceAgent(implicit p: Parameters) extends CoherenceAgent()(p)
     with HasCoherenceAgentWiringHelpers {
-  val io = new HierarchicalTLIO
-  def innerTL = io.inner
-  def outerTL = io.outer
-  def incoherent = io.incoherent
+  val io = new HierarchicalCoherenceAgentIO
+  def innerTL = io.tl.inner
+  def outerTL = io.tl.outer
+  def incoherent = io.tl.incoherent
+  def cachePartitionConfig = io.cachePartitionConfig
 
   // TODO: Remove this function (and all its calls) when we support probing the L2
   def disconnectOuterProbeAndFinish() {
-    io.outer.probe.ready := Bool(false)
-    io.outer.finish.valid := Bool(false)
-    assert(!io.outer.probe.valid, "L2 agent got illegal probe")
+    io.tl.outer.probe.ready := Bool(false)
+    io.tl.outer.finish.valid := Bool(false)
+    assert(!io.tl.outer.probe.valid, "L2 agent got illegal probe")
   }
 }

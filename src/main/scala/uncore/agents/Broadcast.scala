@@ -22,39 +22,39 @@ class L2BroadcastHub(implicit p: Parameters) extends HierarchicalCoherenceAgent(
   val trackerList = irelTrackerList ++ iacqTrackerList
 
   // Propagate incoherence flags
-  trackerList.map(_.io.incoherent) foreach { _ := io.incoherent }
+  trackerList.map(_.io.incoherent) foreach { _ := io.tl.incoherent }
 
   // Create an arbiter for the one memory port
   val outerList = trackerList.map(_.io.outer)
   val outer_arb = Module(new ClientTileLinkIOArbiter(outerList.size)
                                                     (p.alterPartial({ case TLId => p(OuterTLId) })))
   outer_arb.io.in <> outerList
-  io.outer <> outer_arb.io.out
+  io.tl.outer <> outer_arb.io.out
 
   // Handle acquire transaction initiation
   val irel_vs_iacq_conflict =
-    io.inner.acquire.valid &&
-    io.inner.release.valid &&
-    io.irel().conflicts(io.iacq())
+    io.tl.inner.acquire.valid &&
+    io.tl.inner.release.valid &&
+    io.tl.irel().conflicts(io.tl.iacq())
 
   doInputRoutingWithAllocation(
-    in = io.inner.acquire,
+    in = io.tl.inner.acquire,
     outs = trackerList.map(_.io.inner.acquire),
     allocs = trackerList.map(_.io.alloc.iacq),
     allocOverride = Some(!irel_vs_iacq_conflict))
 
   // Handle releases, which might be voluntary and might have data
   doInputRoutingWithAllocation(
-    in = io.inner.release,
+    in = io.tl.inner.release,
     outs = trackerList.map(_.io.inner.release),
     allocs = trackerList.map(_.io.alloc.irel))
 
   // Wire probe requests and grant reply to clients, finish acks from clients
-  doOutputArbitration(io.inner.probe, trackerList.map(_.io.inner.probe))
+  doOutputArbitration(io.tl.inner.probe, trackerList.map(_.io.inner.probe))
 
-  doOutputArbitration(io.inner.grant, trackerList.map(_.io.inner.grant))
+  doOutputArbitration(io.tl.inner.grant, trackerList.map(_.io.inner.grant))
 
-  doInputRouting(io.inner.finish, trackerList.map(_.io.inner.finish))
+  doInputRouting(io.tl.inner.finish, trackerList.map(_.io.inner.finish))
 
   disconnectOuterProbeAndFinish()
 }

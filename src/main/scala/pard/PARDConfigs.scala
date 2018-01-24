@@ -4,7 +4,10 @@ package rocketchip
 
 import Chisel._
 import coreplex._
-import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
+import cde.{Parameters, Field, Config, Dump, Knob, CDEMatchError}
+
+case object NDsids extends Field[Int]
+
 
 // To correctly override the RTCPeriod in BaseConfig
 // WithRTCPeriod should be put in front of BaseConfig
@@ -13,11 +16,12 @@ class PARDSimConfig extends Config(
   ++ new WithJtagDTM 
   ++ new WithoutFPU
   ++ new WithNCores(2)
+  ++ new WithNDsids(3)
 //  ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x2000000L) // 32MB
-//  ++ new WithAddressMapperBase(0x80000000L)
+  ++ new WithL2Capacity(128)
+  ++ new WithNL2Ways(16)
 //  ++ new WithRTCPeriod(5)
-//  ++ new BucketConfig
 //  ++ new DefaultConfig)
   ++ new DefaultL2Config)
 

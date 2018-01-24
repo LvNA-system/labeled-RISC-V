@@ -45,7 +45,20 @@ unsigned char trst;
 
 uint64_t get_time_stamp();
 
-  extern "C" void jtag_tick
+extern FILE *trace;
+extern FILE *replay_trace;
+
+// replay trace
+bool has_trace = false;
+bool trace_finished = false;
+uint64_t trace_time;
+unsigned char trace_tms;
+unsigned char trace_tck;
+unsigned char trace_tdi;
+unsigned char trace_trst;
+
+
+extern "C" void jtag_tick
 (
  unsigned char* jtag_TMS,
  unsigned char* jtag_TCK,
@@ -54,16 +67,45 @@ uint64_t get_time_stamp();
  unsigned char* jtag_TRST
  )
 {
-  // please use trylock
-  // or we will block the emulator and timestamp will not advance
-  // which may cause deadlock, if jtag_server_thread is waiting for a specific timestamp in gen_clk
-  if (!pthread_mutex_trylock(&lock)) {
-	*jtag_TMS = tms;
-	*jtag_TCK = tck;
-	*jtag_TDI = tdi;
-	*jtag_TRST = trst;
-	tdo = jtag_TDO;
-	Pthread_mutex_unlock(&lock);
+  if (replay_trace) {
+	if (!trace_finished) {
+	  if (!has_trace) {
+		// get next trace input from trace file
+		int cnt;
+		cnt = fscanf(replay_trace, "%lu %hhu %hhu %hhu %hhu", &trace_time, &trace_tms, &trace_tck, &trace_tdi, &trace_trst);
+		if (cnt == 5)
+		  has_trace = true;
+		else if(cnt == EOF)
+		  trace_finished = true;
+		else {
+		  printf("fscanf error");
+		  exit(0);
+		}
+	  }
+	  if (has_trace && get_time_stamp() == trace_time) {
+		*jtag_TMS = trace_tms;
+		*jtag_TCK = trace_tck;
+		*jtag_TDI = trace_tdi;
+		*jtag_TRST = trace_trst;
+		has_trace = false;
+	  }
+	}
+  } else {
+	if (!pthread_mutex_trylock(&lock)) {
+	  // please use trylock
+	  // or we will block the emulator and timestamp will not advance
+	  // which may cause deadlock, if jtag_server_thread is waiting for a specific timestamp in gen_clk
+	  *jtag_TMS = tms;
+	  *jtag_TCK = tck;
+	  *jtag_TDI = tdi;
+	  *jtag_TRST = trst;
+	  tdo = jtag_TDO;
+	  if (trace) {
+		// we only need to trace the input signals
+		fprintf(trace, "%lu %hhu %hhu %hhu %hhu\n", get_time_stamp(), tms, tck, tdi, trst);
+	  }
+	  Pthread_mutex_unlock(&lock);
+	}
   }
 }
 
@@ -376,7 +418,8 @@ static void host_mainloop(int server_fd) {
 
 void *create_jtag_vpi_server(void *p)
 {
-  int server_fd = create_server(8080);
+  extern int port;
+  int server_fd = create_server((port == 0 ? 8080 : port));
   host_mainloop(server_fd);
 }
 
@@ -390,22 +433,4 @@ void init_jtag_vpi(void)
   trst = 0;
   pthread_t tid;
   pthread_create(&tid, NULL, create_jtag_vpi_server, NULL);
-}
-
-// we put this here, just to make the original dtm happy
-namespace {
-  // Remove args that will confuse dtm, such as those that require two tokens, like VCS code coverage "-cm line+cond"
-  std::vector<std::string> filter_argv_for_dtm(int argc, char** argv)
-  {
-	std::vector<std::string> out;
-	for (int i = 1; i < argc; ++i) { // start with 1 to skip my executable name
-	  if (!strncmp(argv[i], "-cm", 3)) {
-		++i; // skip this one and the next one
-	  }
-	  else {
-		out.push_back(argv[i]);
-	  }
-	}
-	return out;
-  }
 }
