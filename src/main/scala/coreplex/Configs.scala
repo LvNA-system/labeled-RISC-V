@@ -384,6 +384,13 @@ class WithDefaultBtb extends Config (
   }}
 )
 
+class WithNBtbEntry(n :Int) extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+    case BtbKey => BtbParameters(nEntries = n)
+    case _ => throw new CDEMatchError
+  }}
+)
+
 class WithFastMulDiv extends Config (
   topDefinitions = { (pname,site,here) => pname match {
     case MulDivKey => Some(MulDivConfig(mulUnroll = 8, mulEarlyOut = (site(XLen) > 32), divEarlyOut = true))

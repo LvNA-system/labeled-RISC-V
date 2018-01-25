@@ -26,7 +26,7 @@ CONFIG = PARDFPGAConfig$(BOARD)
 
 gen_rtl = $(generated_dir)/$(long_name).v
 srams_rtl = $(generated_dir)/$(long_name).behav_srams.v
-other_rtl = $(base_dir)/vsrc/AsyncResetReg.v
+other_rtl = $(base_dir)/vsrc/AsyncResetReg.v $(base_dir)/vsrc/DebugTransportModuleJtag.v
 
 $(gen_rtl):
 	$(MAKE) verilog -C $(base_dir)/vsim CONFIG=$(CONFIG) MODEL=$(MODEL) generated_dir=$(generated_dir)

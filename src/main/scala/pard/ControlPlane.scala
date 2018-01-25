@@ -75,12 +75,12 @@ class ControlPlaneModule(implicit p: Parameters) extends Module {
   // register read/write should be single cycle
   val cpRegs = Reg(Vec(nReg, UInt(width = ControlPlaneConsts.cpDataSize)))
 
-  val size = p(ExtMemSize) / p(NTiles)
+  val size = p(ExtMemSize)
 
   // initialize the registers with valid content
   when (reset) {
     for (i <- 0 until p(NTiles))
-      cpRegs(amBasesBase + i) := UInt(0x80000000L + size * i)
+      cpRegs(amBasesBase + i) := UInt(0x80000000L)
     for (i <- 0 until p(NTiles))
       cpRegs(amSizesBase + i):= UInt(size)
 
