@@ -318,7 +318,10 @@ int tbIncsBase = tbFreqsBase + NDsids;
 
 int cpNWaysBase = tbIncsBase + NDsids;
 int cpDsidMapsBase = cpNWaysBase + NDsids;
+int cpDsidMasksBase = cpDsidMapsBase + NDsids * NWays;
 
+
+/*
 void change_mask(int dsid, int mask) {
   int cnt = 0;
   int cp_addr;
@@ -335,6 +338,11 @@ void change_mask(int dsid, int mask) {
   cp_addr = cpNWaysBase + dsid;
   cp_value = cnt;
   write_cp_reg(cp_addr, cp_value);
+}
+*/
+
+void change_mask(int dsid, int mask) {
+  write_cp_reg(cpDsidMasksBase + dsid, mask);
 }
 
 void change_size(int dsid, int size) {

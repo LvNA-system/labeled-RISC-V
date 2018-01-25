@@ -68,7 +68,7 @@ class RandomReplacement(ways: Int) extends ReplacementPolicy {
   def hit = {}
 }
 
-class DsidRandomReplacement(ways: Int, ndsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends ReplacementPolicy {
+class DsidRandomReplacement(ways: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends ReplacementPolicy {
   private val replace = Wire(Bool())
   replace := Bool(false)
   val lfsr = LFSR16(replace)
@@ -107,8 +107,8 @@ class SeqRandom(n_ways: Int) extends SeqReplacementPolicy {
   def way = logic.way
 }
 
-class DsidSeqRandom(n_ways: Int, ndsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends SeqReplacementPolicy {
-  val logic = new DsidRandomReplacement(n_ways, ndsids, dsid, cachePartitionConfig)
+class DsidSeqRandom(n_ways: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends SeqReplacementPolicy {
+  val logic = new DsidRandomReplacement(n_ways, dsid, cachePartitionConfig)
   def access(set: UInt) = { }
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
     when (valid && !hit) { logic.miss }
@@ -160,6 +160,119 @@ class SeqPLRU(n_sets: Int, n_ways: Int) extends SeqReplacementPolicy {
   }
 
   def way = plru_way
+}
+
+class DsidPseudoLRU(n: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO)
+{
+  require(isPow2(n))
+  val state_reg = Reg(Bits(width = n))
+  def access(way: UInt) {
+    state_reg := get_next_state(state_reg,way)
+  }
+
+  val dsid_waymasks = cachePartitionConfig.dsidMasks
+
+  var tree_mask_all = Cat(dsid_waymasks(dsid), Wire(Bits(width = n)))
+
+  for (i <- log2Up(n)-1 to 0 by -1) {
+  for (j <- ((1 << i) - 1) to 0 by -1) {
+    val idx = 1 << i | j
+    val left = idx * 2
+    val right = left + 1
+    tree_mask_all = tree_mask_all.bitSet(UInt(idx), tree_mask_all(left) | tree_mask_all(right))
+    }
+  }
+
+  var fixed_zero_mask = Wire(Bits(width = n))
+
+  for (i <- log2Up(n)-1 to 0 by -1)
+    for (j <- ((1 << i) - 1) to 0 by -1) {
+      val idx = 1 << i | j
+      val left = idx * 2
+      val right = left + 1
+      fixed_zero_mask = fixed_zero_mask.bitSet(UInt(idx), !tree_mask_all(left) | tree_mask_all(right))
+    }
+
+  var fixed_one_mask = Wire(Bits(width = n))
+
+  for (i <- log2Up(n)-1 to 0 by -1)
+    for (j <- ((1 << i) - 1) to 0 by -1) {
+      val idx = 1 << i | j
+      val left = idx * 2
+      val right = left + 1
+      fixed_one_mask = fixed_one_mask.bitSet(UInt(idx), !tree_mask_all(left) & tree_mask_all(right))
+    }
+
+  def get_next_state(state: UInt, way: UInt) = {
+    var next_state = state
+    var idx = UInt(1,1)
+    for (i <- log2Up(n)-1 to 0 by -1) {
+      val bit = way(i)
+      next_state = next_state.bitSet(idx, !bit)
+      idx = Cat(idx, bit)
+    }
+    next_state = (next_state & fixed_zero_mask) | fixed_one_mask
+    next_state
+  }
+
+  def replace = get_replace_way(state_reg)
+  def get_replace_way(state: Bits) = {
+    var idx = UInt(1,1)
+    for (i <- 0 until log2Up(n))
+        idx = Cat(idx, state(idx))
+    idx(log2Up(n)-1,0)
+  }
+}
+
+class DsidSeqPLRU(n_sets: Int, n_ways: Int, n_dsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) {
+  val nset_bits = log2Up(n_sets)
+  val nstate = n_dsids * (1 << nset_bits)
+  val state = SeqMem(nstate, Bits(width = n_ways-1))
+  val logic = new DsidPseudoLRU(n_ways, dsid, cachePartitionConfig)
+  val current_state = Wire(Bits())
+  val plru_way = logic.get_replace_way(current_state)
+  val next_state = Wire(Bits())
+
+  def access(set: UInt, dsid: UInt) = {
+    current_state := Cat(state.read(Cat(dsid, set)), Bits(0, width = 1))
+  }
+
+  def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
+    val update_way = Mux(hit, way, plru_way)
+    next_state := logic.get_next_state(current_state, update_way)
+    when (valid) { state.write(Cat(dsid, set), next_state(n_ways-1,1)) }
+  }
+
+  def way = plru_way
+}
+
+class DsidRR(n_sets: Int, n_ways: Int, n_dsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends SeqReplacementPolicy {
+  val state = SeqMem(n_sets, Bits(width = n_ways))
+  val next_state = Wire(Bits())
+  val waymask = cachePartitionConfig.dsidMasks
+  val curr_state = Wire(Bits(width = n_ways))
+  val curr_mask = waymask(dsid)
+
+  val target_way = Mux((curr_state & curr_mask).orR, PriorityEncoder(curr_state & curr_mask), PriorityEncoder(curr_mask))
+
+
+  def access(set: UInt) = {
+    curr_state := state.read(set)
+  }
+
+  def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
+    val update_way = Mux(hit, way, target_way)
+    when (valid) {
+      when (!curr_state.orR) {
+        next_state := UInt((BigInt(1) << n_ways) - 1)
+      } .otherwise {
+        next_state := curr_state.bitSet(update_way, Bool(false))
+      }
+      state.write(set, next_state)
+    }
+  }
+
+  def way = target_way
 }
 
 abstract class Metadata(implicit p: Parameters) extends CacheBundle()(p) {
@@ -389,7 +502,7 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
   val s2_tag_match = s2_tag_match_way.orR
   val s2_hit_coh = Mux1H(s2_tag_match_way, wayMap((w: Int) => RegEnable(meta.io.resp(w).coh, s1_clk_en)))
 
-  val replacer = new DsidSeqRandom(p(NWays), p(NDsids), s1_dsid, io.cachePartitionConfig)
+  val replacer = new DsidRR(p(NSets), p(NWays), p(NDsids), s1_dsid, io.cachePartitionConfig)
   val s1_hit_way = Wire(Bits())
   s1_hit_way := Bits(0)
   (0 until nWays).foreach(i => when (s1_tag_match_way(i)) { s1_hit_way := Bits(i) })
