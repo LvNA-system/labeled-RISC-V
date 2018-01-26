@@ -30,7 +30,7 @@ $(emu_bin_hex_file): $(emu_bin_file)
 emu: $(emu)
 
 run-emu: $(emu) $(emu_bin_hex_file)
-	cd $(dir $(emu)) && $< +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
+	cd $(dir $(emu)) && $< +verbose -p$(shell shuf -i 10000-20000 -n 1) . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
 
 # put functionality in a standalone script
 # so that we can use it manually when debugging
