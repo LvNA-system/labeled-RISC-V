@@ -14,7 +14,7 @@ import rocket._
 import util._
 import util.ConfigUtils._
 import rocketchip.{GlobalAddrMap, NCoreplexExtClients}
-import pard.cp.{NDsids, LDomDsidBits}
+import pard.cp._
 import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
 
 class BaseCoreplexConfig extends Config (
@@ -164,6 +164,7 @@ class BaseCoreplexConfig extends Config (
       case LDomDsidBits => 2
       case ProcDsidBits => 3
       case DsidBits => site(LDomDsidBits) + site(ProcDsidBits)
+      case UseNoHype => false
       case EnableL2Logging => false
       case _ => throw new CDEMatchError
   }},
@@ -420,3 +421,9 @@ class WithFPUWithoutDivSqrt extends Config (
     case _ => throw new CDEMatchError
   }
 )
+
+class WithNoHype extends Config(
+  (pname, site, here) => pname match {
+    case UseNoHype => true
+    case _ => throw new CDEMatchError
+  })

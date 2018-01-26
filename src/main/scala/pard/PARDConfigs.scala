@@ -12,6 +12,7 @@ class PARDSimConfig extends Config(
   new WithBlockingL1
   ++ new WithJtagDTM 
   ++ new WithoutFPU
+  ++ new WithNoHype
   ++ new WithNCores(2)
   ++ new WithNDsids(3)
 //  ++ new WithAynchronousRocketTiles(8, 3)

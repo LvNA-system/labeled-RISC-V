@@ -8,6 +8,7 @@ import rocketchip.ExtMemSize
 import uncore.devices.{NTiles}
 
 case object LDomDsidBits extends Field[Int]
+case object UseNoHype extends Field[Boolean]
 
 class DsidConfigIO(implicit val p: Parameters) extends ControlPlaneBundle {
   val dsids = Vec(p(NTiles), UInt(OUTPUT, width = p(LDomDsidBits)))
@@ -44,8 +45,15 @@ class CoreControlPlaneModule(implicit val p: Parameters) extends ControlPlaneMod
   when (reset) {
     for (i <- 0 until p(NTiles)) {
       ptabDsidRegs(i) := UInt(i)
-      ptabBaseRegs(i) := UInt(0x80000000L)
-      ptabSizeRegs(i) := UInt(p(ExtMemSize))
+      if (p(UseNoHype)) {
+        val size = p(ExtMemSize) / p(NTiles)
+        ptabBaseRegs(i) := UInt(0x80000000L + size  * i)
+        ptabSizeRegs(i) := UInt(size)
+      }
+      else {
+        ptabBaseRegs(i) := UInt(0x80000000L)
+        ptabSizeRegs(i) := UInt(p(ExtMemSize))
+      }
     }
   }
 
