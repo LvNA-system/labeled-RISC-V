@@ -32,6 +32,7 @@ class TokenBucketConfigIO(implicit val p: Parameters) extends Bundle {
 class CachePartitionConfigIO(implicit val p: Parameters) extends Bundle {
   val nWays = Output(Vec(p(NDsids), UInt(width = ControlPlaneConsts.cpDataSize)))
   val dsidMaps = Output(Vec(p(NDsids), Vec(p(NWays), UInt(width = ControlPlaneConsts.cpDataSize))))
+  val dsidMasks = Output(Vec(p(NDsids), UInt(width = ControlPlaneConsts.cpDataSize)))
   override def cloneType = (new CachePartitionConfigIO).asInstanceOf[this.type]
 }
 
@@ -68,7 +69,8 @@ class ControlPlaneModule(implicit p: Parameters) extends Module {
 
   val cpNWaysBase = tbIncsBase + p(NDsids)
   val cpDsidMapsBase = cpNWaysBase + p(NDsids)
-  val nReg = cpDsidMapsBase + p(NDsids) * p(NWays)
+  val cpDsidMasksBase = cpDsidMapsBase + p(NDsids) * p(NWays)
+  val nReg = cpDsidMasksBase + p(NDsids)
 
   // register read/write should be single cycle
   val cpRegs = Reg(Vec(nReg, UInt(width = ControlPlaneConsts.cpDataSize)))
@@ -83,17 +85,24 @@ class ControlPlaneModule(implicit p: Parameters) extends Module {
       cpRegs(amSizesBase + i):= UInt(size)
 
     for (i <- 0 until p(NDsids))
-      cpRegs(tbSizesBase + i) := 1.U
+      cpRegs(tbSizesBase + i) := 32.U
     for (i <- 0 until p(NDsids))
-      cpRegs(tbFreqsBase + i) := 0.U
+      cpRegs(tbFreqsBase + i) := 32.U
     for (i <- 0 until p(NDsids))
-      cpRegs(tbIncsBase + i) := 1.U
+      cpRegs(tbIncsBase + i) := 32.U
 
     for (i <- 0 until p(NDsids))
       cpRegs(cpNWaysBase + i) := p(NWays).U
     for (i <- 0 until p(NDsids))
       for (j <- 0 until p(NWays))
         cpRegs(cpDsidMapsBase + i * p(NWays) + j) := j.U
+	/*
+    for (i <- 0 until p(NDsids))
+      cpRegs(cpDsidMasksBase + i) := 0xffffff.U
+	*/
+	cpRegs(cpDsidMasksBase + 0) := 0xffffff.U
+	cpRegs(cpDsidMasksBase + 1) := 0x00aaaa.U
+	cpRegs(cpDsidMasksBase + 2) := 0x005555.U
   }
 
   // do no sanity check!
@@ -117,4 +126,6 @@ class ControlPlaneModule(implicit p: Parameters) extends Module {
     io.cachePartitionConfig.nWays(i) := cpRegs(cpNWaysBase + i)
   for (i <- 0 until p(NDsids) * p(NWays))
     io.cachePartitionConfig.dsidMaps(i / p(NWays))(i % p(NWays)) := cpRegs(cpDsidMapsBase + i)
+  for (i <- 0 until p(NDsids))
+    io.cachePartitionConfig.dsidMasks(i) := cpRegs(cpDsidMasksBase + i)
 }
