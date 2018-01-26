@@ -263,8 +263,8 @@ class DsidRR(n_sets: Int, n_ways: Int, n_dsids: Int, dsid: UInt, cachePartitionC
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
     val update_way = Mux(hit, way, target_way)
     when (valid) {
-      when (!curr_state.orR) {
-        next_state := UInt((BigInt(1) << n_ways) - 1)
+      when (!(curr_state & curr_mask).orR) {
+        next_state := curr_state | curr_mask
       } .otherwise {
         next_state := curr_state.bitSet(update_way, Bool(false))
       }
