@@ -10,7 +10,7 @@ import uncore.converters._
 import uncore.coherence._
 import uncore.util._
 import util._
-import rocketchip.{NDsids, CachePartitionConfigIO}
+import pard.cp._
 
 case object NReleaseTransactors extends Field[Int]
 case object NProbeTransactors extends Field[Int]

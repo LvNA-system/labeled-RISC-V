@@ -8,7 +8,7 @@ import util._
 import regmapper._
 import uncore.tilelink2._
 import cde.{Parameters, Config, Field}
-import rocketchip.{ControlPlaneRWIO, ControlPlaneConsts}
+import pard.cp._
 
 // *****************************************
 // Constants which are interesting even
@@ -345,7 +345,7 @@ trait DebugModuleBundle extends Bundle with HasDebugModuleParameters {
   *      It is also responsible for some reset lines.
   */
 
-trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
+trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap with HasControlPlaneParameters {
 
   val io: DebugModuleBundle
 
@@ -357,7 +357,6 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   import DsbRegAddrs._
   import DsbBusConsts._
   import DbBusConsts._
-  import ControlPlaneConsts._
 
   //--------------------------------------------------------------
   // Sanity Check Configuration For this implementation.
@@ -648,6 +647,8 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap {
   //--------------------------------------------------------------
   val cpAddr = Wire(new ControlPlaneAddrFields())
   val cpData = Wire(new ControlPlaneDataFields())
+  val cpRead = true.B
+  val cpWrite = false.B
 
   val cpAddrReg = Reg(UInt(width=cpAddrSize))
   val cpDataReg = Reg(UInt(width=cpDataSize))

@@ -14,7 +14,7 @@ import uncore.converters._
 import uncore.pard.{ClientUncachedTileLinkControlCrossing, ClientTileLinkControlCrossing}
 import rocket._
 import util._
-import rocketchip.{ExtMemSize, NDsids, ControlPlaneModule, TokenBucketConfigIO}
+import pard.cp._
 
 /** Number of memory channels */
 case object NMemoryChannels extends Field[Int]
@@ -193,7 +193,7 @@ trait CoreplexRISCVPlatformModule {
   val tiles = outer.lazyTiles.map(_.module)
   val uncoreTileIOs = (tiles zipWithIndex) map { case (tile, i) => Wire(tile.io) }
 
-  val cp = Module(new ControlPlaneModule()(p.alterPartial({
+  val cp = Module(new ControlPlaneModule2()(p.alterPartial({
                           case CacheName => "L2Bank"})))
 
   println("\nGenerated Address Map")
@@ -295,7 +295,6 @@ trait CoreplexRISCVPlatformModule {
     io.mem <> mem_ic.io.out
   }
 
-  val size = p(ExtMemSize) / p(NTiles)
   // connect coreplex-internal interrupts to tiles
   for ((tile, i) <- (uncoreTileIOs zipWithIndex)) {
     tile.hartid := UInt(i)

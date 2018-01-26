@@ -14,11 +14,11 @@ import uncore.converters._
 import uncore.devices._
 import uncore.agents._
 import uncore.util._
-import uncore.pard.TokenBucket
 import util._
 import rocket.XLen
 import scala.math.max
 import coreplex._
+import pard.cp.{TokenBucket, NDsids}
 
 /** Options for memory bus interface */
 object BusType {

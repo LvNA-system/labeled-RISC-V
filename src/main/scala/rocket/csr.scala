@@ -10,6 +10,8 @@ import util._
 import Chisel.ImplicitConversions._
 import junctions.AddrMap
 
+case object ProcDsidBits extends Field[Int]
+
 class MStatus extends Bundle {
   // not truly part of mstatus, but convenient
   val debug = Bool()

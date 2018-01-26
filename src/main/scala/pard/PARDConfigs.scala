@@ -6,9 +6,6 @@ import Chisel._
 import coreplex._
 import cde.{Parameters, Field, Config, Dump, Knob, CDEMatchError}
 
-case object NDsids extends Field[Int]
-
-
 // To correctly override the RTCPeriod in BaseConfig
 // WithRTCPeriod should be put in front of BaseConfig
 class PARDSimConfig extends Config(

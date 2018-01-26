@@ -1,62 +1,82 @@
 // See LICENSE for license details.
 
-package rocketchip
+package pard.cp
 
-import chisel3._
-import cde.{Parameters}
+import Chisel._
+import cde.{Parameters, Field}
+import rocketchip.ExtMemSize
 import uncore.agents.{NWays}
 import uncore.devices.{NTiles}
 
+case object NDsids extends Field[Int]
 
-object ControlPlaneConsts {
-  def cpAddrSize = 32
-  def cpDataSize = 32
+trait HasControlPlaneParameters {
+  val cpAddrSize = 32
+  val cpDataSize = 32
 
-  def cpRead = Bool(true)
-  def cpWrite = Bool(false)
+  // control plane register address space
+  // 31     23        21     11       0
+  // +-------+--------+-------+-------+
+  // | cpIdx | tabIdx |  col  |  row  |
+  // +-------+--------+-------+-------+
+  //  \- 8 -/ \-  2 -/ \- 10-/ \- 12 -/
+
+  val rowIdxLen = 12
+  val colIdxLen = 10
+  val tabIdxLen = 2
+  val cpIdxLen = 8
+
+  val rowIdxLow = 0
+  val colIdxLow = rowIdxLow + rowIdxLen
+  val tabIdxLow = colIdxLow + colIdxLen
+  val cpIdxLow  = tabIdxLow + tabIdxLen
+
+  val rowIdxHigh = colIdxLow - 1
+  val colIdxHigh = tabIdxLow - 1
+  val tabIdxHigh = cpIdxLow  - 1
+  val cpIdxHigh  = 31
+
+  // control plane index
+  val coreCpIdx = 0
+  val memCpIdx = 1
+  val cacheCpIdx = 2
+  val ioCpIdx = 3
+
+  // tables
+  val ptabIdx = 0
+  val stabIdx = 1
+  val ttabIdx = 2
+
+  def getRowFromAddr(addr: UInt) = addr(rowIdxHigh, rowIdxLow)
+  def getColFromAddr(addr: UInt) = addr(colIdxHigh, colIdxLow)
+  def getCpFromAddr(addr: UInt)  = addr(cpIdxHigh, cpIdxLow)
 }
 
-class AddressMapperConfigIO(implicit val p: Parameters) extends Bundle {
-  val bases = Output(Vec(p(NTiles), UInt(width = ControlPlaneConsts.cpDataSize)))
-  val sizes = Output(Vec(p(NTiles), UInt(width = ControlPlaneConsts.cpDataSize)))
-  override def cloneType = (new AddressMapperConfigIO).asInstanceOf[this.type]
-}
+abstract class ControlPlaneBundle extends Bundle with HasControlPlaneParameters
+abstract class ControlPlaneModule extends Module with HasControlPlaneParameters
 
-class TokenBucketConfigIO(implicit val p: Parameters) extends Bundle {
-  val sizes = Output(Vec(p(NDsids), UInt(width = ControlPlaneConsts.cpDataSize)))
-  val freqs = Output(Vec(p(NDsids), UInt(width = ControlPlaneConsts.cpDataSize)))
-  val incs = Output(Vec(p(NDsids), UInt(width = ControlPlaneConsts.cpDataSize)))
-  override def cloneType = (new TokenBucketConfigIO).asInstanceOf[this.type]
-}
-
-class CachePartitionConfigIO(implicit val p: Parameters) extends Bundle {
-  val nWays = Output(Vec(p(NDsids), UInt(width = ControlPlaneConsts.cpDataSize)))
-  val dsidMaps = Output(Vec(p(NDsids), Vec(p(NWays), UInt(width = ControlPlaneConsts.cpDataSize))))
-  val dsidMasks = Output(Vec(p(NDsids), UInt(width = ControlPlaneConsts.cpDataSize)))
-  override def cloneType = (new CachePartitionConfigIO).asInstanceOf[this.type]
-}
-
-class ControlPlaneRWIO(implicit val p: Parameters) extends Bundle {
+class ControlPlaneRWIO(implicit val p: Parameters) extends ControlPlaneBundle
+  with HasControlPlaneParameters {
   // read
-  val ren = Output(Bool())
-  val raddr = Output(UInt(width = ControlPlaneConsts.cpAddrSize))
-  val rdata = Input(UInt(width = ControlPlaneConsts.cpDataSize))
+  val ren = Bool(OUTPUT)
+  val raddr = UInt(OUTPUT, width = cpAddrSize)
+  val rdata = UInt(INPUT, width = cpDataSize)
 
   // write
-  val wen = Output(Bool())
-  val waddr = Output(UInt(width = ControlPlaneConsts.cpAddrSize))
-  val wdata = Output(UInt(width = ControlPlaneConsts.cpDataSize))
+  val wen = Bool(OUTPUT)
+  val waddr = UInt(OUTPUT, width = cpAddrSize)
+  val wdata = UInt(OUTPUT, width = cpDataSize)
   override def cloneType = (new ControlPlaneRWIO).asInstanceOf[this.type]
 }
 
-class ControlPlaneIO(implicit val p: Parameters) extends Bundle {
+class ControlPlaneIO(implicit val p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val addressMapperConfig = new AddressMapperConfigIO
   val tokenBucketConfig = new TokenBucketConfigIO
   val cachePartitionConfig = new CachePartitionConfigIO
 }
 
-class ControlPlaneModule(implicit p: Parameters) extends Module {
+class ControlPlaneModule2(implicit p: Parameters) extends ControlPlaneModule {
   val io = IO(new ControlPlaneIO)
 
   val amBasesBase = 0
@@ -73,23 +93,23 @@ class ControlPlaneModule(implicit p: Parameters) extends Module {
   val nReg = cpDsidMasksBase + p(NDsids)
 
   // register read/write should be single cycle
-  val cpRegs = Reg(Vec(nReg, UInt(width = ControlPlaneConsts.cpDataSize)))
+  val cpRegs = Reg(Vec(nReg, UInt(width = cpDataSize)))
 
   val size = p(ExtMemSize)
 
   // initialize the registers with valid content
   when (reset) {
     for (i <- 0 until p(NTiles))
-      cpRegs(amBasesBase + i) := UInt(0x80000000L)
+      cpRegs(amBasesBase + i) := UInt(0x0L) // make this invalid
     for (i <- 0 until p(NTiles))
       cpRegs(amSizesBase + i):= UInt(size)
 
     for (i <- 0 until p(NDsids))
-      cpRegs(tbSizesBase + i) := 32.U
+      cpRegs(tbSizesBase + i) := 1.U
     for (i <- 0 until p(NDsids))
-      cpRegs(tbFreqsBase + i) := 32.U
+      cpRegs(tbFreqsBase + i) := 0.U
     for (i <- 0 until p(NDsids))
-      cpRegs(tbIncsBase + i) := 32.U
+      cpRegs(tbIncsBase + i) := 1.U
 
     for (i <- 0 until p(NDsids))
       cpRegs(cpNWaysBase + i) := p(NWays).U
