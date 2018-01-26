@@ -13,7 +13,8 @@ import uncore.converters._
 import rocket._
 import util._
 import util.ConfigUtils._
-import rocketchip.{GlobalAddrMap, NCoreplexExtClients, NDsids}
+import rocketchip.{GlobalAddrMap, NCoreplexExtClients}
+import pard.cp.{NDsids, LDomDsidBits}
 import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
 
 class BaseCoreplexConfig extends Config (
@@ -160,7 +161,9 @@ class BaseCoreplexConfig extends Config (
       case BankIdLSB => 0
       case CacheBlockBytes => Dump("CACHE_BLOCK_BYTES", 64)
       case CacheBlockOffsetBits => log2Up(here(CacheBlockBytes))
-      case DsidBits => 5
+      case LDomDsidBits => 2
+      case ProcDsidBits => 3
+      case DsidBits => site(LDomDsidBits) + site(ProcDsidBits)
       case EnableL2Logging => false
       case _ => throw new CDEMatchError
   }},

@@ -14,7 +14,7 @@ import uncore.converters._
 import uncore.pard.{ClientUncachedTileLinkControlCrossing, ClientTileLinkControlCrossing}
 import rocket._
 import util._
-import rocketchip.{ExtMemSize, NDsids, ControlPlaneModule, TokenBucketConfigIO}
+import pard.cp._
 
 /** Number of memory channels */
 case object NMemoryChannels extends Field[Int]
@@ -193,7 +193,7 @@ trait CoreplexRISCVPlatformModule {
   val tiles = outer.lazyTiles.map(_.module)
   val uncoreTileIOs = (tiles zipWithIndex) map { case (tile, i) => Wire(tile.io) }
 
-  val cp = Module(new ControlPlaneModule()(p.alterPartial({
+  val cp = Module(new ControlPlaneModule2()(p.alterPartial({
                           case CacheName => "L2Bank"})))
 
   println("\nGenerated Address Map")
@@ -295,12 +295,13 @@ trait CoreplexRISCVPlatformModule {
     io.mem <> mem_ic.io.out
   }
 
-  val size = p(ExtMemSize) / p(NTiles)
+  val corecp = Module(new CoreControlPlaneModule)
   // connect coreplex-internal interrupts to tiles
   for ((tile, i) <- (uncoreTileIOs zipWithIndex)) {
     tile.hartid := UInt(i)
-    tile.base := cp.io.addressMapperConfig.bases(UInt(i))
-    tile.size := cp.io.addressMapperConfig.sizes(UInt(i))
+    tile.dsid := corecp.io.dsidConfig.dsids(UInt(i))
+    tile.base := corecp.io.addressMapperConfig.bases(UInt(i))
+    tile.size := corecp.io.addressMapperConfig.sizes(UInt(i))
     tile.resetVector := io.resetVector
     tile.interrupts := outer.clint.module.io.tiles(i)
     tile.interrupts.debug := outer.debug.module.io.debugInterrupts(i)
@@ -309,9 +310,24 @@ trait CoreplexRISCVPlatformModule {
   }
 
   outer.debug.module.io.db <> io.debug
-  cp.io.rw <> outer.debug.module.io.cpio
   io.tokenBucketConfig <> cp.io.tokenBucketConfig
   outer.clint.module.io.rtcTick := io.rtcTick
+
+  //cp.io.rw <> outer.debug.module.io.cpio
+  // Control Plane switch
+  val debug_cpio_rw = outer.debug.module.io.cpio
+  val rcpIdx = corecp.getCpFromAddr(debug_cpio_rw.raddr)
+  val wcpIdx = corecp.getCpFromAddr(debug_cpio_rw.waddr)
+  corecp match { case x => {
+    x.io.rw.ren := debug_cpio_rw.ren && (x.cpIdx === rcpIdx)
+    x.io.rw.wen := debug_cpio_rw.wen && (x.cpIdx === wcpIdx)
+    x.io.rw.raddr := debug_cpio_rw.raddr
+    x.io.rw.waddr := debug_cpio_rw.waddr
+    x.io.rw.wdata := debug_cpio_rw.wdata
+  }}
+  debug_cpio_rw.rdata := MuxLookup(rcpIdx, UInt(0), Array(
+    corecp.cpIdx -> corecp.io.rw.rdata
+  ))
 
   // Coreplex doesn't know when to stop running
   io.success := Bool(false)

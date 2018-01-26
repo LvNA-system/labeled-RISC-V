@@ -1,8 +1,7 @@
-package uncore.pard
-
+package pard.cp
 
 import Chisel._
-import cde.{Parameters, Config, Field}
+import cde.{Parameters}
 
 class BucketBundle(implicit p: Parameters) extends Bundle {
   val size = UInt(width = 32)
@@ -40,7 +39,7 @@ class TokenBucket(implicit p: Parameters) extends Module {
   val nTokens = RegNext(
     Mux(nTokensNext < bucketSize, nTokensNext, bucketSize),
     bucketSize)
-  
+
 
   val counterNext = Wire(UInt())
   val counter = RegNext(counterNext, UInt(0, 32))

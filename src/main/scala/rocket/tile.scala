@@ -11,6 +11,7 @@ import uncore.converters._
 import uncore.devices._
 import util._
 import cde.{Parameters, Field}
+import pard.cp.LDomDsidBits
 
 case object BuildRoCC extends Field[Seq[RoccParameters]]
 case object NCachedTileLinkPorts extends Field[Int]
@@ -33,6 +34,7 @@ class TileIO(c: TileBundleConfig, node: Option[TLInwardNode] = None)(implicit p:
   val cached = Vec(c.nCachedTileLinkPorts, new ClientTileLinkIO)
   val uncached = Vec(c.nUncachedTileLinkPorts, new ClientUncachedTileLinkIO)
   val hartid = UInt(INPUT, c.xLen)
+  val dsid = UInt(INPUT, p(LDomDsidBits))
   // memory base
   val base = UInt(INPUT, c.xLen)
   // memory size
@@ -153,17 +155,16 @@ class RocketTile(implicit p: Parameters) extends LazyTile {
     require(uncachedPorts.size == nUncachedTileLinkPorts)
     require(cachedPorts.size == nCachedTileLinkPorts)
 
-    val dsid = io.hartid + UInt(1)
     io.uncached.foreach {
       x => {
-        x.acquire.bits.dsid := dsid
+        x.acquire.bits.dsid := io.dsid
       }
     }
 
     io.cached.foreach {
       x => {
-        x.acquire.bits.dsid := dsid
-        x.release.bits.dsid := dsid
+        x.acquire.bits.dsid := io.dsid
+        x.release.bits.dsid := io.dsid
       }
     }
 

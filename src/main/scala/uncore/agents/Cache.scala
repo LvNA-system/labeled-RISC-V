@@ -12,7 +12,7 @@ import uncore.tilelink._
 import uncore.constants._
 import uncore.util._
 import util._
-import rocketchip.{NDsids, CachePartitionConfigIO}
+import pard.cp._
 import cde.{Parameters, Field}
 
 case object CacheName extends Field[String]
@@ -502,7 +502,8 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
   val s2_tag_match = s2_tag_match_way.orR
   val s2_hit_coh = Mux1H(s2_tag_match_way, wayMap((w: Int) => RegEnable(meta.io.resp(w).coh, s1_clk_en)))
 
-  val replacer = new DsidRR(p(NSets), p(NWays), p(NDsids), s1_dsid, io.cachePartitionConfig)
+  val replacer = p(L2Replacer)()
+  //val replacer = new DsidRR(p(NSets), p(NWays), p(NDsids), s1_dsid, io.cachePartitionConfig)
   val s1_hit_way = Wire(Bits())
   s1_hit_way := Bits(0)
   (0 until nWays).foreach(i => when (s1_tag_match_way(i)) { s1_hit_way := Bits(i) })

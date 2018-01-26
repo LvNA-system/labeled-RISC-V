@@ -12,6 +12,7 @@ import uncore.devices._
 import util._
 import rocket._
 import coreplex._
+import pard.cp.{TokenBucketConfigIO}
 
 // the following parameters will be refactored properly with TL2
 case object GlobalAddrMap extends Field[AddrMap]
