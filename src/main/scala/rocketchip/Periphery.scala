@@ -18,7 +18,7 @@ import util._
 import rocket.XLen
 import scala.math.max
 import coreplex._
-import pard.cp.{TokenBucket, NDsids}
+import pard.cp.{TokenBucket}
 
 /** Options for memory bus interface */
 object BusType {
@@ -191,7 +191,7 @@ trait PeripheryMasterMemModule {
   io.mem_axi.zipWithIndex.foreach { case (axi, i) => axi.dump(s"mem_axi $i: ") }
 
   // one dsid one bucket
-  val buckets = Seq.fill(p(NDsids)){ Module(new TokenBucket) }
+  val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
   val axiIn = io.mem_axi(0)
   buckets.zipWithIndex.foreach { case (bucket, i) =>
     val bucketIO = bucket.io

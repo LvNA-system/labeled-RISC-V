@@ -14,7 +14,6 @@ class PARDSimConfig extends Config(
   ++ new WithoutFPU
   ++ new WithNoHype
   ++ new WithNCores(2)
-  ++ new WithNDsids(3)
 //  ++ new WithAynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x2000000L) // 32MB
   ++ new WithL2Capacity(128)
@@ -30,7 +29,6 @@ class PARDFPGAConfigzedboard extends Config(
   ++ new WithExtMemSize(0x80000000L)
 //  ++ new WithAddressMapperBase(0x10000000L) // 256MB
   ++ new WithNCores(4)
-  ++ new WithNDsids(5)
   ++ new WithNBtbEntry(0)
   ++ new WithL1ICacheWays(1)
   ++ new WithL1DCacheWays(1)

@@ -297,6 +297,55 @@ void handle_debug_request(char *command, char *reg, char *values) {
   }
 }
 
+// control plane address space
+int cpAddrSize = 32;
+int cpDataSize = 32;
+
+// control plane register address space;
+// 31     23        21     11       0;
+// +-------+--------+-------+-------+;
+// | cpIdx | tabIdx |  col  |  row  |;
+// +-------+--------+-------+-------+;
+//  \- 8 -/ \-  2 -/ \- 10-/ \- 12 -/;
+int rowIdxLen = 12;
+int colIdxLen = 10;
+int tabIdxLen = 2;
+int cpIdxLen = 8;
+
+int rowIdxLow = 0;
+int colIdxLow = rowIdxLow + rowIdxLen;
+int tabIdxLow = colIdxLow + colIdxLen;
+int cpIdxLow  = tabIdxLow + tabIdxLen;
+
+int rowIdxHigh = colIdxLow - 1;
+int colIdxHigh = tabIdxLow - 1;
+int tabIdxHigh = cpIdxLow  - 1;
+int cpIdxHigh  = 31;
+
+// control plane index;
+int coreCpIdx = 0;
+int memCpIdx = 1;
+int cacheCpIdx = 2;
+int ioCpIdx = 3;
+
+// tables;
+int ptabIdx = 0;
+int stabIdx = 1;
+int ttabIdx = 2;
+
+int get_cp_addr(int cpIdx, int tabIdx, int col, int row) {
+  int addr = cpIdx << cpIdxLow | tabIdx << tabIdxLow | col << colIdxLow | row << rowIdxLow;
+  printf("cpIdx: %d, tabIdx: %d, col: %d, row: %d addr: %x\n", cpIdx, tabIdx, col, row, addr);
+  return addr;
+}
+
+void read_cp_reg(int addr) {
+  char buf[1024];
+  sprintf(buf, "rw=1 addr=%x", addr);
+  handle_debug_request("write", "sbaddr0", buf);
+  handle_debug_request("read", "sbdata0", buf);
+}
+
 void write_cp_reg(int addr, int value) {
   char buf[1024];
   sprintf(buf, "rw=0 addr=%x", addr);
@@ -305,57 +354,41 @@ void write_cp_reg(int addr, int value) {
   handle_debug_request("write", "sbdata0", buf);
 }
 
-int NTiles = 2;
-int NDsids = 3;
-int NWays = 16;
-
-int amBasesBase = 0;
-int amSizesBase = amBasesBase + NTiles;
-
-int tbSizesBase = amSizesBase + NTiles;
-int tbFreqsBase = tbSizesBase + NDsids;
-int tbIncsBase = tbFreqsBase + NDsids;
-
-int cpNWaysBase = tbIncsBase + NDsids;
-int cpDsidMapsBase = cpNWaysBase + NDsids;
-int cpDsidMasksBase = cpDsidMapsBase + NDsids * NWays;
-
-
-/*
-void change_mask(int dsid, int mask) {
-  int cnt = 0;
-  int cp_addr;
-  int cp_value;
-  for (int i = 0; i < NWays; i++) {
-	if (mask & 1) {
-	  cp_addr = cpDsidMapsBase + dsid * NWays + cnt;
-	  cp_value = i;
-	  write_cp_reg(cp_addr, cp_value);
-	  cnt++;
-	}
-	mask >>= 1;
-  }
-  cp_addr = cpNWaysBase + dsid;
-  cp_value = cnt;
-  write_cp_reg(cp_addr, cp_value);
-}
-*/
-
-void change_mask(int dsid, int mask) {
-  write_cp_reg(cpDsidMasksBase + dsid, mask);
+void help() {
+  fprintf(stderr, "Command format:\n"
+	  "\trw=r/w,cp=%%s,tab=%%s,col=%%s,row=%%x[,val=%%x]\n"
+	  "Example:\n"
+	  "\t1. read cache miss counter of dsid 1:\n"
+	  "\t   rw=r,cp=cache,tab=s,col=miss,row=1\n"
+	  "\t2. change waymask of dsid 1:\n"
+	  "\t   rw=r,cp=cache,tab=p,col=mask,row=1,val=0xf\n");
 }
 
-void change_size(int dsid, int size) {
-  write_cp_reg(tbSizesBase + dsid, size);
+void invalid_command() {
+  fprintf(stderr, "Invalid command, use \"help\" to see the command format\n");
 }
 
-void change_freq(int dsid, int freq) {
-  write_cp_reg(tbFreqsBase + dsid, freq);
+int string_to_idx(char *name, char **table, int size) {
+  for (int i = 0; i < size; i++)
+	if (!strcmp(name, table[i]))
+	  return i;
+  return -1;
 }
 
-void change_inc(int dsid, int inc) {
-  write_cp_reg(tbIncsBase + dsid, inc);
-}
+char *rw_tables[] = {"r","w"};
+char *cp_tables[] = {"core", "mem", "cache","io"};
+
+char *tab_tables[3][3] = {
+  {"p"},
+  {"p"},
+  {"p", "s"},
+};
+
+char *col_tables[3][3][4] = {
+  {{"dsid", "base", "size", "hartid"}},
+  {{"size", "freq", "inc"}},
+  {{"mask"}, {"access", "miss"}},
+};
 
 int main(int argc, char *argv[]) {
   srand(time(NULL));
@@ -404,46 +437,116 @@ int main(int argc, char *argv[]) {
 	  dbusIdleCycles, dbusStatus, debugAddrBits, debugVersion);
 
   while (1) {
-	int dsid;
 	if (!automatic_test) {
 	  printf("> ");
 	  fflush(stdout);
 	  char buf[1024];
 	  if(!fgets(buf, 1024, stdin))
 		break;
+
+	  int rw = -1;
+	  int cpIdx = -1;
+	  int tabIdx = -1;
+	  int col = -1;
+	  int row = -1;
+	  int val = -1;
+
 	  char *s = buf;
+	  if (!strcmp(s, "help\n")) {
+		help();
+		continue;
+	  }
+
 	  while (s != NULL) {
 		char *eq = strchr(s, '='); 
+		if (!eq) {
+		  invalid_command();
+		  break;
+		}
 		*eq = '\0';
-		uint32_t value = (uint32_t)strtol(eq + 1, NULL, 16);
-		if (!strcmp(s, "dsid")) {
-		  dsid = value;
-		} else if(!strcmp(s, "size")) {
-		  change_size(dsid, value);
-		} else if(!strcmp(s, "freq")) {
-		  change_freq(dsid, value);
-		} else if(!strcmp(s, "inc")) {
-		  change_inc(dsid, value);
-		} else if(!strcmp(s, "mask")) {
-		  change_mask(dsid, value);
+
+		char *field = s;
+		char *value = eq + 1;
+
+		s = strchr(eq + 1, ',');
+		if (s != NULL) {
+		  *s = '\0';
+		  s++;
+		}
+
+		bool incorrect_order = false;
+
+		if (!strcmp(field, "rw")) {
+		  incorrect_order = rw != -1 || cpIdx != -1 || tabIdx != -1 ||
+			col != -1 || row != -1 || val != -1;
+		  if (incorrect_order ||
+			  (rw = string_to_idx(value, rw_tables,sizeof(rw_tables) / sizeof(char *))) == -1) {
+			invalid_command();
+			break;
+		  }
+		} else if(!strcmp(field, "cp")) {
+		  incorrect_order = rw == -1 || cpIdx != -1 || tabIdx != -1 ||
+			col != -1 || row != -1 || val != -1;
+		  if (incorrect_order ||
+			  (cpIdx = string_to_idx(value, cp_tables,sizeof(cp_tables) / sizeof(char *))) == -1) {
+			invalid_command();
+			break;
+		  }
+		} else if(!strcmp(field, "tab")) {
+		  incorrect_order = rw == -1 || cpIdx == -1 || tabIdx != -1 ||
+			col != -1 || row != -1 || val != -1;
+		  if (incorrect_order ||
+			  (tabIdx = string_to_idx(value, tab_tables[cpIdx],sizeof(tab_tables[cpIdx]) / sizeof(char *))) == -1) {
+			invalid_command();
+			break;
+		  }
+		} else if(!strcmp(field, "col")) {
+		  incorrect_order = rw == -1 || cpIdx == -1 || tabIdx == -1 ||
+			col != -1 || row != -1 || val != -1;
+		  if (incorrect_order ||
+			  (col = string_to_idx(value, col_tables[cpIdx][tabIdx],sizeof(col_tables[cpIdx][tabIdx]) / sizeof(char *))) == -1) {
+			invalid_command();
+			break;
+		  }
+		} else if(!strcmp(field, "row")) {
+		  incorrect_order = rw == -1 || cpIdx == -1 || tabIdx == -1 ||
+			col == -1 || row != -1 || val != -1;
+		  if (incorrect_order) {
+			invalid_command();
+			break;
+		  }
+		  row = (int)strtol(value, NULL, 16);
+		  // read
+		  if(rw == 0)
+			read_cp_reg(get_cp_addr(cpIdx, tabIdx,col, row));
+		} else if(!strcmp(field, "val")) {
+		  // only write needs val
+		  incorrect_order = rw != 1 || cpIdx == -1 || tabIdx == -1 ||
+			col == -1 || row == -1 || val != -1;
+		  if (incorrect_order) {
+			invalid_command();
+			break;
+		  }
+		  val = (int)strtol(value, NULL, 16);
+		  // execute the command
+		  write_cp_reg(get_cp_addr(cpIdx, tabIdx,col, row), val);
 		} else {
 		  printf("invalid field\n");
 		}
-		s = strchr(eq + 1, ',');
-		if (s != NULL)
-		  s++;
 	  }
 	} else {
-	  sleep(0);
-	  int dsid = rand() % NDsids;
-	  int size = rand() % 1000;
-	  int freq = rand() % 1000;
-	  int inc = rand() % 10;
-	  int mask = rand();
-	  change_size(dsid, size);
-	  change_freq(dsid, freq);
-	  change_inc(dsid, inc);
-	  change_mask(dsid, mask);
+	  /*
+		 sleep(0);
+		 int dsid = rand() % NDsids;
+		 int size = rand() % 1000;
+		 int freq = rand() % 1000;
+		 int inc = rand() % 10;
+		 int mask = rand();
+		 change_size(dsid, size);
+		 change_freq(dsid, freq);
+		 change_inc(dsid, inc);
+		 change_mask(dsid, mask);
+		 */
 	}
   }
 
