@@ -7,10 +7,12 @@ import cde.{Parameters, Field}
 import rocketchip.ExtMemSize
 import uncore.agents.{NWays}
 import uncore.devices.{NTiles}
-
-case object NDsids extends Field[Int]
+import uncore.tilelink.{DsidBits}
 
 trait HasControlPlaneParameters {
+  implicit val p: Parameters
+  val dsidBits = p(DsidBits)
+  val NDsids = 1 << dsidBits
   val cpAddrSize = 32
   val cpDataSize = 32
 
@@ -49,13 +51,14 @@ trait HasControlPlaneParameters {
 
   def getRowFromAddr(addr: UInt) = addr(rowIdxHigh, rowIdxLow)
   def getColFromAddr(addr: UInt) = addr(colIdxHigh, colIdxLow)
+  def getTabFromAddr(addr: UInt) = addr(tabIdxHigh, tabIdxLow)
   def getCpFromAddr(addr: UInt)  = addr(cpIdxHigh, cpIdxLow)
 }
 
-abstract class ControlPlaneBundle extends Bundle with HasControlPlaneParameters
-abstract class ControlPlaneModule extends Module with HasControlPlaneParameters
+abstract class ControlPlaneBundle(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters
+abstract class ControlPlaneModule(implicit val p: Parameters) extends Module with HasControlPlaneParameters
 
-class ControlPlaneRWIO(implicit val p: Parameters) extends ControlPlaneBundle
+class ControlPlaneRWIO(implicit p: Parameters) extends ControlPlaneBundle
   with HasControlPlaneParameters {
   // read
   val ren = Bool(OUTPUT)
@@ -69,83 +72,35 @@ class ControlPlaneRWIO(implicit val p: Parameters) extends ControlPlaneBundle
   override def cloneType = (new ControlPlaneRWIO).asInstanceOf[this.type]
 }
 
-class ControlPlaneIO(implicit val p: Parameters) extends ControlPlaneBundle {
+class ControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
+  val dsidConfig = new DsidConfigIO
   val addressMapperConfig = new AddressMapperConfigIO
   val tokenBucketConfig = new TokenBucketConfigIO
   val cachePartitionConfig = new CachePartitionConfigIO
 }
 
-class ControlPlaneModule2(implicit p: Parameters) extends ControlPlaneModule {
+class ControlPlaneTopModule(implicit p: Parameters) extends ControlPlaneModule {
   val io = IO(new ControlPlaneIO)
+  val coreCP = Module(new CoreControlPlaneModule)
+  val cacheCP = Module(new CacheControlPlaneModule)
 
-  val amBasesBase = 0
-  val amSizesBase = amBasesBase + p(NTiles)
+  io.cachePartitionConfig <> cacheCP.io.cacheConfig
+  io.dsidConfig <> coreCP.io.dsidConfig
+  io.addressMapperConfig <> coreCP.io.addressMapperConfig
 
-  val tbSizesBase = amSizesBase + p(NTiles)
-  val tbFreqsBase = tbSizesBase + p(NDsids)
-  val tbIncsBase = tbFreqsBase + p(NDsids)
+  val rcpIdx = getCpFromAddr(io.rw.raddr)
+  val wcpIdx = getCpFromAddr(io.rw.waddr)
+  coreCP.io.rw <> io.rw
+  cacheCP.io.rw <> io.rw
 
+  coreCP.io.rw.ren := io.rw.ren && (coreCP.cpIdx === rcpIdx)
+  coreCP.io.rw.wen := io.rw.wen && (coreCP.cpIdx === wcpIdx)
+  cacheCP.io.rw.ren := io.rw.ren && (cacheCP.cpIdx === rcpIdx)
+  cacheCP.io.rw.wen := io.rw.wen && (cacheCP.cpIdx === wcpIdx)
 
-  val cpNWaysBase = tbIncsBase + p(NDsids)
-  val cpDsidMapsBase = cpNWaysBase + p(NDsids)
-  val cpDsidMasksBase = cpDsidMapsBase + p(NDsids) * p(NWays)
-  val nReg = cpDsidMasksBase + p(NDsids)
-
-  // register read/write should be single cycle
-  val cpRegs = Reg(Vec(nReg, UInt(width = cpDataSize)))
-
-  val size = p(ExtMemSize)
-
-  // initialize the registers with valid content
-  when (reset) {
-    for (i <- 0 until p(NTiles))
-      cpRegs(amBasesBase + i) := UInt(0x0L) // make this invalid
-    for (i <- 0 until p(NTiles))
-      cpRegs(amSizesBase + i):= UInt(size)
-
-    for (i <- 0 until p(NDsids))
-      cpRegs(tbSizesBase + i) := 1.U
-    for (i <- 0 until p(NDsids))
-      cpRegs(tbFreqsBase + i) := 0.U
-    for (i <- 0 until p(NDsids))
-      cpRegs(tbIncsBase + i) := 1.U
-
-    for (i <- 0 until p(NDsids))
-      cpRegs(cpNWaysBase + i) := p(NWays).U
-    for (i <- 0 until p(NDsids))
-      for (j <- 0 until p(NWays))
-        cpRegs(cpDsidMapsBase + i * p(NWays) + j) := j.U
-	/*
-    for (i <- 0 until p(NDsids))
-      cpRegs(cpDsidMasksBase + i) := 0xffffff.U
-	*/
-	cpRegs(cpDsidMasksBase + 0) := 0xffffff.U
-	cpRegs(cpDsidMasksBase + 1) := 0x00aaaa.U
-	cpRegs(cpDsidMasksBase + 2) := 0x005555.U
-  }
-
-  // do no sanity check!
-  when (io.rw.ren) { io.rw.rdata := cpRegs(io.rw.raddr) }
-  when (io.rw.wen) { cpRegs(io.rw.waddr) := io.rw.wdata }
-
-  // wire out cpRegs
-  for (i <- 0 until p(NTiles))
-    io.addressMapperConfig.bases(i) := cpRegs(amBasesBase + i)
-  for (i <- 0 until p(NTiles))
-    io.addressMapperConfig.sizes(i) := cpRegs(amSizesBase + i)
-
-  for (i <- 0 until p(NDsids))
-    io.tokenBucketConfig.sizes(i) := cpRegs(tbSizesBase + i)
-  for (i <- 0 until p(NDsids))
-    io.tokenBucketConfig.freqs(i) := cpRegs(tbFreqsBase + i)
-  for (i <- 0 until p(NDsids))
-    io.tokenBucketConfig.incs(i) := cpRegs(tbIncsBase + i)
-
-  for (i <- 0 until p(NDsids))
-    io.cachePartitionConfig.nWays(i) := cpRegs(cpNWaysBase + i)
-  for (i <- 0 until p(NDsids) * p(NWays))
-    io.cachePartitionConfig.dsidMaps(i / p(NWays))(i % p(NWays)) := cpRegs(cpDsidMapsBase + i)
-  for (i <- 0 until p(NDsids))
-    io.cachePartitionConfig.dsidMasks(i) := cpRegs(cpDsidMasksBase + i)
+  io.rw.rdata := MuxLookup(rcpIdx, UInt(0), Array(
+    coreCP.cpIdx -> coreCP.io.rw.rdata,
+    cacheCP.cpIdx -> cacheCP.io.rw.rdata
+  ))
 }

@@ -10,24 +10,24 @@ import uncore.devices.{NTiles}
 case object LDomDsidBits extends Field[Int]
 case object UseNoHype extends Field[Boolean]
 
-class DsidConfigIO(implicit val p: Parameters) extends ControlPlaneBundle {
+class DsidConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val dsids = Vec(p(NTiles), UInt(OUTPUT, width = p(LDomDsidBits)))
   override def cloneType = (new DsidConfigIO).asInstanceOf[this.type]
 }
 
-class AddressMapperConfigIO(implicit val p: Parameters) extends ControlPlaneBundle {
+class AddressMapperConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val bases = Vec(p(NTiles), UInt(OUTPUT, width = cpDataSize))
   val sizes = Vec(p(NTiles), UInt(OUTPUT, width = cpDataSize))
   override def cloneType = (new AddressMapperConfigIO).asInstanceOf[this.type]
 }
 
-class CoreControlPlaneIO(implicit val p: Parameters) extends ControlPlaneBundle {
+class CoreControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val dsidConfig = new DsidConfigIO
   val addressMapperConfig = new AddressMapperConfigIO
 }
 
-class CoreControlPlaneModule(implicit val p: Parameters) extends ControlPlaneModule {
+class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val io = IO(new CoreControlPlaneIO)
   val cpIdx = UInt(coreCpIdx)
 
@@ -60,21 +60,23 @@ class CoreControlPlaneModule(implicit val p: Parameters) extends ControlPlaneMod
   // read
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
-  io.rw.rdata := MuxLookup(rcol, UInt(0), Array(
+  io.rw.rdata := Mux(io.rw.ren, MuxLookup(rcol, UInt(0), Array(
     UInt(dsidCol)   -> ptabDsidRegs(rrow),
     UInt(baseCol)   -> ptabBaseRegs(rrow),
     UInt(sizeCol)   -> ptabSizeRegs(rrow),
     UInt(hartidCol) -> ptabHartidRegs(rrow)
-  ))
+  )), UInt(0))
 
   // write
   val wrow = getRowFromAddr(io.rw.waddr)
   val wcol = getColFromAddr(io.rw.waddr)
-  switch (wcol) {
-    is (UInt(dsidCol))   { ptabDsidRegs(wrow)   := io.rw.wdata }
-    is (UInt(baseCol))   { ptabBaseRegs(wrow)   := io.rw.wdata }
-    is (UInt(sizeCol))   { ptabSizeRegs(wrow)   := io.rw.wdata }
-    is (UInt(hartidCol)) { ptabHartidRegs(wrow) := io.rw.wdata }
+  when (io.rw.wen) {
+    switch (wcol) {
+      is (UInt(dsidCol))   { ptabDsidRegs(wrow)   := io.rw.wdata }
+      is (UInt(baseCol))   { ptabBaseRegs(wrow)   := io.rw.wdata }
+      is (UInt(sizeCol))   { ptabSizeRegs(wrow)   := io.rw.wdata }
+      is (UInt(hartidCol)) { ptabHartidRegs(wrow) := io.rw.wdata }
+    }
   }
 
   // wire out cpRegs

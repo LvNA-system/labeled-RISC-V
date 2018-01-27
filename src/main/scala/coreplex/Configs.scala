@@ -155,7 +155,6 @@ class BaseCoreplexConfig extends Config (
 
       case BootROMFile => "./bootrom/bootrom.img"
       case NTiles => 1
-      case NDsids => 1
       case NBanksPerMemoryChannel => Knob("NBANKS_PER_MEM_CHANNEL")
       case NTrackersPerBank => Knob("NTRACKERS_PER_BANK")
       case BankIdLSB => 0
@@ -183,11 +182,6 @@ class BaseCoreplexConfig extends Config (
 class WithNCores(n: Int) extends Config(
   (pname,site,here) => pname match {
     case NTiles => n
-  })
-
-class WithNDsids(n: Int) extends Config(
-  (pname,site,here) => pname match {
-    case NDsids => n
   })
 
 class WithNBanksPerMemChannel(n: Int) extends Config(
