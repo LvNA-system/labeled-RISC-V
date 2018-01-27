@@ -419,7 +419,9 @@ static void host_mainloop(int server_fd) {
 void *create_jtag_vpi_server(void *p)
 {
   extern int port;
-  int server_fd = create_server((port == 0 ? 8080 : port));
+  port = port == 0 ? 8080 : port;
+  printf("Listen on port: %d\n", port);
+  int server_fd = create_server(port);
   host_mainloop(server_fd);
 }
 
