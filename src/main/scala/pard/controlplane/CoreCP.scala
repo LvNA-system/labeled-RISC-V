@@ -60,21 +60,23 @@ class CoreControlPlaneModule(implicit val p: Parameters) extends ControlPlaneMod
   // read
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
-  io.rw.rdata := MuxLookup(rcol, UInt(0), Array(
+  io.rw.rdata := Mux(io.rw.ren, MuxLookup(rcol, UInt(0), Array(
     UInt(dsidCol)   -> ptabDsidRegs(rrow),
     UInt(baseCol)   -> ptabBaseRegs(rrow),
     UInt(sizeCol)   -> ptabSizeRegs(rrow),
     UInt(hartidCol) -> ptabHartidRegs(rrow)
-  ))
+  )), UInt(0))
 
   // write
   val wrow = getRowFromAddr(io.rw.waddr)
   val wcol = getColFromAddr(io.rw.waddr)
-  switch (wcol) {
-    is (UInt(dsidCol))   { ptabDsidRegs(wrow)   := io.rw.wdata }
-    is (UInt(baseCol))   { ptabBaseRegs(wrow)   := io.rw.wdata }
-    is (UInt(sizeCol))   { ptabSizeRegs(wrow)   := io.rw.wdata }
-    is (UInt(hartidCol)) { ptabHartidRegs(wrow) := io.rw.wdata }
+  when (io.rw.wen) {
+    switch (wcol) {
+      is (UInt(dsidCol))   { ptabDsidRegs(wrow)   := io.rw.wdata }
+      is (UInt(baseCol))   { ptabBaseRegs(wrow)   := io.rw.wdata }
+      is (UInt(sizeCol))   { ptabSizeRegs(wrow)   := io.rw.wdata }
+      is (UInt(hartidCol)) { ptabHartidRegs(wrow) := io.rw.wdata }
+    }
   }
 
   // wire out cpRegs
