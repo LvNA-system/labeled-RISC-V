@@ -68,6 +68,7 @@ class RandomReplacement(ways: Int) extends ReplacementPolicy {
   def hit = {}
 }
 
+/*
 class DsidRandomReplacement(ways: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends ReplacementPolicy {
   private val replace = Wire(Bool())
   replace := Bool(false)
@@ -83,14 +84,15 @@ class DsidRandomReplacement(ways: Int, dsid: UInt, cachePartitionConfig: CachePa
   val nway = dsid_nways(dsid)
   val target_way = Wire(UInt(width = log2Up(ways)))
   when (nway === UInt(1)) {
-	target_way := UInt(0)
+    target_way := UInt(0)
   }.otherwise {
-	target_way := dsid_way_map(dsid)(lfsr(log2Up(ways)-1,0) & (nway - UInt(1)))
+    target_way := dsid_way_map(dsid)(lfsr(log2Up(ways)-1,0) & (nway - UInt(1)))
   }
   def way = target_way
   def miss = replace := Bool(true)
   def hit = {}
 }
+*/
 
 abstract class SeqReplacementPolicy {
   def access(set: UInt): Unit
@@ -107,6 +109,7 @@ class SeqRandom(n_ways: Int) extends SeqReplacementPolicy {
   def way = logic.way
 }
 
+/*
 class DsidSeqRandom(n_ways: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends SeqReplacementPolicy {
   val logic = new DsidRandomReplacement(n_ways, dsid, cachePartitionConfig)
   def access(set: UInt) = { }
@@ -115,6 +118,7 @@ class DsidSeqRandom(n_ways: Int, dsid: UInt, cachePartitionConfig: CachePartitio
   }
   def way = logic.way
 }
+*/
 
 class PseudoLRU(n: Int)
 {
@@ -162,6 +166,7 @@ class SeqPLRU(n_sets: Int, n_ways: Int) extends SeqReplacementPolicy {
   def way = plru_way
 }
 
+/*
 class DsidPseudoLRU(n: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO)
 {
   require(isPow2(n))
@@ -245,13 +250,14 @@ class DsidSeqPLRU(n_sets: Int, n_ways: Int, n_dsids: Int, dsid: UInt, cacheParti
 
   def way = plru_way
 }
+*/
 
-class DsidRR(n_sets: Int, n_ways: Int, n_dsids: Int, dsid: UInt, cachePartitionConfig: CachePartitionConfigIO) extends SeqReplacementPolicy {
+class DsidRR(n_sets: Int, n_ways: Int, dsid: UInt, cache_config: CachePartitionConfigIO) extends SeqReplacementPolicy {
   val state = SeqMem(n_sets, Bits(width = n_ways))
-  val next_state = Wire(Bits())
-  val waymask = cachePartitionConfig.dsidMasks
   val curr_state = Wire(Bits(width = n_ways))
-  val curr_mask = waymask(dsid)
+  val next_state = Wire(Bits())
+
+  val curr_mask = cache_config.waymask
 
   val target_way = Mux((curr_state & curr_mask).orR, PriorityEncoder(curr_state & curr_mask), PriorityEncoder(curr_mask))
 
@@ -262,6 +268,11 @@ class DsidRR(n_sets: Int, n_ways: Int, n_dsids: Int, dsid: UInt, cachePartitionC
 
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
     val update_way = Mux(hit, way, target_way)
+
+    cache_config.dsid := dsid
+    cache_config.access := valid
+    cache_config.miss := valid && !hit
+
     when (valid) {
       when (!(curr_state & curr_mask).orR) {
         next_state := curr_state | curr_mask
@@ -502,8 +513,7 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
   val s2_tag_match = s2_tag_match_way.orR
   val s2_hit_coh = Mux1H(s2_tag_match_way, wayMap((w: Int) => RegEnable(meta.io.resp(w).coh, s1_clk_en)))
 
-  val replacer = p(L2Replacer)()
-  //val replacer = new DsidRR(p(NSets), p(NWays), p(NDsids), s1_dsid, io.cachePartitionConfig)
+  val replacer = new DsidRR(nSets, nWays, s1_dsid, io.cachePartitionConfig)
   val s1_hit_way = Wire(Bits())
   s1_hit_way := Bits(0)
   (0 until nWays).foreach(i => when (s1_tag_match_way(i)) { s1_hit_way := Bits(i) })
@@ -1303,7 +1313,7 @@ class L2WritebackUnit(val trackerId: Int)(implicit p: Parameters) extends XactTr
   }
 
   val addr_block = (if (cacheIdBits == 0) Cat(io.wb.req.bits.tag, io.wb.req.bits.idx)
-	else Cat(io.wb.req.bits.tag, io.wb.req.bits.idx, UInt(cacheId, cacheIdBits))) 
+    else Cat(io.wb.req.bits.tag, io.wb.req.bits.idx, UInt(cacheId, cacheIdBits)))
 
   when (state === s_meta_resp && io.meta.resp.valid) {
     pending_reads := Fill(innerDataBeats, needs_outer_release)

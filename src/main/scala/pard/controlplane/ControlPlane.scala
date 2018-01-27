@@ -11,7 +11,8 @@ import uncore.tilelink.{DsidBits}
 
 trait HasControlPlaneParameters {
   implicit val p: Parameters
-  val NDsids = 1 << p(DsidBits)
+  val dsidBits = p(DsidBits)
+  val NDsids = 1 << dsidBits
   val cpAddrSize = 32
   val cpDataSize = 32
 
@@ -50,6 +51,7 @@ trait HasControlPlaneParameters {
 
   def getRowFromAddr(addr: UInt) = addr(rowIdxHigh, rowIdxLow)
   def getColFromAddr(addr: UInt) = addr(colIdxHigh, colIdxLow)
+  def getTabFromAddr(addr: UInt) = addr(tabIdxHigh, tabIdxLow)
   def getCpFromAddr(addr: UInt)  = addr(cpIdxHigh, cpIdxLow)
 }
 
@@ -81,18 +83,24 @@ class ControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
 class ControlPlaneTopModule(implicit p: Parameters) extends ControlPlaneModule {
   val io = IO(new ControlPlaneIO)
   val coreCP = Module(new CoreControlPlaneModule)
+  val cacheCP = Module(new CacheControlPlaneModule)
 
+  io.cachePartitionConfig <> cacheCP.io.cacheConfig
   io.dsidConfig <> coreCP.io.dsidConfig
   io.addressMapperConfig <> coreCP.io.addressMapperConfig
 
   val rcpIdx = getCpFromAddr(io.rw.raddr)
   val wcpIdx = getCpFromAddr(io.rw.waddr)
   coreCP.io.rw <> io.rw
+  cacheCP.io.rw <> io.rw
 
   coreCP.io.rw.ren := io.rw.ren && (coreCP.cpIdx === rcpIdx)
   coreCP.io.rw.wen := io.rw.wen && (coreCP.cpIdx === wcpIdx)
+  cacheCP.io.rw.ren := io.rw.ren && (cacheCP.cpIdx === rcpIdx)
+  cacheCP.io.rw.wen := io.rw.wen && (cacheCP.cpIdx === wcpIdx)
 
   io.rw.rdata := MuxLookup(rcpIdx, UInt(0), Array(
-    coreCP.cpIdx -> coreCP.io.rw.rdata
+    coreCP.cpIdx -> coreCP.io.rw.rdata,
+    cacheCP.cpIdx -> cacheCP.io.rw.rdata
   ))
 }
