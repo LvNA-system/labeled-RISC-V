@@ -7,10 +7,11 @@ import cde.{Parameters, Field}
 import rocketchip.ExtMemSize
 import uncore.agents.{NWays}
 import uncore.devices.{NTiles}
-
-case object NDsids extends Field[Int]
+import uncore.tilelink.{DsidBits}
 
 trait HasControlPlaneParameters {
+  implicit val p: Parameters
+  val NDsids = 1 << p(DsidBits)
   val cpAddrSize = 32
   val cpDataSize = 32
 
@@ -52,10 +53,10 @@ trait HasControlPlaneParameters {
   def getCpFromAddr(addr: UInt)  = addr(cpIdxHigh, cpIdxLow)
 }
 
-abstract class ControlPlaneBundle extends Bundle with HasControlPlaneParameters
-abstract class ControlPlaneModule extends Module with HasControlPlaneParameters
+abstract class ControlPlaneBundle(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters
+abstract class ControlPlaneModule(implicit val p: Parameters) extends Module with HasControlPlaneParameters
 
-class ControlPlaneRWIO(implicit val p: Parameters) extends ControlPlaneBundle
+class ControlPlaneRWIO(implicit p: Parameters) extends ControlPlaneBundle
   with HasControlPlaneParameters {
   // read
   val ren = Bool(OUTPUT)
@@ -69,7 +70,7 @@ class ControlPlaneRWIO(implicit val p: Parameters) extends ControlPlaneBundle
   override def cloneType = (new ControlPlaneRWIO).asInstanceOf[this.type]
 }
 
-class ControlPlaneIO(implicit val p: Parameters) extends ControlPlaneBundle {
+class ControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val dsidConfig = new DsidConfigIO
   val addressMapperConfig = new AddressMapperConfigIO

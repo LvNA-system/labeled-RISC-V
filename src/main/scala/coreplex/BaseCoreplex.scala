@@ -180,7 +180,7 @@ trait CoreplexRISCVPlatformBundle {
   val resetVector = UInt(INPUT, p(XLen))
   val success = Bool(OUTPUT) // used for testing
 
-  val trafficEnable = Vec(p(NDsids), new TrafficEnableIO()).flip
+  val trafficEnable = Vec(p(NTiles), new TrafficEnableIO()).flip
   val tokenBucketConfig = new TokenBucketConfigIO
 }
 
