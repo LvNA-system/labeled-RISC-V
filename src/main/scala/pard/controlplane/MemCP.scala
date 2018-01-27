@@ -5,9 +5,86 @@ package pard.cp
 import Chisel._
 import cde.{Parameters}
 
+
 class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val sizes = Vec(NDsids, UInt(OUTPUT, width = cpDataSize))
   val freqs = Vec(NDsids, UInt(OUTPUT, width = cpDataSize))
   val incs  = Vec(NDsids, UInt(OUTPUT, width = cpDataSize))
   override def cloneType = (new TokenBucketConfigIO).asInstanceOf[this.type]
+}
+
+class MemControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
+  val rw = (new ControlPlaneRWIO).flip
+  val tokenBucketConfig = new TokenBucketConfigIO
+}
+
+class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
+  val io = IO(new MemControlPlaneIO)
+  val cpIdx = UInt(memCpIdx)
+
+  // ptab
+  val sizeCol = 0
+  val sizeRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+  val freqCol = 1
+  val freqRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+  val incCol = 2
+  val incRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+
+  // stab
+
+  when (reset) {
+    for (i <- 0 until NDsids) {
+      sizeRegs(i) := 32.U
+      freqRegs(i) := 32.U
+      incRegs(i) := 32.U
+    }
+  }
+
+  // ControlPlaneIO
+  // read
+  val rtab = getTabFromAddr(io.rw.raddr)
+  val rrow = getRowFromAddr(io.rw.raddr)
+  val rcol = getColFromAddr(io.rw.raddr)
+
+  when (io.rw.ren) {
+    val ptabData = MuxLookup(rcol, UInt(0), Array(
+      UInt(sizeCol)   -> sizeRegs(rrow),
+      UInt(freqCol)   -> freqRegs(rrow),
+      UInt(incCol)   -> incRegs(rrow)
+    ))
+
+    val stabData = UInt(0)
+       
+    io.rw.rdata := MuxLookup(rtab, UInt(0), Array(
+      UInt(ptabIdx)   -> ptabData,
+      UInt(stabIdx)   -> stabData
+    ))
+  }
+
+  // write
+  val wtab = getTabFromAddr(io.rw.waddr)
+  val wrow = getRowFromAddr(io.rw.waddr)
+  val wcol = getColFromAddr(io.rw.waddr)
+  when (io.rw.wen) {
+    switch (wtab) {
+      is (UInt(ptabIdx)) {
+        switch (wcol) {
+          is (UInt(sizeCol)) {
+            sizeRegs(wrow) := io.rw.wdata
+          }
+          is (UInt(freqCol)) {
+            freqRegs(wrow) := io.rw.wdata
+          }
+          is (UInt(incCol)) {
+            incRegs(wrow) := io.rw.wdata
+          }
+        }
+      }
+    }
+  }
+
+  // wire out cpRegs
+  (io.tokenBucketConfig.sizes zip sizeRegs) ++
+    (io.tokenBucketConfig.freqs zip freqRegs) ++
+    (io.tokenBucketConfig.incs zip incRegs) map { case (o, i) => o := i } 
 }
