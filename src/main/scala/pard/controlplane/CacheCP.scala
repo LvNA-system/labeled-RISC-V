@@ -75,6 +75,8 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val missWdata = Mux(cpRWEn, io.rw.wdata,
     Mux(miss, missRdata + UInt(1), missRdata))
 
+  cpAccessWen := cpWen && wtab === UInt(stabIdx) && wcol === UInt(accessCounterCol)
+  cpMissWen := cpWen && wtab === UInt(stabIdx) && wcol === UInt(missCounterCol)
   when (accessWen) {
     accessCounterRegs(Mux(cpRWEn, wrow, dsid)) := accessWdata
   }
@@ -89,15 +91,15 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
       UInt(waymaskCol)   -> waymaskRdata
     ))
 
-  val stabData = MuxLookup(rcol, UInt(0), Array(
-    UInt(accessCounterCol)   -> accessRdata,
-    UInt(missCounterCol)   -> missRdata
-    ))
+	val stabData = MuxLookup(rcol, UInt(0), Array(
+	  UInt(accessCounterCol)   -> accessRdata,
+	  UInt(missCounterCol)   -> missRdata
+	))
 
-  io.rw.rdata := MuxLookup(rtab, UInt(0), Array(
-    UInt(ptabIdx)   -> ptabData,
-    UInt(stabIdx)   -> stabData
-    ))
+	io.rw.rdata := MuxLookup(rtab, UInt(0), Array(
+	  UInt(ptabIdx)   -> ptabData,
+	  UInt(stabIdx)   -> stabData
+	))
   }
 
   // write
@@ -108,16 +110,6 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
         switch (wcol) {
           is (UInt(waymaskCol)) {
             ptabWaymaskRegs(wrow) := io.rw.wdata
-          }
-        }
-      }
-      is (UInt(stabIdx)) {
-        switch (wcol) {
-          is (UInt(accessCounterCol)) {
-            cpAccessWen := Bool(true)
-          }
-          is (UInt(missCounterCol)) {
-            cpMissWen := Bool(true)
           }
         }
       }
