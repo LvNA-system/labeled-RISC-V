@@ -38,6 +38,7 @@ trait DirectConnectionModule {
     tile.io.interrupts <> uncore.interrupts
 
     tile.io.hartid := uncore.hartid
+    tile.io.dsid := uncore.dsid
     tile.io.base := uncore.base
     tile.io.size := uncore.size
     tile.io.resetVector := uncore.resetVector
