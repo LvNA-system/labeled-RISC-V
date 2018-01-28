@@ -6,6 +6,16 @@ import Chisel._
 import cde.{Parameters}
 
 
+class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
+  val ren = Bool(INPUT)
+  val readDsid = UInt(INPUT, width = dsidBits)
+  val readCnt = UInt(INPUT, width = cpDataSize)
+  val wen = Bool(INPUT)
+  val writeDsid = UInt(INPUT, width = dsidBits)
+  val writeCnt = UInt(INPUT, width = cpDataSize)
+  override def cloneType = (new MemMonitorIO).asInstanceOf[this.type]
+}
+
 class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val sizes = Vec(NDsids, UInt(OUTPUT, width = cpDataSize))
   val freqs = Vec(NDsids, UInt(OUTPUT, width = cpDataSize))
@@ -16,6 +26,7 @@ class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
 class MemControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val tokenBucketConfig = new TokenBucketConfigIO
+  val memMonitor = new MemMonitorIO
 }
 
 class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
@@ -31,30 +42,68 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val incRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
 
   // stab
+  val readCounterCol = 0
+  val writeCounterCol = 1
+  val readCounterRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+  val writeCounterRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
 
   when (reset) {
     for (i <- 0 until NDsids) {
       sizeRegs(i) := 32.U
       freqRegs(i) := 32.U
       incRegs(i) := 32.U
+      readCounterRegs(i) := 0.U
+      writeCounterRegs(i) := 0.U
     }
   }
 
-  // ControlPlaneIO
+  val cpRen = io.rw.ren
+  val cpWen = io.rw.wen
+  val cpRWEn = cpRen || cpWen
+
+  val monitor = io.memMonitor
+
   // read
   val rtab = getTabFromAddr(io.rw.raddr)
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
 
-  when (io.rw.ren) {
+  val readCounterRdata = readCounterRegs(Mux(cpRWEn, rrow, monitor.readDsid))
+  val writeCounterRdata = writeCounterRegs(Mux(cpRWEn, rrow, monitor.writeDsid))
+
+  // write
+  val wtab = getTabFromAddr(io.rw.waddr)
+  val wrow = getRowFromAddr(io.rw.waddr)
+  val wcol = getColFromAddr(io.rw.waddr)
+
+  val cpReadCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(readCounterCol)
+  val cpWriteCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(writeCounterCol)
+  val readCounterWen = (monitor.ren && !cpRWEn) || cpReadCounterWen
+  val writeCounterWen = (monitor.wen && !cpRWEn) || cpWriteCounterWen
+  val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + monitor.readCnt)
+  val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + monitor.writeCnt)
+
+  when (readCounterWen) {
+    readCounterRegs(Mux(cpRWEn, wrow, monitor.readDsid)) := readCounterWdata
+  }
+  when (writeCounterWen) {
+    writeCounterRegs(Mux(cpRWEn, wrow, monitor.writeDsid)) := writeCounterWdata
+  }
+
+  // ControlPlaneIO
+  // read decoding
+  when (cpRen) {
     val ptabData = MuxLookup(rcol, UInt(0), Array(
       UInt(sizeCol)   -> sizeRegs(rrow),
       UInt(freqCol)   -> freqRegs(rrow),
       UInt(incCol)   -> incRegs(rrow)
     ))
 
-    val stabData = UInt(0)
-       
+    val stabData = MuxLookup(rcol, UInt(0), Array(
+      UInt(readCounterCol)   -> readCounterRdata,
+      UInt(writeCounterCol)   -> writeCounterRdata
+    ))
+
     io.rw.rdata := MuxLookup(rtab, UInt(0), Array(
       UInt(ptabIdx)   -> ptabData,
       UInt(stabIdx)   -> stabData
@@ -62,10 +111,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   }
 
   // write
-  val wtab = getTabFromAddr(io.rw.waddr)
-  val wrow = getRowFromAddr(io.rw.waddr)
-  val wcol = getColFromAddr(io.rw.waddr)
-  when (io.rw.wen) {
+  // write decoding
+  when (cpWen) {
     switch (wtab) {
       is (UInt(ptabIdx)) {
         switch (wcol) {

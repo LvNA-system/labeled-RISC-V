@@ -77,6 +77,7 @@ class ControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val dsidConfig = new DsidConfigIO
   val addressMapperConfig = new AddressMapperConfigIO
   val tokenBucketConfig = new TokenBucketConfigIO
+  val memMonitor = new MemMonitorIO
   val cachePartitionConfig = new CachePartitionConfigIO
 }
 
@@ -84,23 +85,30 @@ class ControlPlaneTopModule(implicit p: Parameters) extends ControlPlaneModule {
   val io = IO(new ControlPlaneIO)
   val coreCP = Module(new CoreControlPlaneModule)
   val cacheCP = Module(new CacheControlPlaneModule)
+  val memCP = Module(new MemControlPlaneModule)
 
   io.cachePartitionConfig <> cacheCP.io.cacheConfig
   io.dsidConfig <> coreCP.io.dsidConfig
   io.addressMapperConfig <> coreCP.io.addressMapperConfig
+  io.tokenBucketConfig <> memCP.io.tokenBucketConfig
+  io.memMonitor <> memCP.io.memMonitor
 
   val rcpIdx = getCpFromAddr(io.rw.raddr)
   val wcpIdx = getCpFromAddr(io.rw.waddr)
   coreCP.io.rw <> io.rw
   cacheCP.io.rw <> io.rw
+  memCP.io.rw <> io.rw
 
   coreCP.io.rw.ren := io.rw.ren && (coreCP.cpIdx === rcpIdx)
   coreCP.io.rw.wen := io.rw.wen && (coreCP.cpIdx === wcpIdx)
   cacheCP.io.rw.ren := io.rw.ren && (cacheCP.cpIdx === rcpIdx)
   cacheCP.io.rw.wen := io.rw.wen && (cacheCP.cpIdx === wcpIdx)
+  memCP.io.rw.ren := io.rw.ren && (memCP.cpIdx === rcpIdx)
+  memCP.io.rw.wen := io.rw.wen && (memCP.cpIdx === wcpIdx)
 
   io.rw.rdata := MuxLookup(rcpIdx, UInt(0), Array(
     coreCP.cpIdx -> coreCP.io.rw.rdata,
-    cacheCP.cpIdx -> cacheCP.io.rw.rdata
+    cacheCP.cpIdx -> cacheCP.io.rw.rdata,
+    memCP.cpIdx -> memCP.io.rw.rdata
   ))
 }

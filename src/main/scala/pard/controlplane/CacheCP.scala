@@ -66,8 +66,8 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val wrow = getRowFromAddr(io.rw.waddr)
   val wcol = getColFromAddr(io.rw.waddr)
 
-  val cpAccessWen = Wire(Bool())
-  val cpMissWen = Wire(Bool())
+  val cpAccessWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(accessCounterCol)
+  val cpMissWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(missCounterCol)
   val accessWen = (cacheRWEn && !cpRWEn) || cpAccessWen
   val missWen = (cacheRWEn && !cpRWEn) || cpMissWen
   val accessWdata = Mux(cpRWEn, io.rw.wdata,
@@ -75,8 +75,6 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val missWdata = Mux(cpRWEn, io.rw.wdata,
     Mux(miss, missRdata + UInt(1), missRdata))
 
-  cpAccessWen := cpWen && wtab === UInt(stabIdx) && wcol === UInt(accessCounterCol)
-  cpMissWen := cpWen && wtab === UInt(stabIdx) && wcol === UInt(missCounterCol)
   when (accessWen) {
     accessCounterRegs(Mux(cpRWEn, wrow, dsid)) := accessWdata
   }

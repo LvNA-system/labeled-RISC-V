@@ -188,8 +188,6 @@ trait PeripheryMasterMemModule {
     )
   }
 
-  io.mem_axi.zipWithIndex.foreach { case (axi, i) => axi.dump(s"mem_axi $i: ") }
-
   // one dsid one bucket
   val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
   val axiIn = io.mem_axi(0)
@@ -210,6 +208,15 @@ trait PeripheryMasterMemModule {
     bucketIO.bucket.size := tokenBucketConfig.sizes(i)
     bucketIO.bucket.freq := tokenBucketConfig.freqs(i)
     bucketIO.bucket.inc := tokenBucketConfig.incs(i)
+
+    val ar = axiIn.ar.bits
+    val aw = axiIn.aw.bits
+    memMonitor.ren := axiIn.ar.fire()
+    memMonitor.readDsid := ar.user
+    memMonitor.readCnt := (ar.len + 1.U) << ar.size
+    memMonitor.wen := axiIn.aw.fire()
+    memMonitor.writeDsid := aw.user
+    memMonitor.writeCnt := (aw.len + 1.U) << aw.size
   }
 
   (io.mem_ahb zip edgeMem) foreach { case (ahb, mem) =>
