@@ -259,7 +259,8 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid: UInt, cache_config: CachePartitionC
 
   val curr_mask = cache_config.waymask
 
-  val target_way = Mux((curr_state & curr_mask).orR, PriorityEncoder(curr_state & curr_mask), PriorityEncoder(curr_mask))
+  val target_way = Mux((curr_state & curr_mask).orR, PriorityEncoder(curr_state & curr_mask),
+    Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
 
 
   def access(set: UInt) = {
