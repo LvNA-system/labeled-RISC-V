@@ -49,9 +49,14 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
 
   when (reset) {
     for (i <- 0 until NDsids) {
-      sizeRegs(i) := 32.U
-      freqRegs(i) := 32.U
-      incRegs(i) := 32.U
+      if (p(UseSim)) {
+        sizeRegs(i) := 32.U
+        freqRegs(i) := 32.U
+        incRegs(i) := 32.U
+      }
+      else {
+        freqRegs(i) := 0.U
+      }
       readCounterRegs(i) := 0.U
       writeCounterRegs(i) := 0.U
     }

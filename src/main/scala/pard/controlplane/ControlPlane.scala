@@ -9,6 +9,8 @@ import uncore.agents.{NWays}
 import uncore.devices.{NTiles}
 import uncore.tilelink.{DsidBits}
 
+case object UseSim extends Field[Boolean]
+
 trait HasControlPlaneParameters {
   implicit val p: Parameters
   val dsidBits = p(DsidBits)
