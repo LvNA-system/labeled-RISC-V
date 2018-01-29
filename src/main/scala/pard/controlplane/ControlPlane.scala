@@ -14,7 +14,8 @@ case object UseSim extends Field[Boolean]
 trait HasControlPlaneParameters {
   implicit val p: Parameters
   val dsidBits = p(DsidBits)
-  val NDsids = 1 << dsidBits
+  val nDsids = 1 << dsidBits
+  val nTiles = p(NTiles)
   val cpAddrSize = 32
   val cpDataSize = 32
 

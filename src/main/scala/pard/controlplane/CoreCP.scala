@@ -5,19 +5,18 @@ package pard.cp
 import Chisel._
 import cde.{Parameters, Field}
 import rocketchip.ExtMemSize
-import uncore.devices.{NTiles}
 
 case object LDomDsidBits extends Field[Int]
 case object UseNoHype extends Field[Boolean]
 
 class DsidConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val dsids = Vec(p(NTiles), UInt(OUTPUT, width = p(LDomDsidBits)))
+  val dsids = Vec(nTiles, UInt(OUTPUT, width = p(LDomDsidBits)))
   override def cloneType = (new DsidConfigIO).asInstanceOf[this.type]
 }
 
 class AddressMapperConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val bases = Vec(p(NTiles), UInt(OUTPUT, width = cpDataSize))
-  val sizes = Vec(p(NTiles), UInt(OUTPUT, width = cpDataSize))
+  val bases = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
+  val sizes = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
   override def cloneType = (new AddressMapperConfigIO).asInstanceOf[this.type]
 }
 
@@ -37,16 +36,16 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
   val sizeCol = 2
   val hartidCol = 3  // TODO: use this to make hartid programable
 
-  val ptabDsidRegs   = Reg(Vec(p(NTiles), UInt(width = p(LDomDsidBits))))
-  val ptabBaseRegs   = Reg(Vec(p(NTiles), UInt(width = cpDataSize)))
-  val ptabSizeRegs   = Reg(Vec(p(NTiles), UInt(width = cpDataSize)))
-  val ptabHartidRegs = Reg(Vec(p(NTiles), UInt(width = cpDataSize)))
+  val ptabDsidRegs   = Reg(Vec(nTiles, UInt(width = p(LDomDsidBits))))
+  val ptabBaseRegs   = Reg(Vec(nTiles, UInt(width = cpDataSize)))
+  val ptabSizeRegs   = Reg(Vec(nTiles, UInt(width = cpDataSize)))
+  val ptabHartidRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
 
   when (reset) {
-    for (i <- 0 until p(NTiles)) {
+    for (i <- 0 until nTiles) {
       ptabDsidRegs(i) := UInt(i)
       if (p(UseNoHype)) {
-        val size = p(ExtMemSize) / p(NTiles)
+        val size = p(ExtMemSize) / nTiles
         ptabBaseRegs(i) := UInt(0x80000000L + size  * i)
         ptabSizeRegs(i) := UInt(size)
       }
