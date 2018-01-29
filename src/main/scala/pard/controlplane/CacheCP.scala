@@ -27,16 +27,16 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
 
   // ptab
   val waymaskCol = 0
-  val ptabWaymaskRegs = Reg(Vec(NDsids, UInt(width = p(NWays))))
+  val ptabWaymaskRegs = Reg(Vec(nDsids, UInt(width = p(NWays))))
 
   // stab
   val accessCounterCol = 0
   val missCounterCol = 1
-  val accessCounterRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
-  val missCounterRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+  val accessCounterRegs = Reg(Vec(nDsids, UInt(width = cpDataSize)))
+  val missCounterRegs = Reg(Vec(nDsids, UInt(width = cpDataSize)))
 
   when (reset) {
-    for (i <- 0 until NDsids)
+    for (i <- 0 until nDsids)
       ptabWaymaskRegs(i) := UInt((BigInt(1) << p(NWays)) - 1)
     accessCounterRegs foreach {case a => a := 0.U }
     missCounterRegs foreach {case a => a := 0.U }
