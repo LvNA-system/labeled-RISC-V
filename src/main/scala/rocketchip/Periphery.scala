@@ -213,10 +213,8 @@ trait PeripheryMasterMemModule {
     val aw = axiIn.aw.bits
     memMonitor.ren := axiIn.ar.fire()
     memMonitor.readDsid := ar.user
-    memMonitor.readCnt := (ar.len + 1.U) << ar.size
     memMonitor.wen := axiIn.aw.fire()
     memMonitor.writeDsid := aw.user
-    memMonitor.writeCnt := (aw.len + 1.U) << aw.size
   }
 
   (io.mem_ahb zip edgeMem) foreach { case (ahb, mem) =>
