@@ -12,7 +12,7 @@ import uncore.devices._
 import util._
 import rocket._
 import coreplex._
-import pard.cp.{TokenBucketConfigIO}
+import pard.cp.{TokenBucketConfigIO, MemMonitorIO}
 
 // the following parameters will be refactored properly with TL2
 case object GlobalAddrMap extends Field[AddrMap]
@@ -77,6 +77,7 @@ trait TopNetworkModule extends HasPeripheryParameters {
   val coreplexRtc  : Bool                          = Wire(outer.coreplex.module.io.rtcTick)
   val coreplexTrafficEnable : Vec[TrafficEnableIO] = Wire(outer.coreplex.module.io.trafficEnable)
   val tokenBucketConfig = Wire(new TokenBucketConfigIO)
+  val memMonitor = Wire(new MemMonitorIO)
 
   io.success := outer.coreplex.module.io.success
 
@@ -113,4 +114,5 @@ trait DirectConnectionModule {
   outer.coreplex.module.io.debug <> coreplexDebug
   outer.coreplex.module.io.trafficEnable <> coreplexTrafficEnable 
   tokenBucketConfig <> outer.coreplex.module.io.tokenBucketConfig
+  memMonitor <> outer.coreplex.module.io.memMonitor
 }

@@ -182,6 +182,7 @@ trait CoreplexRISCVPlatformBundle {
 
   val trafficEnable = Vec(p(NTiles), new TrafficEnableIO()).flip
   val tokenBucketConfig = new TokenBucketConfigIO
+  val memMonitor = new MemMonitorIO
 }
 
 trait CoreplexRISCVPlatformModule {
@@ -310,6 +311,7 @@ trait CoreplexRISCVPlatformModule {
 
   outer.debug.module.io.db <> io.debug
   io.tokenBucketConfig <> cp.io.tokenBucketConfig
+  io.memMonitor <> cp.io.memMonitor
   outer.clint.module.io.rtcTick := io.rtcTick
   cp.io.rw <> outer.debug.module.io.cpio
 

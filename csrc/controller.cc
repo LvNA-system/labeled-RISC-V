@@ -6,12 +6,34 @@
 #include <unistd.h>
 #include <assert.h>
 #include <string>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #include "JTAGDTM.h"
 #include "dmi.h"
 #include "common.h"
 
 #define DEBUG_INFO 0
+
+
+/* We use the ``readline'' library to provide more flexibility to read from stdin. */
+char* rl_gets() {
+  static char *line_read = NULL;
+
+  if (line_read) {
+	free(line_read);
+	line_read = NULL;
+  }   
+
+  line_read = readline("> ");
+
+  if (line_read && *line_read) {
+	add_history(line_read);
+  }   
+
+  return line_read;
+}
+
 
 using std::string;
 
@@ -380,14 +402,14 @@ char *cp_tables[] = {"core", "mem", "cache","io"};
 
 char *tab_tables[3][3] = {
   {"p"},
-  {"p"},
   {"p", "s"},
+  {"p", "s"}
 };
 
 char *col_tables[3][3][4] = {
   {{"dsid", "base", "size", "hartid"}},
-  {{"size", "freq", "inc"}},
-  {{"mask"}, {"access", "miss"}},
+  {{"size", "freq", "inc"}, {"read", "write"}},
+  {{"mask"}, {"access", "miss"}}
 };
 
 int main(int argc, char *argv[]) {
@@ -438,10 +460,9 @@ int main(int argc, char *argv[]) {
 
   while (1) {
 	if (!automatic_test) {
-	  printf("> ");
 	  fflush(stdout);
-	  char buf[1024];
-	  if(!fgets(buf, 1024, stdin))
+	  char *line = NULL;
+	  if(!(line = rl_gets()))
 		break;
 
 	  int rw = -1;
@@ -451,7 +472,7 @@ int main(int argc, char *argv[]) {
 	  int row = -1;
 	  int val = -1;
 
-	  char *s = buf;
+	  char *s = line;
 	  if (!strcmp(s, "help\n")) {
 		help();
 		continue;

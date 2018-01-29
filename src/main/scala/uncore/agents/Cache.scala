@@ -270,6 +270,7 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid: UInt, cache_config: CachePartitionC
     val update_way = Mux(hit, way, target_way)
 
     cache_config.dsid := dsid
+    cache_config.en := valid
     cache_config.access := valid
     cache_config.miss := valid && !hit
 
