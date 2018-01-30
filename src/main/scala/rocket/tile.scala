@@ -157,14 +157,17 @@ class RocketTile(implicit p: Parameters) extends LazyTile {
 
     io.uncached.foreach {
       x => {
-        x.acquire.bits.dsid := Cat(UInt(0, width = p(ProcDsidBits)), io.dsid)
+        //x.acquire.bits.dsid := Cat(UInt(0, width = p(ProcDsidBits)), io.dsid)
+        x.acquire.bits.dsid := Cat(core.io.csrtag, io.dsid)
       }
     }
 
     io.cached.foreach {
       x => {
-        x.acquire.bits.dsid := Cat(UInt(0, width = p(ProcDsidBits)), io.dsid)
-        x.release.bits.dsid := Cat(UInt(0, width = p(ProcDsidBits)), io.dsid)
+        //x.acquire.bits.dsid := Cat(UInt(0, width = p(ProcDsidBits)), io.dsid)
+        //x.release.bits.dsid := Cat(UInt(0, width = p(ProcDsidBits)), io.dsid)
+        x.acquire.bits.dsid := Cat(core.io.csrtag, io.dsid)
+        x.release.bits.dsid := Cat(core.io.csrtag, io.dsid)
       }
     }
 

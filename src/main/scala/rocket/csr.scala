@@ -163,7 +163,7 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle {
   val bp = Vec(nBreakpoints, new BP).asOutput
   val events = Vec(nPerfEvents, Bool()).asInput
   val simlog = Bool(OUTPUT)
-  val tag = UInt(OUTPUT,3)
+  val tag = UInt(OUTPUT, p(ProcDsidBits))
 }
 
 class CSRFile(implicit p: Parameters) extends CoreModule()(p)
@@ -254,7 +254,7 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
   val reg_cycle = if (enableCommitLog) reg_instret else WideCounter(64)
   val reg_simlog = Reg(init=Bool(false))
   io.simlog := reg_simlog
-  val reg_tag = Reg(UInt(width = 3))
+  val reg_tag = Reg(UInt(width = p(ProcDsidBits)))
   io.tag := reg_tag
   val reg_hpmevent = Seq.fill(nPerfCounters)(if (nPerfEvents > 1) Reg(UInt(width = log2Ceil(nPerfEvents))) else UInt(0))
   val reg_hpmcounter = reg_hpmevent.map(e => WideCounter(64, ((UInt(0) +: io.events): Seq[UInt])(e)))
