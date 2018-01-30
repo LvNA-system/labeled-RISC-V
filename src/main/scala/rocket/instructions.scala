@@ -249,6 +249,7 @@ object CSRs {
   val fcsr = 0x3
   val cycle = 0xc00
   val simlog = 0x800
+  val tag = 0x9c0
   val time = 0xc01
   val instret = 0xc02
   val hpmcounter3 = 0xc03
