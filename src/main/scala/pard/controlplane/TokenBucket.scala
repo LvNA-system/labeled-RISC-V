@@ -73,5 +73,5 @@ class TokenBucket(implicit p: Parameters) extends Module {
     enable := true.B
     threshold := 0.U
   }
-  io.enable := enable
+  io.enable := enable || bypass
 }
