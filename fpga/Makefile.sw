@@ -46,7 +46,7 @@ BBL_BIN = $(build_dir)/linux.bin
 #--------------------------------------------------------------------
 
 LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
-LINUX_BUILD_COMMIT = 6a2a5cc3458b2c5ebef35f3cfea9beebef5320ff
+LINUX_BUILD_COMMIT = b93ab31a2df912c1003b1410834c49fb3743d112
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
