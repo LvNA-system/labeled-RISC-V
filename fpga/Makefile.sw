@@ -6,9 +6,6 @@ endif
 build_dir = $(realpath ./build)
 SW_PATH = $(abspath ../../sw)
 
-BOARD_IP = 10.30.5.117
-BOARD_RUN_PATH = ~/yzh
-
 $(SW_PATH):
 	@echo "Do you want to put all software repos under $(SW_PATH) (You can modify 'SW_PATH' in Makefile.sw)? [y/n]"
 	@read r; test $$r = "y"
@@ -126,8 +123,4 @@ sw: bbl
 sw-clean: bbl-clean linux-clean
 	-$(MAKE) -C $(ROOTFS_PATH) clean
 
-run: $(BBL_BIN)
-	sshpass -proot scp $< root@$(BOARD_IP):$(BOARD_RUN_PATH)/
-	sshpass -proot ssh root@$(BOARD_IP) 'cd $(BOARD_RUN_PATH) && bash runme.sh'
-
-.PHONY: sw sw-clean run
+.PHONY: sw sw-clean
