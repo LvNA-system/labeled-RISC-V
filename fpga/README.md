@@ -21,10 +21,10 @@ See `build/serial@60000000` for the output of UART.
 
 ### Run with FPGA
 
-#### Build a vivado project
+#### Build a Vivado project
 
 * Install Vivado 2017.4, and source the setting of Vivado and SDK
-* Run the following command to build a vivado project
+* Run the following command to build a Vivado project
 ```
 make project PRJ=myproject BOARD=zedboard
 ```
