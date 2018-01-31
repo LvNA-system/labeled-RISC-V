@@ -173,6 +173,7 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
       val source_c = Wire(in.a)
       source_c.valid := a_cam_any_put
       source_c.bits := edgeOut.Put(a_cam_a.bits.source, edgeIn.address(a_cam_a.bits), a_cam_a.bits.size, amo_data)._2
+      source_c.bits.dsid := a_cam_a.bits.dsid
 
       // Finishing an AMO from the CAM has highest priority
       TLArbiter(TLArbiter.lowestIndexFirst)(out.a, (UInt(0), source_c), (edgeOut.numBeats1(in.a.bits), source_i))

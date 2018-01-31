@@ -112,4 +112,10 @@ trait HasRegMap
   val interrupts: Vec[Bool]
 }
 
+
+trait HasDsidWire
+{
+  val dsidWire = Wire(UInt(width = 5))
+}
+
 // See GPIO.scala for an example of how to use regmap

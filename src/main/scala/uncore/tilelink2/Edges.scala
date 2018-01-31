@@ -269,7 +269,7 @@ class TLEdgeOut(
   }
 
   // Accesses
-  def Get(fromSource: UInt, toAddress: UInt, lgSize: UInt) = {
+  def Get(fromSource: UInt, toAddress: UInt, lgSize: UInt, dsid: UInt = UInt(0)) = {
     require (manager.anySupportGet)
     val legal = manager.supportsGetFast(toAddress, lgSize)
     val a = Wire(new TLBundleA(bundle))
@@ -280,6 +280,7 @@ class TLEdgeOut(
     a.address := toAddress
     a.mask    := mask(toAddress, lgSize)
     a.data    := UInt(0)
+    a.dsid    := dsid
     (legal, a)
   }
 
@@ -297,7 +298,7 @@ class TLEdgeOut(
     (legal, a)
   }
 
-  def Put(fromSource: UInt, toAddress: UInt, lgSize: UInt, data: UInt, mask : UInt) = {
+  def Put(fromSource: UInt, toAddress: UInt, lgSize: UInt, data: UInt, mask : UInt, dsid: UInt = UInt(0)) = {
     require (manager.anySupportPutPartial)
     val legal = manager.supportsPutPartialFast(toAddress, lgSize)
     val a = Wire(new TLBundleA(bundle))
@@ -308,10 +309,11 @@ class TLEdgeOut(
     a.address := toAddress
     a.mask    := mask
     a.data    := data
+    a.dsid    := dsid
     (legal, a)
   }
 
-  def Arithmetic(fromSource: UInt, toAddress: UInt, lgSize: UInt, data: UInt, atomic: UInt) = {
+  def Arithmetic(fromSource: UInt, toAddress: UInt, lgSize: UInt, data: UInt, atomic: UInt, dsid: UInt = UInt(0)) = {
     require (manager.anySupportArithmetic)
     val legal = manager.supportsArithmeticFast(toAddress, lgSize)
     val a = Wire(new TLBundleA(bundle))
@@ -322,10 +324,11 @@ class TLEdgeOut(
     a.address := toAddress
     a.mask    := mask(toAddress, lgSize)
     a.data    := data
+    a.dsid    := dsid
     (legal, a)
   }
 
-  def Logical(fromSource: UInt, toAddress: UInt, lgSize: UInt, data: UInt, atomic: UInt) = {
+  def Logical(fromSource: UInt, toAddress: UInt, lgSize: UInt, data: UInt, atomic: UInt, dsid: UInt = UInt(0)) = {
     require (manager.anySupportLogical)
     val legal = manager.supportsLogicalFast(toAddress, lgSize)
     val a = Wire(new TLBundleA(bundle))
@@ -336,10 +339,11 @@ class TLEdgeOut(
     a.address := toAddress
     a.mask    := mask(toAddress, lgSize)
     a.data    := data
+    a.dsid    := dsid
     (legal, a)
   }
 
-  def Hint(fromSource: UInt, toAddress: UInt, lgSize: UInt, param: UInt) = {
+  def Hint(fromSource: UInt, toAddress: UInt, lgSize: UInt, param: UInt, dsid: UInt = UInt(0)) = {
     require (manager.anySupportHint)
     val legal = manager.supportsHintFast(toAddress, lgSize)
     val a = Wire(new TLBundleA(bundle))
@@ -350,6 +354,7 @@ class TLEdgeOut(
     a.address := toAddress
     a.mask    := mask(toAddress, lgSize)
     a.data    := UInt(0)
+    a.dsid    := dsid
     (legal, a)
   }
 
