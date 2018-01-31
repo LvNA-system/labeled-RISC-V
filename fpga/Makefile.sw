@@ -25,8 +25,8 @@ RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .
 # BBL variables
 #--------------------------------------------------------------------
 
-BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = 9e30e8b6e97a7344f47591fbfbf8c69a153617c5
+BBL_REPO_PATH = $(SW_PATH)/riscv-pk
+BBL_BUILD_COMMIT = 9da7d98e851570e42488573697daca762ad01029
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
@@ -42,8 +42,8 @@ BBL_BIN = $(build_dir)/linux.bin
 # Linux variables
 #--------------------------------------------------------------------
 
-LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
-LINUX_BUILD_COMMIT = b93ab31a2df912c1003b1410834c49fb3743d112
+LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
+LINUX_BUILD_COMMIT = 00b197adeefe5ea5c1f461b517b411f114db41e6
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
@@ -65,7 +65,7 @@ $(BBL_ELF): $(BBL_ELF_BUILD)
 
 $(BBL_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_bbl $@
+	git clone https://github.com/LvNA-system/riscv-pk.git $@
 
 $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 	mkdir -p $@
@@ -92,7 +92,7 @@ bbl-clean:
 
 $(LINUX_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_linux $@
+	git clone https://github.com/LvNA-system/riscv-linux.git $@
 	cd $@ && (curl -L https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.2.tar.xz | tar -xJ --strip-components=1) && git checkout . && cp arch/riscv/configs/riscv64_pard .config && make ARCH=riscv menuconfig
 
 linux: $(LINUX_ELF)
