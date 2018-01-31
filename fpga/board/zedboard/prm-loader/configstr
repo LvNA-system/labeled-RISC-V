@@ -1,0 +1,112 @@
+plic {
+  priority 0xc000000;
+  pending 0xc001000;
+  ndevs 2;
+};
+rtc {
+  addr 0x200bff8;
+};
+ram {
+  0 {
+    addr 0x80000000;
+    size 0x10000000;
+  };
+};
+core {
+  0 {
+    0 {
+      isa rv64imas;
+      timecmp 0x2004000;
+      ipi 0x2000000;
+      plic {
+        m {
+         ie 0xc002000;
+         thresh 0xc200000;
+         claim 0xc200004;
+        };
+        s {
+         ie 0xc002080;
+         thresh 0xc201000;
+         claim 0xc201004;
+        };
+      };
+    };
+  };
+  1 {
+    0 {
+      isa rv64imas;
+      timecmp 0x2004008;
+      ipi 0x2000004;
+      plic {
+        m {
+         ie 0xc002100;
+         thresh 0xc202000;
+         claim 0xc202004;
+        };
+        s {
+         ie 0xc002180;
+         thresh 0xc203000;
+         claim 0xc203004;
+        };
+      };
+    };
+  };
+  2 {
+    0 {
+      isa rv64imas;
+      timecmp 0x2004010;
+      ipi 0x2000008;
+      plic {
+        m {
+         ie 0xc002200;
+         thresh 0xc204000;
+         claim 0xc204004;
+        };
+        s {
+         ie 0xc002280;
+         thresh 0xc205000;
+         claim 0xc205004;
+        };
+      };
+    };
+  };
+  3 {
+    0 {
+      isa rv64imas;
+      timecmp 0x2004018;
+      ipi 0x200000c;
+      plic {
+        m {
+         ie 0xc002300;
+         thresh 0xc206000;
+         claim 0xc206004;
+        };
+        s {
+         ie 0xc002380;
+         thresh 0xc207000;
+         claim 0xc207004;
+        };
+      };
+    };
+  };
+};
+bootrom {
+  addr 0x1000;
+  size 0x1000;
+}
+debug {
+  addr 0x0;
+  size 0x1000;
+}
+clint {
+  addr 0x2000000;
+  size 0x10000;
+}
+PARDFPGATop {
+  addr 0x60000000;
+  size 0x20000000;
+}
+plic {
+  addr 0xc000000;
+  size 0x4000000;
+}
