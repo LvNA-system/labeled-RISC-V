@@ -13,7 +13,7 @@ CONFIG = PARDSimConfig
 
 original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(CONFIG)
 emu = $(build_dir)/emu
-emu_bin_file = $(build_dir)/emu.bin
+emu_bin_file = $(build_dir)/linux.bin
 emu_gen_script = gen_bin.sh
 emu_bin_hex_file = $(dir $(emu))/bin.txt
 
