@@ -6,9 +6,6 @@ endif
 build_dir = $(realpath ./build)
 SW_PATH = $(abspath ../../sw)
 
-BOARD_IP = 10.30.5.117
-BOARD_RUN_PATH = ~/yzh
-
 $(SW_PATH):
 	@echo "Do you want to put all software repos under $(SW_PATH) (You can modify 'SW_PATH' in Makefile.sw)? [y/n]"
 	@read r; test $$r = "y"
@@ -28,8 +25,8 @@ RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .
 # BBL variables
 #--------------------------------------------------------------------
 
-BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = 9e30e8b6e97a7344f47591fbfbf8c69a153617c5
+BBL_REPO_PATH = $(SW_PATH)/riscv-pk
+BBL_BUILD_COMMIT = 9da7d98e851570e42488573697daca762ad01029
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
@@ -45,8 +42,8 @@ BBL_BIN = $(build_dir)/linux.bin
 # Linux variables
 #--------------------------------------------------------------------
 
-LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
-LINUX_BUILD_COMMIT = 6a2a5cc3458b2c5ebef35f3cfea9beebef5320ff
+LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
+LINUX_BUILD_COMMIT = b38a9a276851e2d34de99393ad0ef3faa89458af
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
@@ -68,7 +65,7 @@ $(BBL_ELF): $(BBL_ELF_BUILD)
 
 $(BBL_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_bbl $@
+	git clone https://github.com/LvNA-system/riscv-pk.git $@
 
 $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 	mkdir -p $@
@@ -95,7 +92,7 @@ bbl-clean:
 
 $(LINUX_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_linux $@
+	git clone https://github.com/LvNA-system/riscv-linux.git $@
 	cd $@ && (curl -L https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.2.tar.xz | tar -xJ --strip-components=1) && git checkout . && cp arch/riscv/configs/riscv64_pard .config && make ARCH=riscv menuconfig
 
 linux: $(LINUX_ELF)
@@ -126,8 +123,4 @@ sw: bbl
 sw-clean: bbl-clean linux-clean
 	-$(MAKE) -C $(ROOTFS_PATH) clean
 
-run: $(BBL_BIN)
-	sshpass -proot scp $< root@$(BOARD_IP):$(BOARD_RUN_PATH)/
-	sshpass -proot ssh root@$(BOARD_IP) 'cd $(BOARD_RUN_PATH) && bash runme.sh'
-
-.PHONY: sw sw-clean run
+.PHONY: sw sw-clean

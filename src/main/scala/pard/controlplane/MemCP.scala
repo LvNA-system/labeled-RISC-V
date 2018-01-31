@@ -15,9 +15,9 @@ class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
 }
 
 class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val sizes = Vec(NDsids, UInt(OUTPUT, width = cpDataSize))
-  val freqs = Vec(NDsids, UInt(OUTPUT, width = cpDataSize))
-  val incs  = Vec(NDsids, UInt(OUTPUT, width = cpDataSize))
+  val sizes = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
+  val freqs = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
+  val incs  = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
   override def cloneType = (new TokenBucketConfigIO).asInstanceOf[this.type]
 }
 
@@ -33,23 +33,28 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
 
   // ptab
   val sizeCol = 0
-  val sizeRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+  val sizeRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
   val freqCol = 1
-  val freqRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+  val freqRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
   val incCol = 2
-  val incRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+  val incRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
 
   // stab
   val readCounterCol = 0
   val writeCounterCol = 1
-  val readCounterRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
-  val writeCounterRegs = Reg(Vec(NDsids, UInt(width = cpDataSize)))
+  val readCounterRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
+  val writeCounterRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
 
   when (reset) {
-    for (i <- 0 until NDsids) {
-      sizeRegs(i) := 32.U
-      freqRegs(i) := 32.U
-      incRegs(i) := 32.U
+    for (i <- 0 until nTiles) {
+      if (p(UseSim)) {
+        sizeRegs(i) := 32.U
+        freqRegs(i) := 0.U
+        incRegs(i) := 32.U
+      }
+      else {
+        freqRegs(i) := 0.U
+      }
       readCounterRegs(i) := 0.U
       writeCounterRegs(i) := 0.U
     }
