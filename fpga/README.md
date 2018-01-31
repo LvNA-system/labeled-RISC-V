@@ -5,7 +5,7 @@
 * Build riscv-tools according to the instructions of [README.md under the root directory of this repo](../README.md).
 * Build riscv-bbl (bootloader) and riscv-linux with the following command
 ```
-make bbl
+make sw
 ```
 If it is the first time you run this command, you will ask to pull the bbl and linux repo.
 After that, `linux.bin` will be generated under `build/`.
