@@ -113,6 +113,7 @@ final class TLBundleA(params: TLBundleParameters)
   // variable fields during multibeat:
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
+  val dsid    = UInt(width = 5)
 }
 
 final class TLBundleB(params: TLBundleParameters)

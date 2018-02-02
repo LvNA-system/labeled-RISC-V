@@ -96,12 +96,15 @@ class TLRegBundleBase(arg: TLRegBundleArg) extends Bundle
 class TLRegBundle[P](val params: P, arg: TLRegBundleArg) extends TLRegBundleBase(arg)
 
 class TLRegModule[P, B <: TLRegBundleBase](val params: P, bundleBuilder: => B, router: TLRegisterRouterBase)
-  extends LazyModuleImp(router) with HasRegMap
+  extends LazyModuleImp(router)
+  with HasRegMap
+  with HasDsidWire
 {
   val io = bundleBuilder
   val interrupts = if (io.interrupts.isEmpty) Vec(0, Bool()) else io.interrupts(0)
   val address = router.address
   def regmap(mapping: RegField.Map*) = router.node.regmap(mapping:_*)
+  dsidWire := router.node.bundleIn(0).a.bits.dsid
 }
 
 class TLRegisterRouter[B <: TLRegBundleBase, M <: LazyModuleImp]

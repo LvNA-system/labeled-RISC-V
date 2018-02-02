@@ -9,10 +9,8 @@ import cde.{Parameters}
 class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
   val ren = Bool(INPUT)
   val readDsid = UInt(INPUT, width = dsidBits)
-  val readCnt = UInt(INPUT, width = cpDataSize)
   val wen = Bool(INPUT)
   val writeDsid = UInt(INPUT, width = dsidBits)
-  val writeCnt = UInt(INPUT, width = cpDataSize)
   override def cloneType = (new MemMonitorIO).asInstanceOf[this.type]
 }
 
@@ -85,8 +83,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val cpWriteCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(writeCounterCol)
   val readCounterWen = (monitor.ren && !cpRWEn) || cpReadCounterWen
   val writeCounterWen = (monitor.wen && !cpRWEn) || cpWriteCounterWen
-  val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + monitor.readCnt)
-  val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + monitor.writeCnt)
+  val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + UInt(1))
+  val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + UInt(1))
 
   when (readCounterWen) {
     readCounterRegs(Mux(cpRWEn, wrow, monitor.readDsid)) := readCounterWdata

@@ -85,18 +85,19 @@ class TLLegacy(implicit val p: Parameters) extends LazyModule with HasTileLinkPa
     val (_, wsize, wlow1) = mask_helper(wmask)
     val wlow = wlow1 >> 1
 
+    val acquireDsid = io.legacy.acquire.bits.dsid
     // Only create atomic messages if TL2 managers support them
     val atomics = if (edge.manager.anySupportLogical) {
       MuxLookup(io.legacy.acquire.bits.op_code(), Wire(new TLBundleA(edge.bundle)), Array(
-        MemoryOpConstants.M_XA_SWAP -> edge.Logical(source, address, size, data, TLAtomics.SWAP)._2,
-        MemoryOpConstants.M_XA_XOR  -> edge.Logical(source, address, size, data, TLAtomics.XOR) ._2,
-        MemoryOpConstants.M_XA_OR   -> edge.Logical(source, address, size, data, TLAtomics.OR)  ._2,
-        MemoryOpConstants.M_XA_AND  -> edge.Logical(source, address, size, data, TLAtomics.AND) ._2,
-        MemoryOpConstants.M_XA_ADD  -> edge.Arithmetic(source, address, size, data, TLAtomics.ADD)._2,
-        MemoryOpConstants.M_XA_MIN  -> edge.Arithmetic(source, address, size, data, TLAtomics.MIN)._2,
-        MemoryOpConstants.M_XA_MAX  -> edge.Arithmetic(source, address, size, data, TLAtomics.MAX)._2,
-        MemoryOpConstants.M_XA_MINU -> edge.Arithmetic(source, address, size, data, TLAtomics.MINU)._2,
-        MemoryOpConstants.M_XA_MAXU -> edge.Arithmetic(source, address, size, data, TLAtomics.MAXU)._2))
+        MemoryOpConstants.M_XA_SWAP -> edge.Logical(source, address, size, data, TLAtomics.SWAP, dsid = acquireDsid)._2,
+        MemoryOpConstants.M_XA_XOR  -> edge.Logical(source, address, size, data, TLAtomics.XOR, dsid = acquireDsid) ._2,
+        MemoryOpConstants.M_XA_OR   -> edge.Logical(source, address, size, data, TLAtomics.OR, dsid = acquireDsid)  ._2,
+        MemoryOpConstants.M_XA_AND  -> edge.Logical(source, address, size, data, TLAtomics.AND, dsid = acquireDsid) ._2,
+        MemoryOpConstants.M_XA_ADD  -> edge.Arithmetic(source, address, size, data, TLAtomics.ADD, dsid = acquireDsid)._2,
+        MemoryOpConstants.M_XA_MIN  -> edge.Arithmetic(source, address, size, data, TLAtomics.MIN, dsid = acquireDsid)._2,
+        MemoryOpConstants.M_XA_MAX  -> edge.Arithmetic(source, address, size, data, TLAtomics.MAX, dsid = acquireDsid)._2,
+        MemoryOpConstants.M_XA_MINU -> edge.Arithmetic(source, address, size, data, TLAtomics.MINU, dsid = acquireDsid)._2,
+        MemoryOpConstants.M_XA_MAXU -> edge.Arithmetic(source, address, size, data, TLAtomics.MAXU, dsid = acquireDsid)._2))
     } else {
       // If no managers support atomics, assert fail if TL1 asks for them
       assert (!io.legacy.acquire.valid || io.legacy.acquire.bits.a_type =/= Acquire.putAtomicType)
@@ -106,17 +107,18 @@ class TLLegacy(implicit val p: Parameters) extends LazyModule with HasTileLinkPa
     val beatMask  = UInt(tlDataBytes-1)
     val blockMask = UInt(tlDataBytes*tlDataBeats-1)
     out.a.bits := MuxLookup(io.legacy.acquire.bits.a_type, Wire(new TLBundleA(edge.bundle)), Array(
-      Acquire.getType         -> edge.Get (source, address, size)._2,
-      Acquire.getBlockType    -> edge.Get (source, ~(~address|blockMask), block)._2,
-      Acquire.putType         -> edge.Put (source, address|wlow, wsize, data, wmask)._2,
-      Acquire.putBlockType    -> edge.Put (source, ~(~address|blockMask), block, data, wmask)._2,
-      Acquire.getPrefetchType -> edge.Hint(source, ~(~address|blockMask), block, UInt(0))._2,
-      Acquire.putPrefetchType -> edge.Hint(source, ~(~address|blockMask), block, UInt(1))._2,
+      Acquire.getType         -> edge.Get (source, address, size, dsid = acquireDsid)._2,
+      Acquire.getBlockType    -> edge.Get (source, ~(~address|blockMask), block, dsid = acquireDsid)._2,
+      Acquire.putType         -> edge.Put (source, address|wlow, wsize, data, wmask, dsid = acquireDsid)._2,
+      Acquire.putBlockType    -> edge.Put (source, ~(~address|blockMask), block, data, wmask, dsid = acquireDsid)._2,
+      Acquire.getPrefetchType -> edge.Hint(source, ~(~address|blockMask), block, UInt(0), dsid = acquireDsid)._2,
+      Acquire.putPrefetchType -> edge.Hint(source, ~(~address|blockMask), block, UInt(1), dsid = acquireDsid)._2,
       Acquire.putAtomicType   -> atomics))
 
     // Get rid of some unneeded muxes
     out.a.bits.source  := source
     out.a.bits.data    := data
+    out.a.bits.dsid := acquireDsid
 
     // TL legacy does not support bus errors
     assert (!out.d.valid || !out.d.bits.error)

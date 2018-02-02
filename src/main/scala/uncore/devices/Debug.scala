@@ -9,6 +9,8 @@ import regmapper._
 import uncore.tilelink2._
 import cde.{Parameters, Config, Field}
 import pard.cp._
+import rocket.ProcDsidBits
+
 
 // *****************************************
 // Constants which are interesting even
@@ -140,7 +142,7 @@ object DsbRegAddrs{
   def SERSTAT_OFFSET = 8
   def RAMBASE      = 0x400
   def ROMBASE      = 0x800
-
+  def CPBASE       = 0x900
 }
 
 
@@ -345,7 +347,8 @@ trait DebugModuleBundle extends Bundle with HasDebugModuleParameters {
   *      It is also responsible for some reset lines.
   */
 
-trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap with HasControlPlaneParameters {
+trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap with HasDsidWire with HasControlPlaneParameters {
+
 
   val io: DebugModuleBundle
 
@@ -683,12 +686,24 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap wi
   val cpAddrReadFire = isCPAddrRead && dbReqFire
   val cpDataReadFire = isCPDataRead && dbReqFire
 
-  io.cpio.ren := cpAddrWriteFire && (cpAddr.rw === cpRead)
-  io.cpio.raddr := cpAddr.addr
+  val cpRen = cpAddrWriteFire && (cpAddr.rw === cpRead)
+  val cpWen = cpDataWriteFire && cpBusy
+
+  // System Bus cp reg access
+  val sbCPRen = Wire(Bool())
+  val sbCPRaddr = Wire(UInt(width = cpAddrSize))
+
+  val sbCPWen = Wire(Bool())
+  val sbCPWaddr = Wire(UInt(width = cpAddrSize))
+  val sbCPWdata = Wire(UInt(width = cpDataSize))
+
+  // give priority to external(out of band) cp access
+  io.cpio.ren := cpRen || sbCPRen
+  io.cpio.raddr := Mux(cpRen, cpAddr.addr, sbCPRaddr)
   // if cpBusy is set, we know that, we already write the cp addr
-  io.cpio.wen := cpDataWriteFire && cpBusy
-  io.cpio.waddr := cpAddrReg
-  io.cpio.wdata := cpData.data
+  io.cpio.wen := cpWen || sbCPWen
+  io.cpio.waddr := Mux(cpWen, cpAddrReg, sbCPWaddr)
+  io.cpio.wdata := Mux(cpWen, cpData.data, sbCPWdata)
 
   // handle write on sbusaddr0 and sdata0
   when (cpAddrWriteFire) {
@@ -902,11 +917,86 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap wi
     RegField(n, value, RegWriteFn((valid, data) => {set := valid ; value := data; Bool(true)}))
   }
 
+  // For now, only the following columns are exposed to system bus access
+  // waymask，access，miss，sizes，freqs，incs，read，write
+  // each core can only access cp registers with the same LDom dsid
+  // High bit   ->   Low bit
+  // | ProcDsid | LDomDsid |
+  def idx2cpaddr(idx: Int, dsid: UInt): UInt = {
+    val procDsid = UInt(idx & ((1 << p(ProcDsidBits)) - 1), width = p(ProcDsidBits))
+    val columnIdx = idx >> p(ProcDsidBits)
+    val cpIdxTable = Array(2, 2, 2, 1, 1, 1, 1, 1)
+    val tabIdxTable = Array(0, 1, 1, 0, 0, 0, 1, 1)
+    val colIdxTable = Array(0, 0, 1, 0, 1, 2, 0, 1)
+    val row = Cat(UInt(0, width = rowIdxLen - dsidBits),
+      Cat(procDsid, dsid(p(LDomDsidBits) - 1, 0)))
+
+    Cat(UInt(cpIdxTable(columnIdx), width = cpIdxLen),
+      Cat(UInt(tabIdxTable(columnIdx), width = tabIdxLen),
+        Cat(UInt(colIdxTable(columnIdx), width = colIdxLen), row)))
+  }
+
+  val nCols = 8
+  val nRegs = (1 << p(ProcDsidBits)) * nCols
+  val sbCPRdata = Reg(UInt(width = cpDataSize))
+  val pendingResp = Reg(init = Bool(false))
+
+  val sbCPRens = Wire(Vec(nRegs, Bool()))
+  val sbCPRaddrs = Wire(Vec(nRegs, UInt(width = cpAddrSize)))
+  val sbCPWens = Wire(Vec(nRegs, Bool()))
+  val sbCPWaddrs = Wire(Vec(nRegs, UInt(width = cpAddrSize)))
+  val sbCPWdatas = Wire(Vec(nRegs, UInt(width = cpDataSize)))
+
+  sbCPRen := sbCPRens.reduce (_ || _)
+  (0 until nRegs).foreach(i => when (sbCPRens(i)) { sbCPRaddr := sbCPRaddrs(i) })
+  sbCPWen := sbCPWens.reduce (_ || _)
+  (0 until nRegs).foreach(i => when (sbCPWens(i)) {
+    sbCPWaddr := sbCPWaddrs(i)
+    sbCPWdata := sbCPWdatas(i)
+  })
+
+  def cpRegReadFn (idx: Int, dsid: UInt) : RegReadFn = {
+    val sbCPAddr = idx2cpaddr(idx, dsid)
+    RegReadFn((ivalid, oready) => {
+      // 1. do not collide with external control plane access
+      // 2. handle request one by one, do not accept new requests
+      //    until the old one finishes its response handshaking
+      val iready = !cpRen && !pendingResp
+      val ifire = ivalid && iready
+      sbCPRens(idx) := ifire
+      sbCPRaddrs(idx) := sbCPAddr
+      when (ifire) {
+        sbCPRdata := io.cpio.rdata
+        pendingResp := Bool(true)
+      }
+      when (oready && !ifire) { pendingResp := Bool(false) }
+      (iready, pendingResp, sbCPRdata)
+    })
+  }
+
+  def cpRegWriteFn (idx: Int, dsid: UInt) : RegWriteFn = {
+    val sbCPAddr = idx2cpaddr(idx, dsid)
+    RegWriteFn((ivalid, oready, data) => {
+      val iready = !cpWen && !pendingResp
+      val ifire = ivalid && iready
+      sbCPWens(idx) := ifire
+      sbCPWaddrs(idx) := sbCPAddr
+      sbCPWdatas(idx) := data
+      when (ifire) { pendingResp := Bool(true) }
+      when (oready && !ifire) { pendingResp := Bool(false) }
+      (iready, pendingResp)
+    })
+  }
+
+  val cpRegFields  = (0 to (nRegs - 1) toList).map(idx =>RegField(cpDataSize,
+    cpRegReadFn(idx, dsidWire), cpRegWriteFn(idx, dsidWire)))
+
   regmap(
     CLEARDEBINT -> Seq(wValue(sbIdWidth, CLEARDEBINTWrData, CLEARDEBINTWrEn)),
     SETHALTNOT  -> Seq(wValue(sbIdWidth, SETHALTNOTWrData, SETHALTNOTWrEn)),
     RAMBASE     -> ramMem.map(x => RegField(8, x)),
-    ROMBASE     -> romRegFields
+    ROMBASE     -> romRegFields,
+    CPBASE      -> cpRegFields
   )
 
   //--------------------------------------------------------------
@@ -923,7 +1013,7 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap wi
   */
 
 class TLDebugModule(address: BigInt = 0)(implicit p: Parameters)
-  extends TLRegisterRouter(address, beatBytes=p(rocket.XLen)/8, executable=true)(
+  extends TLRegisterRouter(address, concurrency=1, beatBytes=p(rocket.XLen)/8, executable=true)(
   new TLRegBundle(p, _ )    with DebugModuleBundle)(
   new TLRegModule(p, _, _)  with DebugModule)
 
