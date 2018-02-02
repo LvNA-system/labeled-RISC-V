@@ -58,7 +58,7 @@ const char *tab_tables[3][3] = {
 const char *col_tables[3][3][4] = {
   {{"dsid", "base", "size", "hartid"}},
   {{"size", "freq", "inc"}, {"read", "write"}},
-  {{"mask"}, {"access", "miss"}}
+  {{"mask"}, {"access", "miss", "usage"}}
 };
 
 int get_cp_addr(int cpIdx, int tabIdx, int col, int row) {

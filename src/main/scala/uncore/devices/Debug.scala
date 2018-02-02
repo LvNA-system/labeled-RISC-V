@@ -918,16 +918,16 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap wi
   }
 
   // For now, only the following columns are exposed to system bus access
-  // waymask，access，miss，sizes，freqs，incs，read，write
+  // waymask，access，miss，usage, sizes，freqs，incs，read，write
   // each core can only access cp registers with the same LDom dsid
   // High bit   ->   Low bit
   // | ProcDsid | LDomDsid |
   def idx2cpaddr(idx: Int, dsid: UInt): UInt = {
     val procDsid = UInt(idx & ((1 << p(ProcDsidBits)) - 1), width = p(ProcDsidBits))
     val columnIdx = idx >> p(ProcDsidBits)
-    val cpIdxTable = Array(2, 2, 2, 1, 1, 1, 1, 1)
-    val tabIdxTable = Array(0, 1, 1, 0, 0, 0, 1, 1)
-    val colIdxTable = Array(0, 0, 1, 0, 1, 2, 0, 1)
+    val cpIdxTable = Array(2, 2, 2, 2, 1, 1, 1, 1, 1)
+    val tabIdxTable = Array(0, 1, 1, 1, 0, 0, 0, 1, 1)
+    val colIdxTable = Array(0, 0, 1, 2, 0, 1, 2, 0, 1)
     val row = Cat(UInt(0, width = rowIdxLen - dsidBits),
       Cat(procDsid, dsid(p(LDomDsidBits) - 1, 0)))
 
@@ -936,7 +936,7 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap wi
         Cat(UInt(colIdxTable(columnIdx), width = colIdxLen), row)))
   }
 
-  val nCols = 8
+  val nCols = 9
   val nRegs = (1 << p(ProcDsidBits)) * nCols
   val sbCPRdata = Reg(UInt(width = cpDataSize))
   val pendingResp = Reg(init = Bool(false))
