@@ -163,7 +163,7 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle {
   val bp = Vec(nBreakpoints, new BP).asOutput
   val events = Vec(nPerfEvents, Bool()).asInput
   val simlog = Bool(OUTPUT)
-  val tag = UInt(OUTPUT, p(ProcDsidBits))
+  val procdsid = UInt(OUTPUT, p(ProcDsidBits))
 }
 
 class CSRFile(implicit p: Parameters) extends CoreModule()(p)
@@ -254,8 +254,8 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
   val reg_cycle = if (enableCommitLog) reg_instret else WideCounter(64)
   val reg_simlog = Reg(init=Bool(false))
   io.simlog := reg_simlog
-  val reg_tag = Reg(UInt(width = p(ProcDsidBits)))
-  io.tag := reg_tag
+  val reg_procdsid = Reg(UInt(width = p(ProcDsidBits)))
+  io.procdsid := reg_procdsid
   val reg_hpmevent = Seq.fill(nPerfCounters)(if (nPerfEvents > 1) Reg(UInt(width = log2Ceil(nPerfEvents))) else UInt(0))
   val reg_hpmcounter = reg_hpmevent.map(e => WideCounter(64, ((UInt(0) +: io.events): Seq[UInt])(e)))
 
@@ -373,7 +373,7 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
     read_mapping += CSRs.instret -> reg_instret
   }
   read_mapping += CSRs.simlog -> reg_simlog
-  read_mapping += CSRs.tag -> reg_tag
+  read_mapping += CSRs.procdsid -> reg_procdsid
 
   if (xLen == 32) {
     read_mapping += CSRs.mcycleh -> (reg_cycle >> 32)
@@ -517,7 +517,7 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
 
   when (wen) {
     when (decoded_addr(CSRs.simlog)) { reg_simlog := wdata }
-    when (decoded_addr(CSRs.tag)) { reg_tag := wdata }
+    when (decoded_addr(CSRs.procdsid)) { reg_procdsid := wdata }
     when (decoded_addr(CSRs.mstatus)) {
       val new_mstatus = new MStatus().fromBits(wdata)
       reg_mstatus.mie := new_mstatus.mie
