@@ -96,7 +96,7 @@ static void reset_hard(void) {
 // write value to ir, and return the old value of ir
 static void write_ir(uint64_t value) {
   // first, we need to move from test logic reset to shift ir state
-  seq("01100");
+  seq("1100");
 
   // shift in the new ir values
   uint64_t ret_value = scan(value, IR_BITS);
