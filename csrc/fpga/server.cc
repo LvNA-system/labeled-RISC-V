@@ -271,7 +271,7 @@ static void host_mainloop(int server_fd) {
   start = Times(NULL);
 
   struct vpi_cmd command;
-  while (recv(client_fd, &command, sizeof(command), 0) > 0) {
+  while (myrecv(client_fd, (char *)&command, sizeof(command))) {
     cmd = command.cmd;
     nb_bits = command.nb_bits;
     length = command.length;

@@ -45,7 +45,7 @@ static uint64_t scan(uint64_t value, int nb_bits) {
       command.length, command.nb_bits, command.buffer_out);
   send(sfd, &command, sizeof(command), 0);
 
-  assert(recv(sfd, &command, sizeof(command), 0) > 0);
+  assert(myrecv(sfd, (char *)&command, sizeof(command)));
   // since we are shift in and out bits from a single chain
   // so the number of bits shifted out == number of bits shifted in
   assert(command.nb_bits == nb_bits);

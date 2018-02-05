@@ -184,3 +184,19 @@ void Pthread_mutex_destroy(pthread_mutex_t *mutex)
   if ((rc = pthread_mutex_destroy(mutex)) != 0)
 	posix_error(rc, "Pthread_mutex_destroy error");
 }
+
+int myrecv(int fd, char *buf, int size) {
+  int recvd = 0;
+  while (recvd < size) {
+    int cnt = recv(fd, buf + recvd, size - recvd, 0);
+    if (cnt < 0) {
+      perror("Recv failed");
+      exit(-1);
+    }
+    // socket closed
+    if (cnt == 0)
+      return 0;
+    recvd += cnt;
+  }
+  return 1;
+}
