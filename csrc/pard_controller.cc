@@ -1,7 +1,9 @@
 #include <cstdio>
 #include <cstring>
+#include <cassert>
 #include <string>
 
+#include "dmi.h"
 #include "client_common.h"
 
 
@@ -100,6 +102,92 @@ int string_to_idx(const char *name, const char **table, int size) {
   return -1;
 }
 
+#define DEBUG_RAM 0x400
+
+/* load bin file stage 1, store base address in t0
+ * assembly source
+ *
+ * #define DEBUG_RAM 0x400
+ * #define RESUME 0x804
+ * .text
+ * .global _start
+ * _start:
+ * // during program loading, the core is runing a loop in bootrom
+ * // no one needs t0(bootrom + debug rom)
+ * // we can safely override it
+ * lwu t0, (DEBUG_RAM + 8)(zero)
+ * j RESUME
+ * address:.word 0
+ */
+int address_idx = 2; 
+uint32_t stage_1_machine_code[] = {
+  0x40806283, 0x4000006f, 0x00000000
+};
+
+/* load bin file stage 2, store one word to address t0
+ * assembly source
+ *
+ * #define DEBUG_RAM 0x400
+ * #define RESUME 0x804
+ * .text
+ * .global _start
+ * _start:
+ * lwu s0, (DEBUG_RAM + 16)(zero)
+ * sw s0, 0(t0)
+ * addi t0, t0, 4
+ * j RESUME
+ * data: .word 0
+ */
+int data_idx = 4;
+uint32_t stage_2_machine_code[] = {
+  0x41006403, 0x0082a023, 0x00428293, 0x3f80006f, 0x00000000
+};
+
+/* load bin file stage 3, set pc to entry address
+ * assembly source
+ *
+ * #define ENTRY 0x80000000
+ * #define DPC 0x7b1
+ * #define RESUME 0x804
+ * .text
+ * .global _start
+ * _start:
+ * li t0, ENTRY
+ * csrw DPC, t0
+ * j RESUME
+ */
+uint32_t stage_3_machine_code[] = {
+  0x0010029b, 0x01f29293, 0x7b129073, 0x3f80006f
+};
+
+void load_program(const char *bin_file, uint32_t base) {
+  // load base address to t0
+  stage_1_machine_code[address_idx] = base;
+  // write debug ram
+  for (unsigned i = 0; i < sizeof(stage_1_machine_code) / sizeof(uint32_t); i++)
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_1_machine_code[i]);
+  // send debug request to hart 0, let it execute code we just written
+  rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+
+  // since core is much quicker, here we do not poll the core status
+  for (unsigned i = 0; i < sizeof(stage_2_machine_code) / sizeof(uint32_t); i++)
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_2_machine_code[i]);
+
+  FILE *f = fopen(bin_file, "r");
+  assert(f);
+  uint32_t code;
+  while(fread(&code, sizeof(uint32_t), 1, f) == 1) {
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + data_idx, code);
+    // send a debug interrupt to hart 0, let it store one word for us
+    rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+  }
+
+  // bin file loading finished, write entry address to dpc
+  for (unsigned i = 0; i < sizeof(stage_3_machine_code) / sizeof(uint32_t); i++)
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_3_machine_code[i]);
+  rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+}
+
 
 int main(int argc, char *argv[]) {
   char *ip = NULL;
@@ -117,6 +205,7 @@ int main(int argc, char *argv[]) {
 
   connect_server(ip == NULL ? "127.0.0.1" : ip, port == 0 ? 8080 : port);
   init_dtm();
+  load_program("emu.bin", 0x80000000);
 
   srand(time(NULL));
 

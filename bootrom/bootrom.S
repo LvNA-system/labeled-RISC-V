@@ -1,7 +1,9 @@
 .text
 .global _start
 _start:
-  tail 0x80000000
+// wait for external controller to load prgram and bring us up
+1:
+  j 1b
   .word 0 // reserved
   .word 0 // reserved
   .word 0 // pointer to config string
