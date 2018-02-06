@@ -89,7 +89,7 @@ module system_top (
     .jtag_TMS(jtag_TMS),
     .jtag_TDI(jtag_TDI),
     .jtag_TDO(jtag_TDO),
-    .jtag_TRST(~pardcore_uncorerstn),
+    .jtag_TRST(~pardcore_corerstn),
 
     .coreclk(pardcore_coreclk),
     .corersts(~pardcore_corerstn),

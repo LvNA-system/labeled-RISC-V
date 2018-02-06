@@ -147,6 +147,10 @@ void reset_tap_hard() {
   // so we use TRST signal
   if (DEBUG_INFO)
     printf("Task reset_tap\n");
+  wait_jtag_idle();
+  // five consecutive tms is enough
+  set_tms_vec(0x1f, 5);
+  enable_shift();
 }
 
 void reset_tap_soft() {
@@ -163,7 +167,7 @@ void goto_run_test_idle_from_reset() {
   if (DEBUG_INFO)
     printf("Task goto_run_test_idle_from_reset\n");
   wait_jtag_idle();
-  set_tms_vec(0x1, 1);
+  set_tms_vec(0x0, 1);
   enable_shift();
 }
 
@@ -187,14 +191,17 @@ void do_tms_seq() {
     // the byte to transfer
     data = buffer_out[i];
     for (int j = 0; j < nb_bits_in_this_byte; j = j + 1) {
+      int bit = get_bit(data, j);
       wait_jtag_idle();
-      set_tms_vec(0, 1);
-      if (get_bit(data, j) == 1)
-        set_tms_vec(1, 1);
+      set_tms_vec(bit, 1);
+      if (DEBUG_INFO)
+        printf("%d", bit);
       // send one bit per clock
       enable_shift();
     }
   }
+  if (DEBUG_INFO)
+    printf("\n");
   wait_jtag_idle();
   set_tms_vec(0, 1);
 }
@@ -217,9 +224,8 @@ void do_scan_chain() {
     data_out = buffer_out[index];
     for (_bit = 0; _bit < nb_bits_in_this_byte; _bit = _bit + 1) {
       wait_jtag_idle();
-      set_tdi_vec(0, 1);
-      if (get_bit(data_out, _bit) == 1)
-        set_tdi_vec(1, 1);
+      int bit = get_bit(data_out, _bit);
+      set_tdi_vec(bit, 1);
 
       // On the last bit, set TMS to '1'
       // so we will automatically leave shift_IR/shift_DR state after sending out the last bit
@@ -230,11 +236,16 @@ void do_scan_chain() {
       // send one bit per clock
       enable_shift();
       wait_jtag_idle();
-      set_bit(data_in, _bit, get_tdo_vec() & 1);
+      int out = get_tdo_vec() & 1;
+      set_bit(data_in, _bit, out);
+      if (DEBUG_INFO)
+        printf("in: %d out: %d\n", bit, out);
     }
     buffer_in[index] = data_in;
   }
   wait_jtag_idle();
+  if (DEBUG_INFO)
+    printf("\n");
   set_tdi_vec(0, 1);
   set_tms_vec(0, 1);
 }
@@ -260,14 +271,16 @@ static void host_mainloop(int server_fd) {
   start = Times(NULL);
 
   struct vpi_cmd command;
-  while (recv(client_fd, &command, sizeof(command), 0) > 0) {
+  while (myrecv(client_fd, (char *)&command, sizeof(command))) {
     cmd = command.cmd;
     nb_bits = command.nb_bits;
     length = command.length;
 
-    printf("**************************************\n\n");
-    printf("[%.6f] recv: cmd %s, length %d, nb_bits %d\n",
-        get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
+    if (DEBUG_INFO) {
+      printf("**************************************\n\n");
+      printf("[%.6f] recv: cmd %s, length %d, nb_bits %d\n",
+          get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
+    }
 
     // openocd jtag driver does not init vpi_cmd structure properly
     // when cmd == CMD_RESET, all fields except cmd may be garbage values
@@ -298,8 +311,9 @@ static void host_mainloop(int server_fd) {
         flip_tms = 0;
         do_scan_chain();
         // send result back
-        printf("[%.6f] send: cmd %s, length %d, nb_bits %d\n",
-            get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
+        if (DEBUG_INFO)
+          printf("[%.6f] send: cmd %s, length %d, nb_bits %d\n",
+              get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
         memcpy(command.buffer_in, buffer_in, length);
         send(client_fd, &command, sizeof(command), 0);
         break;
@@ -312,8 +326,9 @@ static void host_mainloop(int server_fd) {
         flip_tms = 1;
         do_scan_chain();
         // send result back
-        printf("[%.6f] send: cmd %s, length %d, nb_bits %d\n",
-            get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
+        if (DEBUG_INFO)
+          printf("[%.6f] send: cmd %s, length %d, nb_bits %d\n",
+              get_timestamp(start), cmd_to_string(cmd), length, nb_bits);
         memcpy(command.buffer_in, buffer_in, length);
         send(client_fd, &command, sizeof(command), 0);
         break;

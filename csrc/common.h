@@ -2,6 +2,8 @@
 #define COMMON_H
 
 #include <sys/times.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
@@ -57,4 +59,6 @@ void Pthread_mutex_init(pthread_mutex_t *mp,
 void Pthread_mutex_lock(pthread_mutex_t *mutex);
 void Pthread_mutex_unlock(pthread_mutex_t *mutex);
 void Pthread_mutex_destroy(pthread_mutex_t *mutex);
+
+int myrecv(int fd, char *buf, int size);
 #endif
