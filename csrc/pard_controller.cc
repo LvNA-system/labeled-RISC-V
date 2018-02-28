@@ -205,7 +205,7 @@ int main(int argc, char *argv[]) {
 
   connect_server(ip == NULL ? "127.0.0.1" : ip, port == 0 ? 8080 : port);
   init_dtm();
-  load_program("emu.bin", 0x80000000);
+  // load_program("emu.bin", 0x80000000);
 
   srand(time(NULL));
 

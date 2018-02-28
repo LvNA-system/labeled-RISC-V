@@ -10,6 +10,7 @@ import cde.{Parameters, Field, Config, Dump, Knob, CDEMatchError}
 // WithRTCPeriod should be put in front of BaseConfig
 class PARDSimConfig extends Config(
   new WithBlockingL1
+  ++ new WithDirectBoot
   ++ new WithSim
   ++ new WithJtagDTM 
   ++ new WithoutFPU
@@ -22,6 +23,7 @@ class PARDSimConfig extends Config(
 
 class PARDFPGAConfigzedboard extends Config(
   new WithBlockingL1
+  ++ new WithJtagBoot
   ++ new WithoutFPU
   ++ new WithJtagDTM
   ++ new WithExtMemSize(0x80000000L)
@@ -37,6 +39,7 @@ class PARDFPGAConfigzedboard extends Config(
 
 class PARDFPGAConfigzcu102 extends Config(
   new WithBlockingL1
+  ++ new WithJtagBoot
   ++ new WithoutFPU
   ++ new WithJtagDTM
   ++ new WithExtMemSize(0x80000000L)

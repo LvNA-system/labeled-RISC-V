@@ -10,6 +10,8 @@ CONFIG ?= DefaultConfig
 # TODO: For now must match rocketchip.Generator
 long_name = $(PROJECT).$(CONFIG)
 
+boot ?= JTAGBOOT
+
 CXX ?= g++
 CXXFLAGS := -O3
 
@@ -38,10 +40,10 @@ endif
 
 timeout_cycles = 100000000
 
-bootrom_img = $(base_dir)/bootrom/bootrom.img
+bootrom_img = $(base_dir)/bootrom/bootrom_$(boot).img
 
-$(bootrom_img): $(bootrom_img:.img=.S)
-	$(MAKE) -C $(@D)
+$(bootrom_img): $(base_dir)/bootrom/bootrom.S
+	$(MAKE) -C $(@D) boot=$(boot) 
 
 #--------------------------------------------------------------------
 # Build Tests

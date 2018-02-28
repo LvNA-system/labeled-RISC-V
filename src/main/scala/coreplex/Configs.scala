@@ -180,6 +180,16 @@ class BaseCoreplexConfig extends Config (
   }
 )
 
+class WithDirectBoot extends Config(
+  (pname,site,here) => pname match {
+    case BootROMFile => "./bootrom/bootrom_DIRECTBOOT.img"
+  })
+
+class WithJtagBoot extends Config(
+  (pname,site,here) => pname match {
+    case BootROMFile => "./bootrom/bootrom_JTAGBOOT.img"
+  })
+
 class WithNCores(n: Int) extends Config(
   (pname,site,here) => pname match {
     case NTiles => n
