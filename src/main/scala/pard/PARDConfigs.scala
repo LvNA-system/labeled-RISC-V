@@ -28,9 +28,10 @@ class PARDFPGAConfigzedboard extends Config(
   ++ new WithJtagDTM
   ++ new WithExtMemSize(0x80000000L)
   ++ new WithNCores(4)
+  ++ new WithSmallCores
   ++ new WithNBtbEntry(0)
-  ++ new WithL1ICacheWays(2)
-  ++ new WithL1DCacheWays(2)
+  ++ new WithL1ICacheWays(1)
+  ++ new WithL1DCacheWays(1)
   ++ new WithRTCPeriod(4) // gives 10 MHz RTC assuming 40 MHz uncore clock
   ++ new WithL2Capacity(256)
   ++ new WithNL2Ways(16)

@@ -257,7 +257,8 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, dsid: UInt, cache_config:
   val curr_state = Wire(Bits(width = n_ways))
   val next_state = Wire(Bits())
 
-  val dsids = Reg(Vec(n_sets * n_ways, UInt(width = dsid_bits)))
+  val dsids = SeqMem(n_sets, Vec(n_ways, UInt(width = dsid_bits)))
+  val set_dsids = Wire(Vec(n_ways, UInt(width = dsid_bits)))
 
   val curr_mask = cache_config.waymask
 
@@ -267,6 +268,7 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, dsid: UInt, cache_config:
 
   def access(set: UInt) = {
     curr_state := state.read(set)
+    set_dsids := dsids.read(set)
   }
 
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
@@ -276,8 +278,9 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, dsid: UInt, cache_config:
     cache_config.en := valid
     cache_config.access := valid
     cache_config.miss := valid && !hit
-    cache_config.replaced_dsid := dsids(Cat(set, update_way))
+    cache_config.replaced_dsid := set_dsids(update_way)
 
+    val wmask = (0 until n_ways).map(i => update_way === UInt(i))
     when (valid) {
       when (!(curr_state & curr_mask).orR) {
         next_state := curr_state | curr_mask
@@ -285,7 +288,7 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, dsid: UInt, cache_config:
         next_state := curr_state.bitSet(update_way, Bool(false))
       }
       state.write(set, next_state)
-      when (!hit) { dsids(Cat(set, update_way)) := dsid }
+      when (!hit) { dsids.write(set, Vec.fill(n_ways)(dsid), wmask) }
     }
   }
 
