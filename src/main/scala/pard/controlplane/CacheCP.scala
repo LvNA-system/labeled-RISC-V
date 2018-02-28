@@ -8,10 +8,12 @@ import cde.{Parameters}
 
 
 class CachePartitionConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val en = Bool(INPUT)
+  // need to retrive waymask in the same cycle, not latched
   val dsid = UInt(INPUT, width = dsidBits)
-  val replaced_dsid = UInt(INPUT, width = dsidBits)
   val waymask = UInt(OUTPUT, width = p(NWays))
+
+  val curr_dsid = UInt(INPUT, width = dsidBits)
+  val replaced_dsid = UInt(INPUT, width = dsidBits)
   val access = Bool(INPUT)
   val miss = Bool(INPUT)
   override def cloneType = (new CachePartitionConfigIO).asInstanceOf[this.type]
@@ -51,11 +53,14 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val cpRWEn = cpRen || cpWen
 
   val cache = io.cacheConfig
-  val cacheRWEn = cache.en
   val dsid = cache.dsid
-  val replaced_dsid = cache.replaced_dsid
-  val access = cache.access
-  val miss = cache.miss
+
+  // latched to avoid long signal path
+  val cacheRWEn = RegNext(cache.access)
+  val curr_dsid = RegNext(cache.curr_dsid)
+  val replaced_dsid = RegNext(cache.replaced_dsid)
+  val access = RegNext(cache.access)
+  val miss = RegNext(cache.miss)
 
   // read
   val rtab = getTabFromAddr(io.rw.raddr)
@@ -63,9 +68,9 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val rcol = getColFromAddr(io.rw.raddr)
 
   val waymaskRdata = ptabWaymaskRegs(Mux(cpRWEn, rrow, dsid))
-  val accessRdata = accessCounterRegs(Mux(cpRWEn, rrow, dsid))
-  val missRdata = missCounterRegs(Mux(cpRWEn, rrow, dsid))
-  val currentUsageRdata = usageCounterRegs(Mux(cpRWEn, rrow, dsid))
+  val accessRdata = accessCounterRegs(Mux(cpRWEn, rrow, curr_dsid))
+  val missRdata = missCounterRegs(Mux(cpRWEn, rrow, curr_dsid))
+  val currentUsageRdata = usageCounterRegs(Mux(cpRWEn, rrow, curr_dsid))
   val replacedUsageRdata = usageCounterRegs(Mux(cpRWEn, rrow, replaced_dsid))
 
   // write
@@ -81,9 +86,9 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val missWen = cacheMissWen || cpMissWen
 
   val cpUsageWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(usageCounterCol)
-  // corner case: dsid == replaced_dsid
+  // corner case: curr_dsid == replaced_dsid
   // in this case, do not update, or increment and decrement will race
-  val cacheUsageWen = cacheRWEn && miss && dsid != replaced_dsid && !cpRWEn
+  val cacheUsageWen = cacheRWEn && miss && curr_dsid != replaced_dsid && !cpRWEn
   val usageWen = cacheUsageWen || cpUsageWen
 
   val accessWdata = Mux(cpRWEn, io.rw.wdata,
@@ -99,13 +104,13 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
     Mux(miss && !underflow, replacedUsageRdata - UInt(1), replacedUsageRdata))
 
   when (accessWen) {
-    accessCounterRegs(Mux(cpRWEn, wrow, dsid)) := accessWdata
+    accessCounterRegs(Mux(cpRWEn, wrow, curr_dsid)) := accessWdata
   }
   when (missWen) {
-    missCounterRegs(Mux(cpRWEn, wrow, dsid)) := missWdata
+    missCounterRegs(Mux(cpRWEn, wrow, curr_dsid)) := missWdata
   }
   when (usageWen) {
-    usageCounterRegs(Mux(cpRWEn, wrow, dsid)) := currentUsageWdata
+    usageCounterRegs(Mux(cpRWEn, wrow, curr_dsid)) := currentUsageWdata
     when (cacheUsageWen) {
       usageCounterRegs(replaced_dsid) := replacedUsageWdata
     }

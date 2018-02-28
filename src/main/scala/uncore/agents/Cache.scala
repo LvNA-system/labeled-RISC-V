@@ -275,9 +275,9 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, dsid: UInt, cache_config:
     val update_way = Mux(hit, way, target_way)
 
     cache_config.dsid := dsid
-    cache_config.en := valid
     cache_config.access := valid
     cache_config.miss := valid && !hit
+    cache_config.curr_dsid :=  dsid
     cache_config.replaced_dsid := set_dsids(update_way)
 
     val wmask = (0 until n_ways).map(i => update_way === UInt(i))
