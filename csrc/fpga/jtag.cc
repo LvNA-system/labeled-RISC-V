@@ -43,6 +43,10 @@
 #define TDO_IDX 3
 #define CTRL_IDX 4
 
+#define GPIO_RESET_TOTAL_SIZE	(1 << 16)
+#define GPIO_RESET_BASE_ADDR	0x41200000
+
+volatile uint32_t *gpio_reset_base;
 volatile uint32_t *jtag_base;
 
 void* create_map(size_t size, int fd, off_t offset) {
@@ -65,11 +69,17 @@ void init_map() {
     exit(1);
   } 
 
-  jtag_base = (uint32_t*)create_map(JTAG_TOTAL_SIZE, fd, JTAG_BASE_ADDR);
+  jtag_base = (uint32_t *)create_map(JTAG_TOTAL_SIZE, fd, JTAG_BASE_ADDR);
+  gpio_reset_base = (uint32_t *)create_map(GPIO_RESET_TOTAL_SIZE, fd, GPIO_RESET_BASE_ADDR);
+}
+
+void resetn(int val) {
+  gpio_reset_base[0] = val;
 }
 
 void finish_map() {
   munmap((void *)jtag_base, JTAG_TOTAL_SIZE);
+  munmap((void *)gpio_reset_base, GPIO_RESET_TOTAL_SIZE);
   close(fd);
 }
 
@@ -180,17 +190,6 @@ static inline void goto_run_test_idle_from_reset() {
 
 // write value to ir, and return the old value of ir
 static inline void write_ir(uint64_t value) {
-  /*
-     set_tms(0);
-     set_len(32);
-     send_cmd();
-     set_tms(0);
-     set_len(32);
-     send_cmd();
-     set_tms(0);
-     set_len(32);
-     send_cmd();
-     */
   // first, we need to move from run test idle to shift ir state
   seq_tms("0011");
 
@@ -254,6 +253,27 @@ static struct DMI_Resp send_debug_request(struct DMI_Req req) {
     assert(0);
   }
   return d_resp;
+}
+
+uint64_t rw_debug_reg(int opcode, uint32_t addr, uint64_t data) {
+  struct DMI_Req req;
+  req.opcode = opcode;
+  req.addr = addr;
+  req.data = data;
+  uint64_t req_bits = req_to_bits(req);
+  // the value shifted out are old values
+  rw_jtag_reg(REG_DEBUG_ACCESS, req_bits, REG_DEBUG_ACCESS_WIDTH);
+
+  // we need another nop request to shift out the new values
+  struct DMI_Req nop_req;
+  nop_req.opcode = OP_READ;
+  nop_req.addr = 0x10;
+  nop_req.data = 0x0;
+  uint64_t nop_bits = req_to_bits(nop_req);
+  uint64_t resp = rw_jtag_reg(REG_DEBUG_ACCESS, nop_bits, REG_DEBUG_ACCESS_WIDTH);
+  struct DMI_Resp d_resp = bits_to_resp(resp);
+  assert(d_resp.state == 0); 
+  return d_resp.data;
 }
 
 /* We use the ``readline'' library to provide more flexibility to read from stdin. */
@@ -385,6 +405,97 @@ int string_to_idx(const char *name, const char **table, int size) {
   return -1;
 }
 
+#define DEBUG_RAM 0x400
+
+/* load bin file stage 1, store base address in t0
+ * assembly source
+ *
+ * #define DEBUG_RAM 0x400
+ * #define RESUME 0x804
+ * .text
+ * .global _start
+ * _start:
+ * // during program loading, the core is runing a loop in bootrom
+ * // no one needs t0(bootrom + debug rom)
+ * // we can safely override it
+ * lwu t0, (DEBUG_RAM + 8)(zero)
+ * j RESUME
+ * address:.word 0
+ */
+int address_idx = 2; 
+uint32_t stage_1_machine_code[] = {
+  0x40806283, 0x4000006f, 0x00000000
+};
+
+/* load bin file stage 2, store one word to address t0
+ * assembly source
+ *
+ * #define DEBUG_RAM 0x400
+ * #define RESUME 0x804
+ * .text
+ * .global _start
+ * _start:
+ * lwu s0, (DEBUG_RAM + 16)(zero)
+ * sw s0, 0(t0)
+ * addi t0, t0, 4
+ * j RESUME
+ * data: .word 0
+ */
+int data_idx = 4;
+uint32_t stage_2_machine_code[] = {
+  0x41006403, 0x0082a023, 0x00428293, 0x3f80006f, 0x00000000
+};
+
+/* load bin file stage 3, set pc to entry address
+ * assembly source
+ *
+ * #define ENTRY 0x80000000
+ * #define DPC 0x7b1
+ * #define RESUME 0x804
+ * .text
+ * .global _start
+ * _start:
+ * li t0, ENTRY
+ * csrw DPC, t0
+ * j RESUME
+ */
+uint32_t stage_3_machine_code[] = {
+  0x0010029b, 0x01f29293, 0x7b129073, 0x3f80006f
+};
+
+void load_program(const char *bin_file, uint32_t base) {
+  // load base address to t0
+  stage_1_machine_code[address_idx] = base;
+  // write debug ram
+  for (unsigned i = 0; i < sizeof(stage_1_machine_code) / sizeof(uint32_t); i++)
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_1_machine_code[i]);
+  // send debug request to hart 0, let it execute code we just written
+  rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+
+  // wait for hart to clear debug interrupt
+  while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
+
+  for (unsigned i = 0; i < sizeof(stage_2_machine_code) / sizeof(uint32_t); i++)
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_2_machine_code[i]);
+
+  FILE *f = fopen(bin_file, "r");
+  assert(f);
+  uint32_t code;
+  while(fread(&code, sizeof(uint32_t), 1, f) == 1) {
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + data_idx, code);
+    // send a debug interrupt to hart 0, let it store one word for us
+    rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+    while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
+  }
+
+  // bin file loading finished, write entry address to dpc
+  for (unsigned i = 0; i < sizeof(stage_3_machine_code) / sizeof(uint32_t); i++)
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_3_machine_code[i]);
+  rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+  while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
+}
+
+
 
 int main(int argc, char *argv[]) {
   bool automatic_test = false;
@@ -396,8 +507,11 @@ int main(int argc, char *argv[]) {
   /* map some devices into the address space of this program */
   init_map();
 
+  resetn(0);
+  resetn(3);
   reset_soft();
   goto_run_test_idle_from_reset();
+
 
   // get dtm info
   uint64_t dtminfo = rw_jtag_reg(REG_DTM_INFO, 0, REG_DTM_INFO_WIDTH);
@@ -409,6 +523,12 @@ int main(int argc, char *argv[]) {
 
   printf("dbusIdleCycles: %d\ndbusStatus: %d\ndebugAddrBits: %d\ndebugVersion: %d\n",
       dbusIdleCycles, dbusStatus, debugAddrBits, debugVersion);
+
+  clock_t start;
+
+  start = Times(NULL);
+  load_program("emu.bin", 0x80000000);
+  printf("load program use time: %.6fs\n", get_timestamp(start));
 
   srand(time(NULL));
 

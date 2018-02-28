@@ -4,6 +4,7 @@ build_dir = $(fpga_dir)/build
 generated_dir = $(build_dir)/generated-src
 
 CONFIG = PARDSimConfig
+boot = DIRECTBOOT
 
 #--------------------------------------------------------------------
 # Emulator generation
@@ -22,7 +23,8 @@ $(emu): $(original_emu)
 
 $(original_emu):
 	$(MAKE) all -C $(base_dir)/emulator CONFIG=$(CONFIG) MODEL=$(MODEL) \
-		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir)
+		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir) \
+		boot=$(boot)
 
 $(emu_bin_hex_file): $(emu_bin_file)
 	bash $(emu_gen_script) $< $@
