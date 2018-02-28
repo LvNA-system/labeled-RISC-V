@@ -4,6 +4,7 @@
 #include <string>
 
 #include "dmi.h"
+#include "common.h"
 #include "client_common.h"
 
 
@@ -169,7 +170,9 @@ void load_program(const char *bin_file, uint32_t base) {
   // send debug request to hart 0, let it execute code we just written
   rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
 
-  // since core is much quicker, here we do not poll the core status
+  // wait for hart to clear debug interrupt
+  while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
+
   for (unsigned i = 0; i < sizeof(stage_2_machine_code) / sizeof(uint32_t); i++)
     rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_2_machine_code[i]);
 
@@ -180,12 +183,14 @@ void load_program(const char *bin_file, uint32_t base) {
     rw_debug_reg(OP_WRITE, DEBUG_RAM + data_idx, code);
     // send a debug interrupt to hart 0, let it store one word for us
     rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+    while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
   }
 
   // bin file loading finished, write entry address to dpc
   for (unsigned i = 0; i < sizeof(stage_3_machine_code) / sizeof(uint32_t); i++)
     rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_3_machine_code[i]);
   rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+  while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
 }
 
 
@@ -205,7 +210,11 @@ int main(int argc, char *argv[]) {
 
   connect_server(ip == NULL ? "127.0.0.1" : ip, port == 0 ? 8080 : port);
   init_dtm();
-  // load_program("emu.bin", 0x80000000);
+  clock_t start;
+
+  start = Times(nullptr);
+  load_program("emu.bin", 0x80000000);
+  printf("load program used %.6fs\n", get_timestamp(start));
 
   srand(time(NULL));
 
