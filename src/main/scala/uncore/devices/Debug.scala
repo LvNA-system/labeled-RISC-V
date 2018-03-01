@@ -716,7 +716,7 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap wi
     cpBusy := false.B
   }
 
-  when (io.cpio.ren) { cpDataReg := io.cpio.rdata }
+  when (cpRen) { cpDataReg := io.cpio.rdata }
 
   // handle read on sbusaddr0 and sdata0
   when (cpAddrReadFire) {
@@ -938,53 +938,82 @@ trait DebugModule extends Module with HasDebugModuleParameters with HasRegMap wi
 
   val nCols = 9
   val nRegs = (1 << p(ProcDsidBits)) * nCols
-  val sbCPRdata = Reg(UInt(width = cpDataSize))
-  val pendingResp = Reg(init = Bool(false))
+
+  // cp register system bus access
+  // latch signals to shorten signal path
+  val sbCPRaddrReg = Reg(UInt(width = cpAddrSize))
+  val sbCPRdataReg = Reg(UInt(width = cpDataSize))
+  val sbCPWaddrReg = Reg(UInt(width = cpAddrSize))
+  val sbCPWdataReg = Reg(UInt(width = cpDataSize))
 
   val sbCPRens = Wire(Vec(nRegs, Bool()))
-  val sbCPRaddrs = Wire(Vec(nRegs, UInt(width = cpAddrSize)))
   val sbCPWens = Wire(Vec(nRegs, Bool()))
-  val sbCPWaddrs = Wire(Vec(nRegs, UInt(width = cpAddrSize)))
-  val sbCPWdatas = Wire(Vec(nRegs, UInt(width = cpDataSize)))
 
   sbCPRen := sbCPRens.reduce (_ || _)
-  (0 until nRegs).foreach(i => when (sbCPRens(i)) { sbCPRaddr := sbCPRaddrs(i) })
+  sbCPRaddr := sbCPRaddrReg
+
   sbCPWen := sbCPWens.reduce (_ || _)
-  (0 until nRegs).foreach(i => when (sbCPWens(i)) {
-    sbCPWaddr := sbCPWaddrs(i)
-    sbCPWdata := sbCPWdatas(i)
-  })
+  sbCPWaddr := sbCPWaddrReg
+  sbCPWdata := sbCPWdataReg
+
+  // read/write are divided into three 3 stages
+  // 1. latch read/write request signals
+  // 2. when cp not busy, do read/write
+  // 3. when resp ready, do resp
+  val s_idle :: s_cprw :: s_resp :: Nil = Enum(UInt(), 3)
 
   def cpRegReadFn (idx: Int, dsid: UInt) : RegReadFn = {
     val sbCPAddr = idx2cpaddr(idx, dsid)
     RegReadFn((ivalid, oready) => {
-      // 1. do not collide with external control plane access
-      // 2. handle request one by one, do not accept new requests
-      //    until the old one finishes its response handshaking
-      val iready = !cpRen && !pendingResp
-      val ifire = ivalid && iready
-      sbCPRens(idx) := ifire
-      sbCPRaddrs(idx) := sbCPAddr
-      when (ifire) {
-        sbCPRdata := io.cpio.rdata
-        pendingResp := Bool(true)
+      // handle request one by one, do not accept new requests
+      // until the old one finishes its response handshaking
+      val state = Reg(init=s_idle)
+      val iready = state === s_idle
+
+      // stage 1
+      when (ivalid && iready) {
+        state := s_cprw
+        sbCPRaddrReg := sbCPAddr
       }
-      when (oready && !ifire) { pendingResp := Bool(false) }
-      (iready, pendingResp, sbCPRdata)
+
+      // stage 2
+      // do not collide with external control plane access
+      val doCPRW = state === s_cprw && !cpRen
+      sbCPRens(idx) := doCPRW
+      when (doCPRW) {
+        state := s_resp
+        sbCPRdataReg := io.cpio.rdata
+      }
+
+      // stage 3
+      val ovalid = state === s_resp
+      when (ovalid && oready) { state := s_idle }
+      (iready, ovalid, sbCPRdataReg)
     })
   }
 
   def cpRegWriteFn (idx: Int, dsid: UInt) : RegWriteFn = {
     val sbCPAddr = idx2cpaddr(idx, dsid)
     RegWriteFn((ivalid, oready, data) => {
-      val iready = !cpWen && !pendingResp
-      val ifire = ivalid && iready
-      sbCPWens(idx) := ifire
-      sbCPWaddrs(idx) := sbCPAddr
-      sbCPWdatas(idx) := data
-      when (ifire) { pendingResp := Bool(true) }
-      when (oready && !ifire) { pendingResp := Bool(false) }
-      (iready, pendingResp)
+      val state = Reg(init=s_idle)
+      val iready = state === s_idle
+
+      // stage 1
+      when (ivalid && iready) {
+        state := s_cprw
+        sbCPWaddrReg := sbCPAddr
+        sbCPWdataReg := data
+      }
+
+      // stage 2
+      val doCPRW = state === s_cprw && !cpWen
+      sbCPWens(idx) := doCPRW
+      when (doCPRW) { state := s_resp }
+
+      // stage 3
+      val ovalid = state === s_resp
+      when (ovalid && oready) { state := s_idle }
+      (iready, ovalid)
     })
   }
 
