@@ -14,10 +14,7 @@ class TLFilter(select: AddressSet) extends LazyModule
     managerFn = { case Seq(mp) =>
       mp.copy(managers = mp.managers.map { m =>
         val filtered = m.address.map(_.intersect(select)).flatten
-        val alignment = select.alignment /* alignment 0 means 'select' selected everything */
-        val maxTransfer = 1 << 30
-        val capTransfer = if (alignment == 0 || alignment > maxTransfer) maxTransfer else alignment.toInt
-        val cap = TransferSizes(1, capTransfer)
+        val cap = TransferSizes(1, select.alignment.toInt)
         if (filtered.isEmpty) { None } else {
           Some(m.copy(
             address            = filtered,
