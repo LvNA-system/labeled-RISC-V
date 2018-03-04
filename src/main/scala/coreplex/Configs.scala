@@ -4,7 +4,6 @@ package coreplex
 
 import Chisel._
 import junctions._
-import diplomacy._
 import uncore.tilelink._
 import uncore.coherence._
 import uncore.agents._
@@ -71,8 +70,8 @@ class BaseCoreplexConfig extends Config (
       case NUncachedTileLinkPorts => 1
       //Tile Constants
       case BuildTiles => {
-        List.tabulate(site(NTiles)){ i => (p: Parameters) =>
-          LazyModule(new RocketTile()(p.alterPartial({
+        List.tabulate(site(NTiles)){ i => (r: Bool, p: Parameters) =>
+          Module(new RocketTile(resetSignal = r)(p.alterPartial({
             case TileId => i
             case TLId => "L1toL2"
             case NUncachedTileLinkPorts => 1 + site(RoccNMemChannels)

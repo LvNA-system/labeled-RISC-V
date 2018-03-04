@@ -96,47 +96,48 @@ abstract class GroundTest(implicit val p: Parameters) extends Module
   val io = new GroundTestIO
 }
 
-class GroundTestTile(implicit val p: Parameters) extends LazyTile {
-  val slave = None
-  lazy val module = new TileImp(this) with HasGroundTestParameters {
-    val io = new TileIO(bc) {
-      val success = Bool(OUTPUT)
-    }
+class GroundTestTile(resetSignal: Bool)
+                    (implicit val p: Parameters)
+                    extends Tile(resetSignal = resetSignal)(p)
+                    with HasGroundTestParameters {
 
-    val test = p(BuildGroundTest)(dcacheParams)
-
-    val ptwPorts = ListBuffer.empty ++= test.io.ptw
-    val memPorts = ListBuffer.empty ++= test.io.mem
-
-    if (nCached > 0) {
-      val dcache_io = HellaCache(p(DCacheKey))(dcacheParams)
-      val dcacheArb = Module(new HellaCacheArbiter(nCached)(dcacheParams))
-
-      dcacheArb.io.requestor.zip(test.io.cache).foreach {
-        case (requestor, cache) =>
-          val dcacheIF = Module(new SimpleHellaCacheIF()(dcacheParams))
-          dcacheIF.io.requestor <> cache
-          requestor <> dcacheIF.io.cache
-      }
-      dcache_io.cpu <> dcacheArb.io.mem
-      io.cached.head <> dcache_io.mem
-
-      // SimpleHellaCacheIF leaves invalidate_lr dangling, so we wire it to false
-      dcache_io.cpu.invalidate_lr := Bool(false)
-
-      ptwPorts += dcache_io.ptw
-    }
-
-    if (ptwPorts.size > 0) {
-      val ptw = Module(new DummyPTW(ptwPorts.size))
-      ptw.io.requestors <> ptwPorts
-    }
-
-    require(memPorts.size == io.uncached.size)
-    if (memPorts.size > 0) {
-      io.uncached <> memPorts
-    }
-
-    io.success := test.io.status.finished
+  override val io = new TileIO(bc) {
+    val success = Bool(OUTPUT)
   }
+
+  val test = p(BuildGroundTest)(dcacheParams)
+
+  val ptwPorts = ListBuffer.empty ++= test.io.ptw
+  val memPorts = ListBuffer.empty ++= test.io.mem
+
+  if (nCached > 0) {
+    val dcache_io = HellaCache(p(DCacheKey))(dcacheParams)
+    val dcacheArb = Module(new HellaCacheArbiter(nCached)(dcacheParams))
+
+    dcacheArb.io.requestor.zip(test.io.cache).foreach {
+      case (requestor, cache) =>
+        val dcacheIF = Module(new SimpleHellaCacheIF()(dcacheParams))
+        dcacheIF.io.requestor <> cache
+        requestor <> dcacheIF.io.cache
+    }
+    dcache_io.cpu <> dcacheArb.io.mem
+    io.cached.head <> dcache_io.mem
+
+    // SimpleHellaCacheIF leaves invalidate_lr dangling, so we wire it to false
+    dcache_io.cpu.invalidate_lr := Bool(false)
+
+    ptwPorts += dcache_io.ptw
+  }
+
+  if (ptwPorts.size > 0) {
+    val ptw = Module(new DummyPTW(ptwPorts.size))
+    ptw.io.requestors <> ptwPorts
+  }
+
+  require(memPorts.size == io.uncached.size)
+  if (memPorts.size > 0) {
+    io.uncached <> memPorts
+  }
+
+  io.success := test.io.status.finished
 }

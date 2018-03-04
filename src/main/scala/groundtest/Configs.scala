@@ -72,6 +72,8 @@ class Edge32BitMemtestConfig extends Config(
 /* Composable Configs to set individual parameters */
 class WithGroundTest extends Config(
   (pname, site, here) => pname match {
+    case BuildCoreplex =>
+      (c: CoreplexConfig, p: Parameters) => LazyModule(new GroundTestCoreplex(c)(p)).module
     case TLKey("L1toL2") => {
       val useMEI = site(NTiles) <= 1 && site(NCachedTileLinkPorts) <= 1
       val dataBeats = (8 * site(CacheBlockBytes)) / site(XLen)
@@ -93,8 +95,8 @@ class WithGroundTest extends Config(
     case BuildTiles => {
       (0 until site(NTiles)).map { i =>
         val tileSettings = site(GroundTestKey)(i)
-        (p: Parameters) => {
-          LazyModule(new GroundTestTile()(p.alterPartial({
+        (r: Bool, p: Parameters) => {
+          Module(new GroundTestTile(resetSignal = r)(p.alterPartial({
             case TLId => "L1toL2"
             case TileId => i
             case NCachedTileLinkPorts => if(tileSettings.cached > 0) 1 else 0
@@ -104,7 +106,7 @@ class WithGroundTest extends Config(
       }
     }
     case BuildExampleTop =>
-      (p: Parameters) => LazyModule(new ExampleTopWithTestRAM(new GroundTestCoreplex()(_))(p))
+      (p: Parameters) => LazyModule(new ExampleTopWithTestRAM(p))
     case FPUKey => None
     case UseAtomics => false
     case UseCompressed => false
@@ -114,12 +116,12 @@ class WithGroundTest extends Config(
 class WithComparator extends Config(
   (pname, site, here) => pname match {
     case GroundTestKey => Seq.fill(site(NTiles)) {
-      GroundTestTileSettings(uncached = 2)
+      GroundTestTileSettings(uncached = site(ComparatorKey).targets.size)
     }
     case BuildGroundTest =>
       (p: Parameters) => Module(new ComparatorCore()(p))
     case ComparatorKey => ComparatorParameters(
-      targets    = Seq("mem", "TL2:testram").map(name =>
+      targets    = Seq("mem", "io:pbus:TL2:testram").map(name =>
                     site(GlobalAddrMap)(name).start.longValue),
       width      = 8,
       operations = 1000,

@@ -7,11 +7,10 @@ import diplomacy._
 import regmapper._
 import scala.math.{min,max}
 
-class TLRegisterNode(address: AddressSet, concurrency: Int = 0, beatBytes: Int = 4, undefZero: Boolean = true, executable: Boolean = false)
+class TLRegisterNode(address: AddressSet, concurrency: Int = 0, beatBytes: Int = 4, undefZero: Boolean = true)
   extends TLManagerNode(TLManagerPortParameters(
     Seq(TLManagerParameters(
       address            = Seq(address),
-      executable         = executable,
       supportsGet        = TransferSizes(1, beatBytes),
       supportsPutPartial = TransferSizes(1, beatBytes),
       supportsPutFull    = TransferSizes(1, beatBytes),
@@ -71,17 +70,17 @@ class TLRegisterNode(address: AddressSet, concurrency: Int = 0, beatBytes: Int =
 
 object TLRegisterNode
 {
-  def apply(address: AddressSet, concurrency: Int = 0, beatBytes: Int = 4, undefZero: Boolean = true, executable: Boolean = false) =
-    new TLRegisterNode(address, concurrency, beatBytes, undefZero, executable)
+  def apply(address: AddressSet, concurrency: Int = 0, beatBytes: Int = 4, undefZero: Boolean = true) =
+    new TLRegisterNode(address, concurrency, beatBytes, undefZero)
 }
 
 // These convenience methods below combine to make it possible to create a TL2 
 // register mapped device from a totally abstract register mapped device.
 // See GPIO.scala in this directory for an example
 
-abstract class TLRegisterRouterBase(val address: AddressSet, interrupts: Int, concurrency: Int, beatBytes: Int, undefZero: Boolean, executable: Boolean) extends LazyModule
+abstract class TLRegisterRouterBase(address: AddressSet, interrupts: Int, concurrency: Int, beatBytes: Int, undefZero: Boolean) extends LazyModule
 {
-  val node = TLRegisterNode(address, concurrency, beatBytes, undefZero, executable)
+  val node = TLRegisterNode(address, concurrency, beatBytes, undefZero)
   val intnode = IntSourceNode(interrupts)
 }
 
@@ -102,16 +101,15 @@ class TLRegModule[P, B <: TLRegBundleBase](val params: P, bundleBuilder: => B, r
 {
   val io = bundleBuilder
   val interrupts = if (io.interrupts.isEmpty) Vec(0, Bool()) else io.interrupts(0)
-  val address = router.address
   def regmap(mapping: RegField.Map*) = router.node.regmap(mapping:_*)
   dsidWire := router.node.bundleIn(0).a.bits.dsid
 }
 
 class TLRegisterRouter[B <: TLRegBundleBase, M <: LazyModuleImp]
-   (val base: BigInt, val interrupts: Int = 0, val size: BigInt = 4096, val concurrency: Int = 0, val beatBytes: Int = 4, undefZero: Boolean = true, executable: Boolean = false)
+   (val base: BigInt, val interrupts: Int = 0, val size: BigInt = 4096, val concurrency: Int = 0, val beatBytes: Int = 4, undefZero: Boolean = true)
    (bundleBuilder: TLRegBundleArg => B)
    (moduleBuilder: (=> B, TLRegisterRouterBase) => M)
-  extends TLRegisterRouterBase(AddressSet(base, size-1), interrupts, concurrency, beatBytes, undefZero, executable)
+  extends TLRegisterRouterBase(AddressSet(base, size-1), interrupts, concurrency, beatBytes, undefZero)
 {
   require (isPow2(size))
   // require (size >= 4096) ... not absolutely required, but highly recommended
