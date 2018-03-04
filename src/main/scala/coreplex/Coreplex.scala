@@ -13,7 +13,7 @@ import rocket._
 trait BroadcastL2 {
     this: CoreplexNetwork =>
   def l2ManagerFactory() = {
-    val bh = LazyModule(new TLBroadcast(l1tol2_lineBytes, nTrackersPerBank))
+    val bh = LazyModule(new TLBroadcast(l1tol2_beatBytes, nTrackersPerBank))
     (bh.node, bh.node)
   }
 }

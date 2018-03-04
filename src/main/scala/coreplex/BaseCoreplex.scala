@@ -101,7 +101,7 @@ trait CoreplexNetworkModule extends HasCoreplexParameters {
 trait BankedL2 {
     this: CoreplexNetwork =>
   require (isPow2(nBanksPerMemChannel))
-  require (isPow2(l1tol2_lineBytes))
+  require (isPow2(l1tol2_beatBytes))
 
   def l2ManagerFactory(): (TLInwardNode, TLOutwardNode)
 
