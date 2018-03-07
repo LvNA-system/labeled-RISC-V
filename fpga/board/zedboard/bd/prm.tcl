@@ -1766,8 +1766,10 @@ proc create_root_design { parentCell } {
  ] $axi_jtag_v1_0_0
 
   set_property -dict [ list \
+   CONFIG.SUPPORTS_NARROW_BURST {0} \
    CONFIG.NUM_READ_OUTSTANDING {1} \
    CONFIG.NUM_WRITE_OUTSTANDING {1} \
+   CONFIG.MAX_BURST_LENGTH {1} \
  ] [get_bd_intf_pins /axi_jtag_v1_0_0/s_axi]
 
   # Create instance: axi_protocol_converter_0, and set properties
@@ -1789,7 +1791,7 @@ proc create_root_design { parentCell } {
   set axi_uartlite_pardcore_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_pardcore_0 ]
   set_property -dict [ list \
    CONFIG.C_BAUDRATE {115200} \
-   CONFIG.C_S_AXI_ACLK_FREQ_HZ {40000000} \
+   CONFIG.C_S_AXI_ACLK_FREQ_HZ {30000000} \
    CONFIG.UARTLITE_BOARD_INTERFACE {Custom} \
  ] $axi_uartlite_pardcore_0
 
@@ -1797,20 +1799,22 @@ proc create_root_design { parentCell } {
   set axi_uartlite_pardcore_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_pardcore_1 ]
   set_property -dict [ list \
    CONFIG.C_BAUDRATE {115200} \
-   CONFIG.C_S_AXI_ACLK_FREQ_HZ {40000000} \
+   CONFIG.C_S_AXI_ACLK_FREQ_HZ {30000000} \
  ] $axi_uartlite_pardcore_1
 
   # Create instance: clk_wiz_0, and set properties
   set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:5.4 clk_wiz_0 ]
   set_property -dict [ list \
-   CONFIG.CLKOUT1_JITTER {159.371} \
-   CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {40.000} \
-   CONFIG.CLKOUT2_JITTER {151.636} \
-   CONFIG.CLKOUT2_PHASE_ERROR {98.575} \
+   CONFIG.CLKOUT1_JITTER {163.613} \
+   CONFIG.CLKOUT1_PHASE_ERROR {94.994} \
+   CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {30.000} \
+   CONFIG.CLKOUT2_JITTER {145.943} \
+   CONFIG.CLKOUT2_PHASE_ERROR {94.994} \
    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {50.000} \
    CONFIG.CLKOUT2_USED {true} \
-   CONFIG.MMCM_CLKOUT0_DIVIDE_F {25.000} \
-   CONFIG.MMCM_CLKOUT1_DIVIDE {20} \
+   CONFIG.MMCM_CLKFBOUT_MULT_F {10.500} \
+   CONFIG.MMCM_CLKOUT0_DIVIDE_F {35.000} \
+   CONFIG.MMCM_CLKOUT1_DIVIDE {21} \
    CONFIG.MMCM_DIVCLK_DIVIDE {1} \
    CONFIG.NUM_OUT_CLKS {2} \
    CONFIG.RESET_PORT {resetn} \

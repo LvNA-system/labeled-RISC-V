@@ -58,7 +58,7 @@ const char *tab_tables[3][3] = {
 const char *col_tables[3][3][4] = {
   {{"dsid", "base", "size", "hartid"}},
   {{"size", "freq", "inc"}, {"read", "write"}},
-  {{"mask"}, {"access", "miss"}}
+  {{"mask"}, {"access", "miss", "usage"}}
 };
 
 int get_cp_addr(int cpIdx, int tabIdx, int col, int row) {
@@ -161,17 +161,17 @@ uint32_t stage_3_machine_code[] = {
   0x0010029b, 0x01f29293, 0x7b129073, 0x3f80006f
 };
 
-void load_program(const char *bin_file, uint32_t base) {
+void load_program(const char *bin_file, uint64_t hartid, uint32_t base) {
   // load base address to t0
   stage_1_machine_code[address_idx] = base;
   // write debug ram
   for (unsigned i = 0; i < sizeof(stage_1_machine_code) / sizeof(uint32_t); i++)
     rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_1_machine_code[i]);
   // send debug request to hart 0, let it execute code we just written
-  rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
+  rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33 | hartid << 2);
 
   // wait for hart to clear debug interrupt
-  while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
+  while((rw_debug_reg(OP_READ, 0x10, hartid << 2) >> 33) & 1ULL);
 
   for (unsigned i = 0; i < sizeof(stage_2_machine_code) / sizeof(uint32_t); i++)
     rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_2_machine_code[i]);
@@ -182,15 +182,62 @@ void load_program(const char *bin_file, uint32_t base) {
   while(fread(&code, sizeof(uint32_t), 1, f) == 1) {
     rw_debug_reg(OP_WRITE, DEBUG_RAM + data_idx, code);
     // send a debug interrupt to hart 0, let it store one word for us
-    rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
-    while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
+    rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33 | hartid << 2);
+    while((rw_debug_reg(OP_READ, 0x10, hartid << 2) >> 33) & 1ULL);
   }
 
+  fclose(f);
+}
+
+void start_program(uint64_t hartid) {
   // bin file loading finished, write entry address to dpc
   for (unsigned i = 0; i < sizeof(stage_3_machine_code) / sizeof(uint32_t); i++)
     rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_3_machine_code[i]);
-  rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33);
-  while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
+  rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33 | hartid << 2);
+  while((rw_debug_reg(OP_READ, 0x10, hartid << 2) >> 33) & 1ULL);
+}
+
+
+/* load bin file stage 4, read memory to make sure it's correctly loaded
+ * assembly source
+ *
+ * #define DEBUG_RAM 0x400
+ * #define RESUME 0x804
+ * .text
+ * .global _start
+ * _start:
+ * lwu s1, (DEBUG_RAM + 16)(zero)
+ * lwu s0, 0(s1)
+ * sw s0, (DEBUG_RAM + 20)(zero)
+ * j RESUME
+ * address: .word 0
+ * data: .word 0
+ */
+int s4_addr_idx = 4;
+int s4_data_idx = 5;
+uint32_t stage_4_machine_code[] = {
+  0x41006483, 0x0004e403, 0x40802a23, 0x3f80006f, 0x00000000, 0x00000000
+};
+
+void check_loaded_program(const char *bin_file, uint64_t hartid, uint32_t base) {
+  for (unsigned i = 0; i < sizeof(stage_4_machine_code) / sizeof(uint32_t); i++)
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_4_machine_code[i]);
+
+  FILE *f = fopen(bin_file, "r");
+  assert(f);
+  uint32_t code;
+  while(fread(&code, sizeof(uint32_t), 1, f) == 1) {
+    rw_debug_reg(OP_WRITE, DEBUG_RAM + s4_addr_idx, base);
+    // send a debug interrupt to hart, let it store one word for us
+    rw_debug_reg(OP_WRITE, 0x10, 1ULL << 33 | hartid << 2);
+    while((rw_debug_reg(OP_READ, 0x10, 0ULL) >> 33) & 1ULL);
+    uint32_t loaded_code = rw_debug_reg(OP_READ, DEBUG_RAM + s4_data_idx, hartid << 2);
+    if (code != loaded_code) {
+      printf("addr: %x code: %x loaded_code: %x\n", base, code, loaded_code);
+    }
+    base += 4;
+  }
+  fclose(f);
 }
 
 
@@ -212,9 +259,22 @@ int main(int argc, char *argv[]) {
   init_dtm();
   clock_t start;
 
-  start = Times(nullptr);
-  load_program("emu.bin", 0x80000000);
-  printf("load program used %.6fs\n", get_timestamp(start));
+  const char *bin_file = "cachesizetest-riscv64-rocket.bin";
+  start = Times(NULL);
+  load_program(bin_file, 0, 0x80000000);
+  printf("load program use time: %.6fs\n", get_timestamp(start));
+
+  start_program(0);
+
+  start = Times(NULL);
+  load_program(bin_file, 1, 0x80000000);
+  printf("load program use time: %.6fs\n", get_timestamp(start));
+
+  start = Times(NULL);
+  check_loaded_program(bin_file, 1, 0x80000000);
+  printf("check loaded program use time: %.6fs\n", get_timestamp(start));
+
+  start_program(1);
 
   srand(time(NULL));
 

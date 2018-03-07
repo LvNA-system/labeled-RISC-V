@@ -349,7 +349,7 @@ class WithSmallCores extends Config (
   topDefinitions = { (pname,site,here) => pname match {
     case MulDivKey => Some(MulDivConfig())
     case FPUKey => None
-    case UseVM => false
+    case UseVM => true
     case NTLBEntries => 4
     case BtbKey => BtbParameters(nEntries = 0)
     case NAcquireTransactors => 2
