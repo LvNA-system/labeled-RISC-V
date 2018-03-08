@@ -14,6 +14,11 @@ class DsidConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   override def cloneType = (new DsidConfigIO).asInstanceOf[this.type]
 }
 
+class HartidConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
+  val hartids = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
+  override def cloneType = (new HartidConfigIO).asInstanceOf[this.type]
+}
+
 class AddressMapperConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val bases = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
   val sizes = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
@@ -23,6 +28,7 @@ class AddressMapperConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
 class CoreControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val dsidConfig = new DsidConfigIO
+  val hartidConfig = new HartidConfigIO
   val addressMapperConfig = new AddressMapperConfigIO
 }
 
@@ -34,7 +40,7 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
   val dsidCol = 0
   val baseCol = 1
   val sizeCol = 2
-  val hartidCol = 3  // TODO: use this to make hartid programable
+  val hartidCol = 3
 
   val ptabDsidRegs   = Reg(Vec(nTiles, UInt(width = p(LDomDsidBits))))
   val ptabBaseRegs   = Reg(Vec(nTiles, UInt(width = cpDataSize)))
@@ -44,6 +50,7 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
   when (reset) {
     for (i <- 0 until nTiles) {
       ptabDsidRegs(i) := UInt(i)
+      ptabHartidRegs(i) := UInt(i)
       if (p(UseNoHype)) {
         if (p(UseSim)) {
           val size = p(ExtMemSize) / nTiles
@@ -82,6 +89,7 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
 
   // wire out cpRegs
   (io.dsidConfig.dsids zip ptabDsidRegs) ++
+    (io.hartidConfig.hartids zip ptabHartidRegs) ++
     (io.addressMapperConfig.bases zip ptabBaseRegs) ++
     (io.addressMapperConfig.sizes zip ptabSizeRegs) map { case (o, i) => o := i }
 }
