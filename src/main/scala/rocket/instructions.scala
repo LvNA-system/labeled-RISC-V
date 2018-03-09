@@ -374,6 +374,7 @@ object CSRs {
   val marchid = 0xf12
   val mimpid = 0xf13
   val mhartid = 0xf14
+  val mtileid = 0xf15
   val cycleh = 0xc80
   val timeh = 0xc81
   val instreth = 0xc82

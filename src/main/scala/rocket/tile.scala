@@ -34,6 +34,7 @@ class TileIO(c: TileBundleConfig, node: Option[TLInwardNode] = None)(implicit p:
   val cached = Vec(c.nCachedTileLinkPorts, new ClientTileLinkIO)
   val uncached = Vec(c.nUncachedTileLinkPorts, new ClientUncachedTileLinkIO)
   val hartid = UInt(INPUT, c.xLen)
+  val tileid = UInt(INPUT, c.xLen)
   val dsid = UInt(INPUT, p(LDomDsidBits))
   // memory base
   val base = UInt(INPUT, c.xLen)
@@ -93,6 +94,7 @@ class RocketTile(implicit p: Parameters) extends LazyTile {
     val cachedPorts = collection.mutable.ArrayBuffer(dcache.mem)
     core.io.interrupts := io.interrupts
     core.io.hartid := io.hartid
+    core.io.tileid := io.tileid
     icache.io.cpu <> core.io.imem
     icache.io.resetVector := io.resetVector
 

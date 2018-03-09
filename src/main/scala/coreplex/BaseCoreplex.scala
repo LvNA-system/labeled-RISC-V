@@ -298,6 +298,7 @@ trait CoreplexRISCVPlatformModule {
 
   // connect coreplex-internal interrupts to tiles
   for ((tile, i) <- (uncoreTileIOs zipWithIndex)) {
+    tile.tileid := UInt(i)
     tile.hartid := cp.io.hartidConfig.hartids(UInt(i))
     tile.dsid := cp.io.dsidConfig.dsids(UInt(i))
     tile.base := cp.io.addressMapperConfig.bases(UInt(i))
