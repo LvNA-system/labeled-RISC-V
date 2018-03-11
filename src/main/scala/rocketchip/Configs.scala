@@ -17,6 +17,7 @@ import scala.collection.mutable.{LinkedHashSet, ListBuffer}
 import scala.collection.immutable.HashMap
 import DefaultTestSuites._
 import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
+import pard.cp._
 
 class BasePlatformConfig extends Config(
   topDefinitions = {
@@ -49,8 +50,8 @@ class BasePlatformConfig extends Config(
         case AsyncDebugBus => false
         case IncludeJtagDTM => false
         case AsyncMMIOChannels => false
-        case ExtMMIOPorts => Nil
-        case NExtMMIOAXIChannels => 0
+        case ExtMMIOPorts => if (site(UseSim)) Nil else Seq(AddrMapEntry("mmio", MemRange(0x60000000, 0x20000000, MemAttr(AddrMapProt.RW))))
+        case NExtMMIOAXIChannels => if (site(UseSim)) 0 else 1
         case NExtMMIOAHBChannels => 0
         case NExtMMIOTLChannels  => 0
         case AsyncBusChannels => false
@@ -71,6 +72,8 @@ class BasePlatformConfig extends Config(
         case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
         case BuildExampleTop =>
           (p: Parameters) => LazyModule(new PARDSimTop(p))
+        case BuildFPGATop =>
+          (p: Parameters) => LazyModule(new PARDFPGATop(p))
         case SimMemLatency => 100
         case _ => throw new CDEMatchError
       }
@@ -235,6 +238,13 @@ class WithNBreakpoints(hwbp: Int) extends Config (
 class WithRTCPeriod(p: Int) extends Config(
   (pname, site, here) => pname match {
     case RTCPeriod => p
+    case _ => throw new CDEMatchError
+  }
+)
+
+class WithNExtBusAXIChannels(n: Int) extends Config(
+  (pname, site, here) => pname match {
+    case NExtBusAXIChannels => n
     case _ => throw new CDEMatchError
   }
 )

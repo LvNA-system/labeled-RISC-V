@@ -8,9 +8,11 @@ import cde.{Parameters, Field}
 import coreplex._
 import rocketchip._
 
+case object BuildFPGATop extends Field[Parameters => ExampleTop]
+
 class PARDFPGAHarness(q: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
   }
-  val dut = Module(LazyModule(new PARDFPGATop(new DefaultCoreplex()(_))(q)).module)
+  val dut = q(BuildFPGATop)(q).module
 }

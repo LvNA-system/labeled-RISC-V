@@ -30,6 +30,7 @@ class ExampleTopBundle(p: Parameters) extends BaseTopBundle(p)
     with PeripherySlaveBundle
 
 class ExampleTopModule[+L <: ExampleTop, +B <: ExampleTopBundle](p: Parameters, l: L, b: => B) extends BaseTopModule(p, l, b)
+    with DirectConnection
     with PeripheryBootROMModule
     with PeripheryDebugModule
     with PeripheryExtInterruptsModule
@@ -37,7 +38,6 @@ class ExampleTopModule[+L <: ExampleTop, +B <: ExampleTopBundle](p: Parameters, 
     with PeripheryMasterMemModule
     with PeripherySlaveModule
     with HardwiredResetVector
-    with DirectConnection
 
 /** Example Top with TestRAM */
 class ExampleTopWithTestRAM(q: Parameters) extends ExampleTop(q)

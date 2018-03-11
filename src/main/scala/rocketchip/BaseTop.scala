@@ -54,9 +54,6 @@ abstract class BaseTop(q: Parameters) extends LazyModule {
     case NCoreplexExtClients => pBusMasters.sum})
 
   val legacy = LazyModule(new TLLegacy()(p.alterPartial({ case TLId => "L2toMMIO" })))
-  val coreplexTrafficEnable : Vec[TrafficEnableIO] = Wire(outer.coreplex.module.io.trafficEnable)
-  val tokenBucketConfig = Wire(new TokenBucketConfigIO)
-  val memMonitor = Wire(new MemMonitorIO)
 
   peripheryBus.node :=
     TLWidthWidget(p(SOCBusKey).beatBytes)(
@@ -114,11 +111,16 @@ abstract class BaseTopModule[+L <: BaseTop, +B <: BaseTopBundle](
 }
 
 trait DirectConnection {
+  implicit val p: Parameters
   val coreplexIO: BaseCoreplexBundle
   val coreplex: BaseCoreplexModule[BaseCoreplex, BaseCoreplexBundle]
 
+  val coreplexTrafficEnable : Vec[TrafficEnableIO] = Wire(coreplexIO.trafficEnable)
+  val tokenBucketConfig = Wire(new TokenBucketConfigIO)
+  val memMonitor = Wire(new MemMonitorIO)
+
   coreplexIO <> coreplex.io
-  outer.coreplex.module.io.trafficEnable <> coreplexTrafficEnable 
-  tokenBucketConfig <> outer.coreplex.module.io.tokenBucketConfig
-  memMonitor <> outer.coreplex.module.io.memMonitor
+  coreplexIO.trafficEnable <> coreplexTrafficEnable
+  tokenBucketConfig <> coreplexIO.tokenBucketConfig
+  memMonitor <> coreplexIO.memMonitor
 }

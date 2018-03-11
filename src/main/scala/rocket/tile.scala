@@ -70,6 +70,12 @@ class RocketTile(clockSignal: Clock = null, resetSignal: Bool = null)
   val icache = Module(new Frontend()(p.alterPartial({ case CacheName => "L1I" })))
   val dcache = HellaCache(p(DCacheKey))(dcacheParams)
 
+  // address map bases
+  icache.io.base := io.base
+  icache.io.size := io.size
+  dcache.base := io.base
+  dcache.size := io.size
+
   val ptwPorts = collection.mutable.ArrayBuffer(icache.io.ptw, dcache.ptw)
   val dcPorts = collection.mutable.ArrayBuffer(core.io.dmem)
   val uncachedArbPorts = collection.mutable.ArrayBuffer(icache.io.mem)

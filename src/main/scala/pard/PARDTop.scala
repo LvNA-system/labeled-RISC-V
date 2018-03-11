@@ -17,29 +17,30 @@ trait PARDSimTopConfigs {
 }
 
 /** PARDSimTop */
-class PARDSimTop[+C <: BaseCoreplex](_coreplex: Parameters => C)(implicit p: Parameters) extends ExampleTop(_coreplex)
+class PARDSimTop(q: Parameters) extends ExampleTop(q)
     with PARDSimTopConfigs
-    with PeripheryUART {
-  override lazy val module = new PARDSimTopModule(this, () => new PARDSimTopBundle(this))
+    with PeripheryUART
+    {
+  override lazy val module = Module(new PARDSimTopModule(p, this, new PARDSimTopBundle(p)))
 }
 
-class PARDSimTopBundle[+L <: PARDSimTop[BaseCoreplex]](_outer: L) extends ExampleTopBundle(_outer)
+class PARDSimTopBundle(p: Parameters) extends ExampleTopBundle(p)
     with PARDSimTopConfigs
     with PeripheryUARTBundle
 
-class PARDSimTopModule[+L <: PARDSimTop[BaseCoreplex], +B <: PARDSimTopBundle[L]](_outer: L, _io: () => B) extends ExampleTopModule(_outer, _io)
+    class PARDSimTopModule[+L <: PARDSimTop, +B <: PARDSimTopBundle](p: Parameters, l: L, b: => B) extends ExampleTopModule(p, l, b)
     with PARDSimTopConfigs
     with PeripheryUARTModule
 
 
 /** PARDFPGATop */
-class PARDFPGATop[+C <: BaseCoreplex](_coreplex: Parameters => C)(implicit p: Parameters) extends ExampleTop(_coreplex)
-    with PeripheryMasterAXI4MMIO {
-  override lazy val module = new PARDFPGATopModule(this, () => new PARDFPGATopBundle(this))
+class PARDFPGATop(q: Parameters) extends ExampleTop(q)
+    with PeripheryMasterMMIO {
+  override lazy val module = Module(new PARDFPGATopModule(p, this, new PARDFPGATopBundle(p)))
 }
 
-class PARDFPGATopBundle[+L <: PARDFPGATop[BaseCoreplex]](_outer: L) extends ExampleTopBundle(_outer)
-    with PeripheryMasterAXI4MMIOBundle
+class PARDFPGATopBundle(p: Parameters) extends ExampleTopBundle(p)
+    with PeripheryMasterMMIOBundle
 
-class PARDFPGATopModule[+L <: PARDFPGATop[BaseCoreplex], +B <: PARDFPGATopBundle[L]](_outer: L, _io: () => B) extends ExampleTopModule(_outer, _io)
-    with PeripheryMasterAXI4MMIOModule
+class PARDFPGATopModule[+L <: PARDFPGATop, +B <: PARDFPGATopBundle](p: Parameters, l: L, b: => B) extends ExampleTopModule(p, l, b)
+    with PeripheryMasterMMIOModule

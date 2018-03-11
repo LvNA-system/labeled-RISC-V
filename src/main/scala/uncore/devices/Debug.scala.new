@@ -4,9 +4,9 @@ package uncore.devices
 
 import Chisel._
 import junctions._
+import regmapper._
 import uncore.tilelink._
 import util._
-import regmapper._
 import cde.{Parameters, Config, Field}
 import pard.cp._
 import rocket.ProcDsidBits
@@ -125,8 +125,10 @@ object DsbBusConsts {
 
 object DsbRegAddrs{
 
-  def CLEARDEBINT  = UInt(0x100)
-  def SETHALTNOT   = UInt(0x10C)
+  def CLEARDEBINT_CONST = 0x100
+  def SETHALTNOT_CONST  = 0x10C
+  def CLEARDEBINT  = UInt(CLEARDEBINT_CONST)
+  def SETHALTNOT   = UInt(SETHALTNOT_CONST)
   def SERINFO      = UInt(0x110)
   def SERBASE      = UInt(0x114)
   // For each serial, there are
@@ -330,7 +332,7 @@ class DebugBusIO(implicit val p: cde.Parameters) extends ParameterizedBundle()(p
 
 class DebugModule ()(implicit val p:cde.Parameters)
     extends Module
-    with HasTileLinkParameters with HasDsidWire with HasControlPlaneParameters { 
+    with HasTileLinkParameters with HasRegMap with HasDsidWire with HasControlPlaneParameters { 
   val cfg = p(DMKey)
 
   //--------------------------------------------------------------
@@ -982,9 +984,19 @@ class DebugModule ()(implicit val p:cde.Parameters)
     sbRomRdData := romMem (sbRomRdAddr)
   }
 
+  val romRegFields = if (cfg.hasDebugRom) {
+    cfg.debugRomContents.get.map( x => RegField.r(8, UInt(x.toInt & 0xFF)))
+  } else {
+    Seq(RegField(8))
+  }
+
   //--------------------------------------------------------------
   // System Bus Access
   //--------------------------------------------------------------
+
+  def wValue (n: Int, value: UInt, set: Bool) : RegField = {
+    RegField(n, value, RegWriteFn((valid, data) => {set := valid; value := data; Bool(true)}))
+  }
 
   // -----------------------------------------
   // SB Access Write Decoder
@@ -1140,16 +1152,13 @@ class DebugModule ()(implicit val p:cde.Parameters)
   val cpRegFields  = (0 to (nRegs - 1) toList).map(idx =>RegField(cpDataSize,
     cpRegReadFn(idx, dsidWire), cpRegWriteFn(idx, dsidWire)))
 
-  // FIXME: should use methods rather than regmap to decode the address
-/*
   regmap(
-    CLEARDEBINT -> Seq(wValue(sbIdWidth, CLEARDEBINTWrData, CLEARDEBINTWrEn)),
-    SETHALTNOT  -> Seq(wValue(sbIdWidth, SETHALTNOTWrData, SETHALTNOTWrEn)),
+    CLEARDEBINT_CONST -> Seq(wValue(sbIdWidth, CLEARDEBINTWrData, CLEARDEBINTWrEn)),
+    SETHALTNOT_CONST  -> Seq(wValue(sbIdWidth, SETHALTNOTWrData, SETHALTNOTWrEn)),
     RAMBASE     -> ramMem.map(x => RegField(8, x)),
     ROMBASE     -> romRegFields,
     CPBASE      -> cpRegFields
   )
-  */
   // -----------------------------------------
   // SB Access State Machine -- based on BRAM Slave
 

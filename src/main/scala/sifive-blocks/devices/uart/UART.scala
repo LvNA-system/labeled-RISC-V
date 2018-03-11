@@ -243,7 +243,7 @@ trait UARTTopModule extends Module with MixUARTParameters with HasUARTParameters
 
   ip.txwm := (txq.io.count < txwm)
   ip.rxwm := (rxq.io.count > rxwm)
-  interrupts(0) := (ip.txwm && ie.txwm) || (ip.rxwm && ie.rxwm)
+  //interrupts(0) := (ip.txwm && ie.txwm) || (ip.rxwm && ie.rxwm)
 
   regmap(
     UARTCtrlRegs.txfifo -> NonBlockingEnqueue(txq.io.enq),
@@ -302,6 +302,6 @@ class Majority(in: Set[Bool]) {
 
 // Magic TL2 Incantation to create a TL2 Slave
 class UART(c: UARTConfig)(implicit val p: Parameters)
-  extends TLRegisterRouter(c.address, interrupts = 1, beatBytes = p(PeripheryBusKey).beatBytes)(
+  extends TLRegisterRouter(c.address, interrupts = 0, beatBytes = p(PeripheryBusKey).beatBytes)(
   new TLRegBundle((c, p), _)    with UARTTopBundle)(
   new TLRegModule((c, p), _, _) with UARTTopModule)

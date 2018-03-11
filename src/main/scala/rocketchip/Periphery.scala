@@ -17,7 +17,7 @@ import util._
 import rocket.XLen
 import scala.math.max
 import coreplex._
-import pard.cp.{TokenBucket}
+import pard.cp.{TokenBucket, TokenBucketConfigIO, MemMonitorIO}
 
 /** Options for memory bus interface */
 object BusType {
@@ -180,6 +180,10 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
   val outer: PeripheryMasterMem
   val io: PeripheryMasterMemBundle
   val coreplexIO: BaseCoreplexBundle
+
+  val coreplexTrafficEnable: Vec[TrafficEnableIO]
+  val tokenBucketConfig: TokenBucketConfigIO
+  val memMonitor: MemMonitorIO
 
   val edgeMem = coreplexIO.master.mem.map(TileLinkWidthAdapter(_, edgeMemParams))
 

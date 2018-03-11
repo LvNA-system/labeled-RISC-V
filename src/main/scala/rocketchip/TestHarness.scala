@@ -25,13 +25,24 @@ class TestHarness(q: Parameters) extends Module {
   require(dut.io.mem_tl.isEmpty)
   require(dut.io.bus_clk.isEmpty)
   require(dut.io.bus_rst.isEmpty)
-  require(dut.io.mmio_clk.isEmpty)
+  /*require(dut.io.mmio_clk.isEmpty)
   require(dut.io.mmio_rst.isEmpty)
   require(dut.io.mmio_ahb.isEmpty)
-  require(dut.io.mmio_tl.isEmpty)
+  require(dut.io.mmio_tl.isEmpty)*/
+
 
   for (int <- dut.io.interrupts)
     int := Bool(false)
+
+  if (dut.io.bus_axi.nonEmpty) {
+    for (bus <- dut.io.bus_axi) {
+      bus.ar.valid := Bool(false)
+      bus.aw.valid := Bool(false)
+      bus.w.valid  := Bool(false)
+      bus.r.ready  := Bool(true)
+      bus.b.ready  := Bool(true)
+    }
+  }
 
   if (dut.io.mem_axi.nonEmpty) {
     val memSize = p(GlobalAddrMap)("mem").size
@@ -57,14 +68,6 @@ class TestHarness(q: Parameters) extends Module {
       dut.io.success, io.success)
   } else {
     val jtag = Module(new JTAGDTM).connect(clock, reset, dut.io.jtag.get, io.success)
-  }
-
-  for (bus_axi <- dut.io.bus_axi) {
-    bus_axi.ar.valid := Bool(false)
-    bus_axi.aw.valid := Bool(false)
-    bus_axi.w.valid  := Bool(false)
-    bus_axi.r.ready  := Bool(false)
-    bus_axi.b.ready  := Bool(false)
   }
 
   /*

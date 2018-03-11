@@ -163,24 +163,6 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
 
     io.master.mem <> mem_ic.io.out
 
-  // connect coreplex-internal interrupts to tiles
-  for ((tile, i) <- (uncoreTileIOs zipWithIndex)) {
-    tile.hartid := UInt(i)
-    tile.dsid := cp.io.dsidConfig.dsids(UInt(i))
-    tile.base := cp.io.addressMapperConfig.bases(UInt(i))
-    tile.size := cp.io.addressMapperConfig.sizes(UInt(i))
-    tile.resetVector := io.resetVector
-    tile.interrupts := outer.clint.module.io.tiles(i)
-    tile.interrupts.debug := outer.debug.module.io.debugInterrupts(i)
-    tile.interrupts.meip := outer.tileIntNodes(i).bundleOut(0)(0)
-    tile.interrupts.seip.foreach(_ := outer.tileIntNodes(i).bundleOut(0)(1))
-  }
-
-  outer.debug.module.io.db <> io.debug
-  io.tokenBucketConfig <> cp.io.tokenBucketConfig
-  io.memMonitor <> cp.io.memMonitor
-  outer.clint.module.io.rtcTick := io.rtcTick
-  cp.io.rw <> outer.debug.module.io.cpio
     buildMMIONetwork(TileLinkEnqueuer(mmioManager.io.outer, 1))(outerMMIOParams)
   }
 
@@ -201,9 +183,15 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
     val debugModule = Module(new DebugModule)
     debugModule.io.tl <> cBus.port("cbus:debug")
     debugModule.io.db <> io.debug
+    io.tokenBucketConfig <> cp.io.tokenBucketConfig
+    io.memMonitor <> cp.io.memMonitor
+    cp.io.rw <> debugModule.io.cpio
 
     // connect coreplex-internal interrupts to tiles
     for ((tile, i) <- (uncoreTileIOs zipWithIndex)) {
+      tile.dsid := cp.io.dsidConfig.dsids(UInt(i))
+      tile.base := cp.io.addressMapperConfig.bases(UInt(i))
+      tile.size := cp.io.addressMapperConfig.sizes(UInt(i))
       tile.interrupts <> io.clint(i)
       tile.interrupts.meip := plic.io.harts(plic.cfg.context(i, 'M'))
       tile.interrupts.seip.foreach(_ := plic.io.harts(plic.cfg.context(i, 'S')))
