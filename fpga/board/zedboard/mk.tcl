@@ -20,9 +20,6 @@ set project_dir ${fpga_dir}/build/$project_name
 create_project $project_name -force -dir $project_dir/ -part ${device}
 set_property board_part $board [current_project] 
 
-set_property verilog_define {{HAS_CACHE}} [get_fileset sources_1]
-set_property verilog_define {{HAS_CACHE}} [get_fileset sim_1]
-
 # the $brd variable will be passed to pardcore/mk.tcl
 source ${fpga_dir}/pardcore/mk.tcl
 
@@ -47,6 +44,9 @@ add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/jtag/jtag_p
 # Add files for system top
 add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/system_top.v"]"
 add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/addr_mapper.v"]"
+
+# Add files for constraint
+add_files -norecurse -fileset constrs_1 "[file normalize "${constr_dir}/constr.xdc"]"
 
 
 # Board Designs
