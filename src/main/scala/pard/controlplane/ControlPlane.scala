@@ -8,8 +8,6 @@ import rocketchip.ExtMemSize
 import uncore.agents.{NWays}
 import uncore.devices.{NTiles}
 import uncore.tilelink.{DsidBits}
-import uncore.agents.{NWays, NSets}
-import coreplex.UseL2
 
 case object UseSim extends Field[Boolean]
 
@@ -58,9 +56,6 @@ trait HasControlPlaneParameters {
   def getColFromAddr(addr: UInt) = addr(colIdxHigh, colIdxLow)
   def getTabFromAddr(addr: UInt) = addr(tabIdxHigh, tabIdxLow)
   def getCpFromAddr(addr: UInt)  = addr(cpIdxHigh, cpIdxLow)
-
-  val nWays = if (p(UseL2)) p(NWays) else 1
-  val nSets = if (p(UseL2)) p(NSets) else 1
 }
 
 abstract class ControlPlaneBundle(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters

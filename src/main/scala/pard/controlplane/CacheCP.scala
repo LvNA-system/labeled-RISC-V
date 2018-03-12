@@ -3,14 +3,15 @@
 package pard.cp
 
 import Chisel._
-
 import cde.{Parameters}
+import uncore.agents.{NWays, NSets}
+import coreplex.UseL2
 
 
 class CachePartitionConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   // need to retrive waymask in the same cycle, not latched
   val dsid = UInt(INPUT, width = dsidBits)
-  val waymask = UInt(OUTPUT, width = nWays)
+  val waymask = UInt(OUTPUT, width = if (p(UseL2)) p(NWays) else 1)
 
   val curr_dsid = UInt(INPUT, width = dsidBits)
   val replaced_dsid = UInt(INPUT, width = dsidBits)
@@ -27,6 +28,9 @@ class CacheControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
 class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val io = IO(new CacheControlPlaneIO)
   val cpIdx = UInt(cacheCpIdx)
+
+  val nWays = if (p(UseL2)) p(NWays) else 1
+  val nSets = if (p(UseL2)) p(NSets) else 1
 
   // ptab
   val waymaskCol = 0
