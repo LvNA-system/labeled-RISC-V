@@ -30,6 +30,7 @@ case object BuildL2CoherenceManager extends Field[(Int, Parameters) => Coherence
 case object BuildTiles extends Field[Seq[Parameters => LazyTile]]
 /** The file to read the BootROM contents from */
 case object BootROMFile extends Field[String]
+case object UseL2 extends Field[Boolean]
 
 trait HasCoreplexParameters {
   implicit val p: Parameters
@@ -194,8 +195,8 @@ trait CoreplexRISCVPlatformModule {
   val tiles = outer.lazyTiles.map(_.module)
   val uncoreTileIOs = (tiles zipWithIndex) map { case (tile, i) => Wire(tile.io) }
 
-  val cp = Module(new ControlPlaneTopModule()(p.alterPartial({
-                          case CacheName => "L2Bank"})))
+  val cp = Module(new ControlPlaneTopModule()(
+    if (p(UseL2)) p.alterPartial({case CacheName => "L2Bank"}) else p))
 
   println("\nGenerated Address Map")
   for (entry <- p(rocketchip.GlobalAddrMap).flatten) {

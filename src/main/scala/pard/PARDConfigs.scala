@@ -17,9 +17,7 @@ class PARDSimConfig extends Config(
 //  ++ new WithNoHype
   ++ new WithNCores(2)
   ++ new WithExtMemSize(0x2000000L) // 32MB
-  ++ new WithL2Capacity(128)
-  ++ new WithNL2Ways(16)
-  ++ new DefaultL2Config)
+  ++ new DefaultConfig)
 
 class PARDFPGAConfigzedboard extends Config(
   new WithBlockingL1
