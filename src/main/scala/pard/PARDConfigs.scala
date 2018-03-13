@@ -32,7 +32,7 @@ class PARDFPGAConfigzedboard extends Config(
   ++ new WithNBtbEntry(0)
   ++ new WithL1ICacheWays(1)
   ++ new WithL1DCacheWays(1)
-  ++ new WithRTCPeriod(3) // gives 10 MHz RTC assuming 40 MHz uncore clock
+  ++ new WithRTCPeriod(4) // gives 10 MHz RTC assuming 40 MHz uncore clock
   ++ new WithL2Capacity(256)
   ++ new WithNL2Ways(16)
   ++ new DefaultL2FPGAConfig
