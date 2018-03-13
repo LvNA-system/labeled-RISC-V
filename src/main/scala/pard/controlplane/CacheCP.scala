@@ -3,14 +3,15 @@
 package pard.cp
 
 import Chisel._
-import uncore.agents.{NWays, NSets}
 import cde.{Parameters}
+import uncore.agents.{NWays, NSets}
+import coreplex.UseL2
 
 
 class CachePartitionConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   // need to retrive waymask in the same cycle, not latched
   val dsid = UInt(INPUT, width = dsidBits)
-  val waymask = UInt(OUTPUT, width = p(NWays))
+  val waymask = UInt(OUTPUT, width = if (p(UseL2)) p(NWays) else 1)
 
   val curr_dsid = UInt(INPUT, width = dsidBits)
   val replaced_dsid = UInt(INPUT, width = dsidBits)
@@ -28,9 +29,12 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val io = IO(new CacheControlPlaneIO)
   val cpIdx = UInt(cacheCpIdx)
 
+  val nWays = if (p(UseL2)) p(NWays) else 1
+  val nSets = if (p(UseL2)) p(NSets) else 1
+
   // ptab
   val waymaskCol = 0
-  val ptabWaymaskRegs = Reg(Vec(nDsids, UInt(width = p(NWays))))
+  val ptabWaymaskRegs = Reg(Vec(nDsids, UInt(width = nWays)))
 
   // stab
   val accessCounterCol = 0
@@ -42,7 +46,7 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
 
   when (reset) {
     for (i <- 0 until nDsids)
-      ptabWaymaskRegs(i) := UInt((BigInt(1) << p(NWays)) - 1)
+      ptabWaymaskRegs(i) := UInt((BigInt(1) << nWays) - 1)
     accessCounterRegs foreach {case a => a := 0.U }
     missCounterRegs foreach {case a => a := 0.U }
     usageCounterRegs foreach {case a => a := 0.U }
@@ -96,7 +100,7 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val missWdata = Mux(cpRWEn, io.rw.wdata,
     Mux(miss, missRdata + UInt(1), missRdata))
 
-  val overflow = currentUsageRdata === UInt(p(NSets) * p(NWays))
+  val overflow = currentUsageRdata === UInt(nSets * nWays)
   val underflow = replacedUsageRdata === UInt(0)
   val currentUsageWdata = Mux(cpRWEn, io.rw.wdata,
     Mux(miss && !overflow, currentUsageRdata + UInt(1), currentUsageRdata))
