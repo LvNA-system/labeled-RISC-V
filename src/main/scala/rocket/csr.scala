@@ -132,6 +132,7 @@ object CSR
 class CSRFileIO(implicit p: Parameters) extends CoreBundle {
   val interrupts = new TileInterrupts().asInput
   val hartid = UInt(INPUT, xLen)
+  val tileid = UInt(INPUT, xLen)
   val rw = new Bundle {
     val addr = UInt(INPUT, CSR.ADDRSZ)
     val cmd = Bits(INPUT, CSR.SZ)
@@ -317,7 +318,8 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
     CSRs.mepc -> reg_mepc.sextTo(xLen),
     CSRs.mbadaddr -> reg_mbadaddr.sextTo(xLen),
     CSRs.mcause -> reg_mcause,
-    CSRs.mhartid -> io.hartid)
+    CSRs.mhartid -> io.hartid,
+    CSRs.mtileid -> io.tileid)
 
   val debug_csrs = collection.immutable.ListMap(
     CSRs.dcsr -> reg_dcsr.asUInt,

@@ -78,6 +78,7 @@ class ControlPlaneRWIO(implicit p: Parameters) extends ControlPlaneBundle
 class ControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val dsidConfig = new DsidConfigIO
+  val hartidConfig = new HartidConfigIO
   val addressMapperConfig = new AddressMapperConfigIO
   val tokenBucketConfig = new TokenBucketConfigIO
   val memMonitor = new MemMonitorIO
@@ -92,6 +93,7 @@ class ControlPlaneTopModule(implicit p: Parameters) extends ControlPlaneModule {
 
   io.cachePartitionConfig <> cacheCP.io.cacheConfig
   io.dsidConfig <> coreCP.io.dsidConfig
+  io.hartidConfig <> coreCP.io.hartidConfig
   io.addressMapperConfig <> coreCP.io.addressMapperConfig
   io.tokenBucketConfig <> memCP.io.tokenBucketConfig
   io.memMonitor <> memCP.io.memMonitor
