@@ -252,10 +252,13 @@ class DsidSeqPLRU(n_sets: Int, n_ways: Int, n_dsids: Int, dsid: UInt, cacheParti
 }
 */
 
-class DsidRR(n_sets: Int, n_ways: Int, dsid: UInt, cache_config: CachePartitionConfigIO) extends SeqReplacementPolicy {
+class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, dsid: UInt, cache_config: CachePartitionConfigIO) extends SeqReplacementPolicy {
   val state = SeqMem(n_sets, Bits(width = n_ways))
   val curr_state = Wire(Bits(width = n_ways))
   val next_state = Wire(Bits())
+
+  val dsids = SeqMem(n_sets, Vec(n_ways, UInt(width = dsid_bits)))
+  val set_dsids = Wire(Vec(n_ways, UInt(width = dsid_bits)))
 
   val curr_mask = cache_config.waymask
 
@@ -265,16 +268,19 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid: UInt, cache_config: CachePartitionC
 
   def access(set: UInt) = {
     curr_state := state.read(set)
+    set_dsids := dsids.read(set)
   }
 
   def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
     val update_way = Mux(hit, way, target_way)
 
     cache_config.dsid := dsid
-    cache_config.en := valid
     cache_config.access := valid
     cache_config.miss := valid && !hit
+    cache_config.curr_dsid :=  dsid
+    cache_config.replaced_dsid := set_dsids(update_way)
 
+    val wmask = (0 until n_ways).map(i => update_way === UInt(i))
     when (valid) {
       when (!(curr_state & curr_mask).orR) {
         next_state := curr_state | curr_mask
@@ -282,6 +288,7 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid: UInt, cache_config: CachePartitionC
         next_state := curr_state.bitSet(update_way, Bool(false))
       }
       state.write(set, next_state)
+      when (!hit) { dsids.write(set, Vec.fill(n_ways)(dsid), wmask) }
     }
   }
 
@@ -515,7 +522,7 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
   val s2_tag_match = s2_tag_match_way.orR
   val s2_hit_coh = Mux1H(s2_tag_match_way, wayMap((w: Int) => RegEnable(meta.io.resp(w).coh, s1_clk_en)))
 
-  val replacer = new DsidRR(nSets, nWays, s1_dsid, io.cachePartitionConfig)
+  val replacer = new DsidRR(nSets, nWays, p(DsidBits), s1_dsid, io.cachePartitionConfig)
   val s1_hit_way = Wire(Bits())
   s1_hit_way := Bits(0)
   (0 until nWays).foreach(i => when (s1_tag_match_way(i)) { s1_hit_way := Bits(i) })

@@ -28,6 +28,7 @@ case object BuildL2CoherenceManager extends Field[(Int, Parameters) => Coherence
 case object BuildTiles extends Field[Seq[(Bool, Parameters) => Tile]]
 /** The file to read the BootROM contents from */
 case object BootROMFile extends Field[String]
+case object UseL2 extends Field[Boolean]
 
 trait HasCoreplexParameters {
   implicit val p: Parameters
@@ -85,8 +86,8 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
   val tiles = p(BuildTiles) map { _(reset, p) }
   val uncoreTileIOs = (tiles zipWithIndex) map { case (tile, i) => Wire(tile.io) }
 
-  val cp = Module(new ControlPlaneTopModule()(p.alterPartial({
-                          case CacheName => "L2Bank"})))
+  val cp = Module(new ControlPlaneTopModule()(
+    if (p(UseL2)) p.alterPartial({case CacheName => "L2Bank"}) else p))
   val nCachedPorts = tiles.map(tile => tile.io.cached.size).reduce(_ + _)
   val nUncachedPorts = tiles.map(tile => tile.io.uncached.size).reduce(_ + _)
   val nBanks = c.nMemChannels * nBanksPerMemChannel
@@ -196,7 +197,8 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
       tile.interrupts.meip := plic.io.harts(plic.cfg.context(i, 'M'))
       tile.interrupts.seip.foreach(_ := plic.io.harts(plic.cfg.context(i, 'S')))
       tile.interrupts.debug := debugModule.io.debugInterrupts(i)
-      tile.hartid := UInt(i)
+      tile.tileid := UInt(i)
+      tile.hartid := cp.io.hartidConfig.hartids(UInt(i))
       tile.resetVector := io.resetVector
     }
 

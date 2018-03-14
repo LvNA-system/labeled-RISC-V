@@ -132,6 +132,7 @@ object CSR
 class CSRFileIO(implicit p: Parameters) extends CoreBundle {
   val interrupts = new TileInterrupts().asInput
   val hartid = UInt(INPUT, xLen)
+  val tileid = UInt(INPUT, xLen)
   val rw = new Bundle {
     val addr = UInt(INPUT, CSR.ADDRSZ)
     val cmd = Bits(INPUT, CSR.SZ)
@@ -254,7 +255,7 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
   val reg_cycle = if (enableCommitLog) reg_instret else WideCounter(64)
   val reg_simlog = Reg(init=Bool(false))
   io.simlog := reg_simlog
-  val reg_procdsid = Reg(UInt(width = p(ProcDsidBits)))
+  val reg_procdsid = Reg(init = UInt(0, width = p(ProcDsidBits)))
   io.procdsid := reg_procdsid
   val reg_hpmevent = Seq.fill(nPerfCounters)(if (nPerfEvents > 1) Reg(UInt(width = log2Ceil(nPerfEvents))) else UInt(0))
   val reg_hpmcounter = reg_hpmevent.map(e => WideCounter(64, ((UInt(0) +: io.events): Seq[UInt])(e)))
@@ -317,7 +318,8 @@ class CSRFile(implicit p: Parameters) extends CoreModule()(p)
     CSRs.mepc -> reg_mepc.sextTo(xLen),
     CSRs.mbadaddr -> reg_mbadaddr.sextTo(xLen),
     CSRs.mcause -> reg_mcause,
-    CSRs.mhartid -> io.hartid)
+    CSRs.mhartid -> io.hartid,
+    CSRs.mtileid -> io.tileid)
 
   val debug_csrs = collection.immutable.ListMap(
     CSRs.dcsr -> reg_dcsr.asUInt,

@@ -22,6 +22,7 @@ trait DirectConnection {
 
     tile.io.interrupts <> uncore.interrupts
 
+    tile.io.tileid := uncore.tileid
     tile.io.hartid := uncore.hartid
     tile.io.dsid := uncore.dsid
     tile.io.base := uncore.base

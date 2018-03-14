@@ -66,6 +66,7 @@ class BaseCoreplexConfig extends Config (
         Module(new L2BroadcastHub()(p.alterPartial({
           case InnerTLId => "L1toL2"
           case OuterTLId => "L2toMC" })))
+      case UseL2 => false
       case NCachedTileLinkPorts => 1
       case NUncachedTileLinkPorts => 1
       //Tile Constants
@@ -270,6 +271,7 @@ class WithL2Cache extends Config(
         case CacheName => "L2Bank"
         case InnerTLId => "L1toL2"
         case OuterTLId => "L2toMC"})))
+    case UseL2 => true
     case L2Replacer => () => new SeqRandom(site(NWays))
     case _ => throw new CDEMatchError
   },
@@ -282,6 +284,7 @@ class WithBufferlessBroadcastHub extends Config(
       Module(new BufferlessBroadcastHub()(p.alterPartial({
         case InnerTLId => "L1toL2"
         case OuterTLId => "L2toMC" })))
+    case UseL2 => false
   })
 
 /**
@@ -302,6 +305,7 @@ class WithStatelessBridge extends Config (
       Module(new ManagerToClientStatelessBridge()(p.alterPartial({
         case InnerTLId => "L1toL2"
         case OuterTLId => "L2toMC" })))
+    case UseL2 => false
   },
   knobValues = {
     case "L1D_MSHRS" => 0
@@ -346,7 +350,7 @@ class WithSmallCores extends Config (
   topDefinitions = { (pname,site,here) => pname match {
     case MulDivKey => Some(MulDivConfig())
     case FPUKey => None
-    case UseVM => false
+    case UseVM => true
     case NTLBEntries => 4
     case BtbKey => BtbParameters(nEntries = 0)
     case NAcquireTransactors => 2
