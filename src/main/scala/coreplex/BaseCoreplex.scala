@@ -70,6 +70,7 @@ abstract class BaseCoreplexBundle(val c: CoreplexConfig)(implicit val p: Paramet
   val clint = Vec(c.nTiles, new CoreplexLocalInterrupts).asInput
   val resetVector = UInt(INPUT, p(XLen))
   val success = Bool(OUTPUT) // used for testing
+  val leds = Vec(8, Bool()).asOutput
 
   val trafficEnable = Vec(p(NTiles), new TrafficEnableIO()).flip
   val tokenBucketConfig = new TokenBucketConfigIO

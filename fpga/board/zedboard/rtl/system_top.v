@@ -76,7 +76,7 @@ module system_top (
     .jtag_TDI(jtag_TDI),
     .jtag_TDO(jtag_TDO),
 
-    .led(led),
+    .led(led[6:0]),
 
     .mm2s_introut(mm2s_introut),
     .s2mm_introut(s2mm_introut),
@@ -105,6 +105,8 @@ module system_top (
 
     .intr0(mm2s_introut),
     .intr1(s2mm_introut),
+
+    .led(led[7]),
 
     .coreclk(pardcore_coreclk),
     .corersts(~pardcore_corerstn),

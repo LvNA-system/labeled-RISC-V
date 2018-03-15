@@ -288,6 +288,7 @@ proc create_root_design { parentCell } {
   set jtag_TDO [ create_bd_port -dir O jtag_TDO ]
   set jtag_TMS [ create_bd_port -dir I jtag_TMS ]
   set jtag_TRST [ create_bd_port -dir I jtag_TRST ]
+  set led [ create_bd_port -dir O led ]
   set uncore_rstn [ create_bd_port -dir I -from 0 -to 0 -type rst uncore_rstn ]
   set uncoreclk [ create_bd_port -dir I -type clk uncoreclk ]
   set_property -dict [ list \
@@ -306,10 +307,8 @@ proc create_root_design { parentCell } {
    }
   
   set_property -dict [ list \
-   CONFIG.SUPPORTS_NARROW_BURST {1} \
    CONFIG.NUM_READ_OUTSTANDING {2} \
    CONFIG.NUM_WRITE_OUTSTANDING {2} \
-   CONFIG.MAX_BURST_LENGTH {256} \
  ] [get_bd_intf_pins /PARDFPGATop_0/io_bus_axi_0]
 
   set_property -dict [ list \
@@ -361,6 +360,7 @@ proc create_root_design { parentCell } {
 
   # Create port connections
   connect_bd_net -net PARDFPGATop_0_io_jtag_TDO [get_bd_ports jtag_TDO] [get_bd_pins PARDFPGATop_0/io_jtag_TDO]
+  connect_bd_net -net PARDFPGATop_0_io_nasti_error [get_bd_ports led] [get_bd_pins PARDFPGATop_0/io_nasti_error]
   connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins PARDFPGATop_0/clock] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
   connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
   connect_bd_net -net intr0_1 [get_bd_ports intr0] [get_bd_pins PARDFPGATop_0/io_interrupts_0]

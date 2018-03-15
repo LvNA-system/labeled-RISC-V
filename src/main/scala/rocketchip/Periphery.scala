@@ -303,6 +303,7 @@ trait PeripherySlaveBundle extends HasPeripheryParameters {
   val bus_clk = p(AsyncBusChannels).option(Vec(p(NExtBusAXIChannels), Clock(INPUT)))
   val bus_rst = p(AsyncBusChannels).option(Vec(p(NExtBusAXIChannels), Bool (INPUT)))
   val bus_axi = Vec(p(NExtBusAXIChannels), new NastiIO).flip
+  val nasti_error = Bool(OUTPUT)
 }
 
 trait PeripherySlaveModule extends HasPeripheryParameters {
@@ -321,6 +322,7 @@ trait PeripherySlaveModule extends HasPeripheryParameters {
     }
     val conv = Module(new TileLinkIONastiIOConverter()(edgeSlaveParams))
     conv.io.nasti <> arb.io.slave
+    io.nasti_error := conv.io.debug_nasti_error
 
     val (r_start, r_end) = outer.pBusMasters.range("ext")
     require(r_end - r_start == 1, "RangeManager should return 1 slot")

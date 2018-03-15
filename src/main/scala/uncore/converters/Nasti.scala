@@ -246,6 +246,7 @@ class TileLinkIONastiIOConverter(implicit p: Parameters) extends TLModule()(p)
   val io = new Bundle {
     val nasti = (new NastiIO).flip
     val tl = new ClientUncachedTileLinkIO
+    val debug_nasti_error = Bool().asOutput
   }
 
   val (s_idle :: s_put :: Nil) = Enum(Bits(), 2)
@@ -297,6 +298,16 @@ class TileLinkIONastiIOConverter(implicit p: Parameters) extends TLModule()(p)
   val put_count = Reg(init = UInt(0, tlBeatAddrBits))
   val get_id_mapper = Module(new IdMapper(nastiXIdBits, tlClientXactIdBits, true))
   val put_id_mapper = Module(new IdMapper(nastiXIdBits, tlClientXactIdBits, true))
+
+  val nasti_beat_error =
+    !(!io.nasti.ar.valid || is_singlebeat(io.nasti.ar.bits) || is_multibeat(io.nasti.ar.bits)) ||
+    !(!io.nasti.aw.valid || is_singlebeat(io.nasti.aw.bits) || is_multibeat(io.nasti.aw.bits))
+
+  val nasti_beat_error_reg = Reg(init = Bool(false))
+  when (!nasti_beat_error_reg) {
+    nasti_beat_error_reg := nasti_beat_error
+  }
+  io.debug_nasti_error := nasti_beat_error_reg
 
   when (io.nasti.aw.fire()) {
     aw_req := io.nasti.aw.bits
