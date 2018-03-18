@@ -49,5 +49,9 @@ module JTAGDTM(
 		__jtag_TRST
       );
     end
+    else
+    begin
+      __jtag_TRST = 1;
+    end
   end
 endmodule
