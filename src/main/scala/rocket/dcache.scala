@@ -71,7 +71,10 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   val s1_valid = Reg(next=io.cpu.req.fire(), init=Bool(false))
   val s1_probe = Reg(next=io.mem.probe.fire(), init=Bool(false))
   val probe_bits = RegEnable(io.mem.probe.bits, io.mem.probe.fire())
+  // s1 nack is used to stall stage 1 for various reason
   val s1_nack = Wire(init=Bool(false))
+  // tlb, stage 2, hazard detection use this to stall stage 1
+  val s1_nack1 = Wire(init=Bool(false))
   val s1_valid_masked = s1_valid && !io.cpu.s1_kill && !io.cpu.xcpt.asUInt.orR
   val s1_valid_not_nacked = s1_valid_masked && !s1_nack
   val s1_req = Reg(io.cpu.req.bits)
@@ -99,6 +102,11 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   val uncachedInFlight = Reg(init=Vec.fill(maxUncachedInFlight)(Bool(false)))
   val uncachedReqs = Reg(Vec(maxUncachedInFlight, new HellaCacheReq))
 
+  // stall stage 1 when there are uncached acquires Inflight.
+  // we encounter a problematic corner case
+  // this means acquires are handled in a blocking, non-pipelined way
+  s1_nack := s1_nack1 || uncachedInFlight.asUInt.andR
+
   // hit initiation path
   dataArb.io.in(3).valid := io.cpu.req.valid && isRead(io.cpu.req.bits.cmd)
   dataArb.io.in(3).bits.write := false
@@ -119,7 +127,7 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   tlb.io.req.bits.instruction := false
   tlb.io.req.bits.store := s1_write
   when (!tlb.io.req.ready && !io.cpu.req.bits.phys) { io.cpu.req.ready := false }
-  when (s1_valid && s1_readwrite && tlb.io.resp.miss) { s1_nack := true }
+  when (s1_valid && s1_readwrite && tlb.io.resp.miss) { s1_nack1 := true }
 
   val isMMIO = (tlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
   val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
@@ -184,7 +192,7 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   val s2_new_hit_state = s2_hit_state.onHit(s2_req.cmd)
   val s2_update_meta = s2_hit_state =/= s2_new_hit_state
   io.cpu.s2_nack := s2_valid && !s2_valid_hit && !(s2_valid_uncached && io.mem.acquire.ready && !uncachedInFlight.asUInt.andR)
-  when (s2_valid && (!s2_valid_hit || s2_update_meta)) { s1_nack := true }
+  when (s2_valid && (!s2_valid_hit || s2_update_meta)) { s1_nack1 := true }
 
   // exceptions
   val s1_storegen = new StoreGen(s1_req.typ, s1_req.addr, UInt(0), wordBytes)
@@ -248,7 +256,7 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   val s1_raw_hazard = s1_read &&
     ((pstore1_valid && pstore1_addr(idxMSB, wordOffBits) === s1_idx && (pstore1_storegen.mask & s1_storegen.mask).orR) ||
      (pstore2_valid && pstore2_addr(idxMSB, wordOffBits) === s1_idx && (pstore2_storegen_mask & s1_storegen.mask).orR))
-  when (s1_valid && s1_raw_hazard) { s1_nack := true }
+  when (s1_valid && s1_raw_hazard) { s1_nack1 := true }
 
   metaWriteArb.io.in(0).valid := (s2_valid_hit && s2_update_meta) || (s2_victimize && !s2_victim_dirty)
   metaWriteArb.io.in(0).bits.way_en := s2_victim_way
@@ -421,7 +429,7 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
       release_ack_wait := true
     }
   }
-  when (s2_probe && !io.mem.release.fire()) { s1_nack := true }
+  when (s2_probe && !io.mem.release.fire()) { s1_nack1 := true }
   io.mem.release.bits.addr_block := probe_bits.addr_block
   io.mem.release.bits.addr_beat := writebackCount
   io.mem.release.bits.data := s2_data
