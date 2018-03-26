@@ -516,6 +516,11 @@ class DebugModule ()(implicit val p:cde.Parameters)
   val sbRamWrEnFinal   = Wire(Bool())
   val sbRamRdEnFinal   = Wire(Bool())
 
+  val sbCPAddr   = Wire(UInt(width=cpAddrSize))
+  val sbCPRdData = Wire (UInt(width=cpDataSize))
+  val sbCPWrData = Wire(UInt(width=cpDataSize))
+  val sbCPWrEn   = Wire(Bool())
+  val sbCPRdEn   = Wire(Bool())
 
   val sbRomRdData       = Wire(UInt(width=tlDataBits))
   val sbRomAddrOffset   = log2Up(tlDataBits/8)
@@ -539,6 +544,7 @@ class DebugModule ()(implicit val p:cde.Parameters)
 
   // --- System Bus Access 
   val sbAddr   = Wire(UInt(width=sbAddrWidth))
+  val sbDsid   = Wire(UInt(width=p(DsidBits)))
   val sbRdData = Wire(UInt(width=tlDataBits))
   val sbWrData = Wire(UInt(width=tlDataBits))
   val sbWrMask = Wire(UInt(width=tlDataBits))
@@ -748,21 +754,13 @@ class DebugModule ()(implicit val p:cde.Parameters)
   val cpRen = cpAddrWriteFire && (cpAddr.rw === cpRead)
   val cpWen = cpDataWriteFire && cpBusy
 
-  // System Bus cp reg access
-  val sbCPRen = Wire(Bool())
-  val sbCPRaddr = Wire(UInt(width = cpAddrSize))
-
-  val sbCPWen = Wire(Bool())
-  val sbCPWaddr = Wire(UInt(width = cpAddrSize))
-  val sbCPWdata = Wire(UInt(width = cpDataSize))
-
-  // give priority to external(out of band) cp access
-  io.cpio.ren := cpRen || sbCPRen
-  io.cpio.raddr := Mux(cpRen, cpAddr.addr, sbCPRaddr)
+  // give priority to system bus cp access
+  io.cpio.ren := cpRen || sbCPRdEn
+  io.cpio.raddr := Mux(sbCPRdEn, sbCPAddr, cpAddr.addr)
   // if cpBusy is set, we know that, we already write the cp addr
-  io.cpio.wen := cpWen || sbCPWen
-  io.cpio.waddr := Mux(cpWen, cpAddrReg, sbCPWaddr)
-  io.cpio.wdata := Mux(cpWen, cpData.data, sbCPWdata)
+  io.cpio.wen := cpWen || sbCPWrEn
+  io.cpio.waddr := Mux(sbCPWrEn, sbCPAddr, cpAddrReg)
+  io.cpio.wdata := Mux(sbCPWrEn, sbWrData, cpData.data)
 
   // handle write on sbusaddr0 and sdata0
   when (cpAddrWriteFire) {
@@ -986,11 +984,37 @@ class DebugModule ()(implicit val p:cde.Parameters)
   // System Bus Access
   //--------------------------------------------------------------
 
+  // For now, only the following columns are exposed to system bus access
+  // waymask，access，miss，usage, sizes，freqs，incs，read，write
+  // each core can only access cp registers with the same LDom dsid
+  // High bit   ->   Low bit
+  // | ProcDsid | LDomDsid |
+  def idx2cpaddr(idx: UInt, dsid: UInt): UInt = {
+    val procDsid = (idx & UInt((1 << p(ProcDsidBits)) - 1))(p(ProcDsidBits) - 1, 0)
+    val columnIdx = idx >> p(ProcDsidBits)
+    val cpIdxTable = Vec(Seq(2, 2, 2, 2, 1, 1, 1, 1, 1).map(num => UInt(num, width = cpIdxLen)))
+    val tabIdxTable = Vec(Seq(0, 1, 1, 1, 0, 0, 0, 1, 1).map(num => UInt(num, width = tabIdxLen)))
+    val colIdxTable = Vec(Seq(0, 0, 1, 2, 0, 1, 2, 0, 1).map(num => UInt(num, width = colIdxLen)))
+
+    val row = Cat(UInt(0, width = rowIdxLen - dsidBits),
+      Cat(procDsid, dsid(p(LDomDsidBits) - 1, 0)))
+
+    Cat(cpIdxTable(columnIdx),
+      Cat(tabIdxTable(columnIdx),
+        Cat(colIdxTable(columnIdx), row)))
+  }
+
+  val nCols = 9
+  val nRegs = (1 << p(ProcDsidBits)) * nCols
+
+  sbCPAddr := idx2cpaddr((sbAddr - UInt(CPBASE)) >> 2, sbDsid)
+
   // -----------------------------------------
   // SB Access Write Decoder
 
   sbRamWrEn  := Bool(false)
   sbRamWrEnFinal := Bool(false)
+  sbCPWrEn := Bool(false)
   SETHALTNOTWrEn := Bool(false)
   CLEARDEBINTWrEn := Bool(false)
 
@@ -1004,6 +1028,9 @@ class DebugModule ()(implicit val p:cde.Parameters)
         sbRamWrEnFinal := sbWrEn
         sbRamRdEnFinal := sbRdEn
       }
+    }.elsewhen (sbAddr >= UInt(CPBASE) && sbAddr < UInt(CPBASE + nRegs * 4)){ //0x900- Memory Mapped Control Plane registers
+      sbCPWrEn := sbWrEn
+      sbCPRdEn := sbRdEn
     }.elsewhen (sbAddr === SETHALTNOT){
       SETHALTNOTWrEn := sbWrEn
     }.elsewhen (sbAddr === CLEARDEBINT){
@@ -1032,6 +1059,11 @@ class DebugModule ()(implicit val p:cde.Parameters)
       }
     }
 
+    when (sbAddr >= UInt(CPBASE) && sbAddr < UInt(CPBASE + nRegs * 4)){ //0x900- Memory Mapped Control Plane registers
+      sbCPWrEn := sbWrEn
+      sbCPRdEn := sbRdEn
+    }
+
     SETHALTNOTWrEn := sbAddr(sbAddrWidth - 1, sbWrSelTop + 1) === SETHALTNOT(sbAddrWidth-1, sbWrSelTop + 1) &&
     (sbWrMaskWords(SETHALTNOT(sbWrSelTop, sbWrSelBottom))).orR &&
     sbWrEn
@@ -1046,8 +1078,10 @@ class DebugModule ()(implicit val p:cde.Parameters)
   // SB Access Read Mux
  
   sbRdData := UInt(0)
+  sbCPRdData := io.cpio.rdata
   sbRamRdEn      := Bool(false)
   sbRamRdEnFinal := Bool(false)
+  sbCPRdEn := Bool(false)
 
   when (sbAddr(11, 8) === UInt(4)) {                                 //0x400-0x4FF Debug RAM
     sbRamRdEn := sbRdEn
@@ -1055,130 +1089,20 @@ class DebugModule ()(implicit val p:cde.Parameters)
       sbRdData  := sbRamRdData
       sbRamRdEnFinal := sbRdEn
     }
-  }.elsewhen (sbAddr(11,8).isOneOf(UInt(8), UInt(9))){ //0x800-0x9FF Debug ROM
+  }.elsewhen (sbAddr(11,8) === UInt(8)){ //0x800-0x8FF Debug ROM
     if (cfg.hasDebugRom) {
       sbRdData := sbRomRdData
     } else {
       sbRdData := UInt(0)
     }
+  }.elsewhen (sbAddr >= UInt(CPBASE) && sbAddr < UInt(CPBASE + nRegs * 4)){ //0x900- Memory Mapped Control Plane registers
+      sbCPRdEn := sbRdEn
+      sbRdData := sbCPRdData
   }. otherwise {
     // All readable registers are Not Implemented.
     sbRdData := UInt(0)
   }
 
-  // For now, only the following columns are exposed to system bus access
-  // waymask，access，miss，usage, sizes，freqs，incs，read，write
-  // each core can only access cp registers with the same LDom dsid
-  // High bit   ->   Low bit
-  // | ProcDsid | LDomDsid |
-  def idx2cpaddr(idx: Int, dsid: UInt): UInt = {
-    val procDsid = UInt(idx & ((1 << p(ProcDsidBits)) - 1), width = p(ProcDsidBits))
-    val columnIdx = idx >> p(ProcDsidBits)
-    val cpIdxTable = Array(2, 2, 2, 2, 1, 1, 1, 1, 1)
-    val tabIdxTable = Array(0, 1, 1, 1, 0, 0, 0, 1, 1)
-    val colIdxTable = Array(0, 0, 1, 2, 0, 1, 2, 0, 1)
-    val row = Cat(UInt(0, width = rowIdxLen - dsidBits),
-      Cat(procDsid, dsid(p(LDomDsidBits) - 1, 0)))
-
-    Cat(UInt(cpIdxTable(columnIdx), width = cpIdxLen),
-      Cat(UInt(tabIdxTable(columnIdx), width = tabIdxLen),
-        Cat(UInt(colIdxTable(columnIdx), width = colIdxLen), row)))
-  }
-
-  val nCols = 9
-  val nRegs = (1 << p(ProcDsidBits)) * nCols
-
-  // cp register system bus access
-  // latch signals to shorten signal path
-  val sbCPRaddrReg = Reg(UInt(width = cpAddrSize))
-  val sbCPRdataReg = Reg(UInt(width = cpDataSize))
-  val sbCPWaddrReg = Reg(UInt(width = cpAddrSize))
-  val sbCPWdataReg = Reg(UInt(width = cpDataSize))
-
-  val sbCPRens = Wire(Vec(nRegs, Bool()))
-  val sbCPWens = Wire(Vec(nRegs, Bool()))
-
-  sbCPRen := sbCPRens.reduce (_ || _)
-  sbCPRaddr := sbCPRaddrReg
-
-  sbCPWen := sbCPWens.reduce (_ || _)
-  sbCPWaddr := sbCPWaddrReg
-  sbCPWdata := sbCPWdataReg
-
-  // read/write are divided into three 3 stages
-  // 1. latch read/write request signals
-  // 2. when cp not busy, do read/write
-  // 3. when resp ready, do resp
-  val s_idle :: s_cprw :: s_resp :: Nil = Enum(UInt(), 3)
-
-  def cpRegReadFn (idx: Int, dsid: UInt) : RegReadFn = {
-    val sbCPAddr = idx2cpaddr(idx, dsid)
-    RegReadFn((ivalid, oready) => {
-      // handle request one by one, do not accept new requests
-      // until the old one finishes its response handshaking
-      val state = Reg(init=s_idle)
-      val iready = state === s_idle
-
-      // stage 1
-      when (ivalid && iready) {
-        state := s_cprw
-        sbCPRaddrReg := sbCPAddr
-      }
-
-      // stage 2
-      // do not collide with external control plane access
-      val doCPRW = state === s_cprw && !cpRen
-      sbCPRens(idx) := doCPRW
-      when (doCPRW) {
-        state := s_resp
-        sbCPRdataReg := io.cpio.rdata
-      }
-
-      // stage 3
-      val ovalid = state === s_resp
-      when (ovalid && oready) { state := s_idle }
-      (iready, ovalid, sbCPRdataReg)
-    })
-  }
-
-  def cpRegWriteFn (idx: Int, dsid: UInt) : RegWriteFn = {
-    val sbCPAddr = idx2cpaddr(idx, dsid)
-    RegWriteFn((ivalid, oready, data) => {
-      val state = Reg(init=s_idle)
-      val iready = state === s_idle
-
-      // stage 1
-      when (ivalid && iready) {
-        state := s_cprw
-        sbCPWaddrReg := sbCPAddr
-        sbCPWdataReg := data
-      }
-
-      // stage 2
-      val doCPRW = state === s_cprw && !cpWen
-      sbCPWens(idx) := doCPRW
-      when (doCPRW) { state := s_resp }
-
-      // stage 3
-      val ovalid = state === s_resp
-      when (ovalid && oready) { state := s_idle }
-      (iready, ovalid)
-    })
-  }
-
-  val cpRegFields  = (0 to (nRegs - 1) toList).map(idx =>RegField(cpDataSize,
-    cpRegReadFn(idx, dsidWire), cpRegWriteFn(idx, dsidWire)))
-
-  // FIXME: should use methods rather than regmap to decode the address
-/*
-  regmap(
-    CLEARDEBINT -> Seq(wValue(sbIdWidth, CLEARDEBINTWrData, CLEARDEBINTWrEn)),
-    SETHALTNOT  -> Seq(wValue(sbIdWidth, SETHALTNOTWrData, SETHALTNOTWrEn)),
-    RAMBASE     -> ramMem.map(x => RegField(8, x)),
-    ROMBASE     -> romRegFields,
-    CPBASE      -> cpRegFields
-  )
-  */
   // -----------------------------------------
   // SB Access State Machine -- based on BRAM Slave
 
@@ -1196,6 +1120,7 @@ class DebugModule ()(implicit val p:cde.Parameters)
   val sbLast = (sbAcqReg.addr_beat === UInt(tlDataBeats - 1))
 
   sbAddr := sbAcqReg.full_addr()
+  sbDsid := sbAcqReg.dsid
   sbRdEn := (sbAcqValidReg && (sbReg_get || sbReg_getblk))
   sbWrEn := (sbAcqValidReg && (sbReg_put || sbReg_putblk))
   sbWrData := sbAcqReg.data
@@ -1231,7 +1156,7 @@ class DebugModule ()(implicit val p:cde.Parameters)
 
   stallFromDb := Bool(false) // SB always wins, and DB latches its read data so it is not necessary for SB to wait
 
-  stallFromSb := sbRamRdEn || sbRamWrEn // pessimistically assume that DB/SB are going to conflict on the RAM,
+  stallFromSb := sbRamRdEn || sbRamWrEn || sbCPRdEn || sbCPWrEn // pessimistically assume that DB/SB are going to conflict on the RAM,
                                         // and SB doesn't latch its read data to it is necessary for DB hold
                                         // off while SB is accessing the RAM and waiting to send its result.
 
