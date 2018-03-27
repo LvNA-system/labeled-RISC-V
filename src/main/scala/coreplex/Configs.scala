@@ -408,6 +408,13 @@ class WithFastMulDiv extends Config (
   }}
 )
 
+class WithDefaultMulDiv extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+    case MulDivKey => Some(MulDivConfig())
+    case _ => throw new CDEMatchError
+  }}
+)
+
 class WithoutMulDiv extends Config (
   (pname, site, here) => pname match {
     case MulDivKey => None
