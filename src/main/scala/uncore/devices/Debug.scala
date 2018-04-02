@@ -1007,7 +1007,7 @@ class DebugModule ()(implicit val p:cde.Parameters)
   val nCols = 9
   val nRegs = (1 << p(ProcDsidBits)) * nCols
 
-  sbCPAddr := idx2cpaddr((sbAddr - UInt(CPBASE)) >> 2, sbDsid)
+  sbCPAddr := idx2cpaddr((sbAddr - UInt(CPBASE)) >> 3, sbDsid)
 
   // -----------------------------------------
   // SB Access Write Decoder
@@ -1059,7 +1059,7 @@ class DebugModule ()(implicit val p:cde.Parameters)
       }
     }
 
-    when (sbAddr >= UInt(CPBASE) && sbAddr < UInt(CPBASE + nRegs * 4)){ //0x900- Memory Mapped Control Plane registers
+    when (sbAddr >= UInt(CPBASE) && sbAddr < UInt(CPBASE + nRegs * 8)){ //0x900- Memory Mapped Control Plane registers
       sbCPWrEn := sbWrEn
       sbCPRdEn := sbRdEn
     }
@@ -1095,9 +1095,9 @@ class DebugModule ()(implicit val p:cde.Parameters)
     } else {
       sbRdData := UInt(0)
     }
-  }.elsewhen (sbAddr >= UInt(CPBASE) && sbAddr < UInt(CPBASE + nRegs * 4)){ //0x900- Memory Mapped Control Plane registers
+  }.elsewhen (sbAddr >= UInt(CPBASE) && sbAddr < UInt(CPBASE + nRegs * 8)){ //0x900- Memory Mapped Control Plane registers
       sbCPRdEn := sbRdEn
-      sbRdData := sbCPRdData
+      sbRdData := Cat(UInt(0, width = tlDataBits - cpDataSize), sbCPRdData)
   }. otherwise {
     // All readable registers are Not Implemented.
     sbRdData := UInt(0)
