@@ -45,6 +45,9 @@ add_files -norecurse -fileset sources_1 "[file normalize "${lib_dir}/jtag/jtag_p
 add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/addr_mapper.v"]"
 add_files -norecurse -fileset sources_1 "[file normalize "${rtl_dir}/system_top.v"]"
 
+# Add files for constraint
+add_files -norecurse -fileset constrs_1 "[file normalize "${constr_dir}/constr.xdc"]"
+
 
 # Board Designs
 source ${bd_dir}/prm.tcl
