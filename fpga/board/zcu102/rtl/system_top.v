@@ -1,11 +1,13 @@
 `include "axi.vh"
 
 module system_top (
+  output [7:0] led
 );
 
-  `axi_wire(AXI_MEM_MAPPED, 64, 4);
-  `axi_wire(AXI_MEM, 64, 4);
+  `axi_wire(AXI_MEM_MAPPED, 64, 5);
+  `axi_wire(AXI_MEM, 64, 5);
   `axilite_wire(AXILITE_MMIO);
+  `axi_wire(AXI_DMA, 64, 5);
 
   wire jtag_TCK;
   wire jtag_TMS;
@@ -18,14 +20,23 @@ module system_top (
   wire pardcore_uncoreclk;
   wire pardcore_uncorerstn;
 
+  wire mm2s_introut;
+  wire s2mm_introut;
+
   zynq_soc zynq_soc_i (
     `axi_connect_if(S_AXI_MEM, AXI_MEM_MAPPED),
     `axilite_connect_if(S_AXILITE_MMIO, AXILITE_MMIO),
+    `axi_connect_if_no_id(M_AXI_DMA, AXI_DMA),
 
     .jtag_TCK(jtag_TCK),
     .jtag_TMS(jtag_TMS),
     .jtag_TDI(jtag_TDI),
     .jtag_TDO(jtag_TDO),
+
+    .led(led[6:0]),
+
+    .mm2s_introut(mm2s_introut),
+    .s2mm_introut(s2mm_introut),
 
     .pardcore_coreclk(pardcore_coreclk),
     .pardcore_corerstn(pardcore_corerstn),
@@ -40,14 +51,19 @@ module system_top (
 
   pardcore pardcore_i(
     `axi_connect_if(M_AXI_MEM, AXI_MEM),
+    `axi_connect_if(S_AXI_DMA, AXI_DMA),
     `axilite_connect_if(M_AXILITE_MMIO, AXILITE_MMIO),
-//    `axi_connect_if(S_AXI_CDMA, AXI_CDMA),
 
     .jtag_TCK(jtag_TCK),
     .jtag_TMS(jtag_TMS),
     .jtag_TDI(jtag_TDI),
     .jtag_TDO(jtag_TDO),
     .jtag_TRST(~pardcore_uncorerstn),
+
+    .intr0(mm2s_introut),
+    .intr1(s2mm_introut),
+
+    .led(led[7]),
 
     .coreclk(pardcore_coreclk),
     .corersts(~pardcore_corerstn),

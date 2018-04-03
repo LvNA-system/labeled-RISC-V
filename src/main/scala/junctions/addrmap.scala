@@ -76,7 +76,12 @@ class AddrMap(
     var cacheable = true
     for (AddrMapEntry(name, r) <- entriesIn) {
       require (!mapping.contains(name))
-      base = r.start
+
+      if (r.start != 0) {
+        base = r.start
+      } else {
+        base = (base + r.size - 1) / r.size * r.size
+      }
 
       r match {
         case r: AddrMap =>

@@ -4,7 +4,6 @@ package coreplex
 
 import Chisel._
 import junctions._
-import diplomacy._
 import uncore.tilelink._
 import uncore.coherence._
 import uncore.agents._
@@ -72,8 +71,8 @@ class BaseCoreplexConfig extends Config (
       case NUncachedTileLinkPorts => 1
       //Tile Constants
       case BuildTiles => {
-        List.tabulate(site(NTiles)){ i => (p: Parameters) =>
-          LazyModule(new RocketTile()(p.alterPartial({
+        List.tabulate(site(NTiles)){ i => (r: Bool, p: Parameters) =>
+          Module(new RocketTile(resetSignal = r)(p.alterPartial({
             case TileId => i
             case TLId => "L1toL2"
             case NUncachedTileLinkPorts => 1 + site(RoccNMemChannels)
@@ -157,7 +156,6 @@ class BaseCoreplexConfig extends Config (
       case BootROMFile => "./bootrom/bootrom.img"
       case NTiles => 1
       case NBanksPerMemoryChannel => Knob("NBANKS_PER_MEM_CHANNEL")
-      case NTrackersPerBank => Knob("NTRACKERS_PER_BANK")
       case BankIdLSB => 0
       case CacheBlockBytes => Dump("CACHE_BLOCK_BYTES", 64)
       case CacheBlockOffsetBits => log2Up(here(CacheBlockBytes))
@@ -171,7 +169,6 @@ class BaseCoreplexConfig extends Config (
   }},
   knobValues = {
     case "NBANKS_PER_MEM_CHANNEL" => 1
-    case "NTRACKERS_PER_BANK" => 4
     case "L1D_MSHRS" => 2
     case "L1D_SETS" => 64
     case "L1D_WAYS" => 4
@@ -407,6 +404,13 @@ class WithNBtbEntry(n :Int) extends Config (
 class WithFastMulDiv extends Config (
   topDefinitions = { (pname,site,here) => pname match {
     case MulDivKey => Some(MulDivConfig(mulUnroll = 8, mulEarlyOut = (site(XLen) > 32), divEarlyOut = true))
+    case _ => throw new CDEMatchError
+  }}
+)
+
+class WithDefaultMulDiv extends Config (
+  topDefinitions = { (pname,site,here) => pname match {
+    case MulDivKey => Some(MulDivConfig())
     case _ => throw new CDEMatchError
   }}
 )

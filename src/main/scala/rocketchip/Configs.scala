@@ -17,6 +17,7 @@ import scala.collection.mutable.{LinkedHashSet, ListBuffer}
 import scala.collection.immutable.HashMap
 import DefaultTestSuites._
 import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
+import pard.cp._
 
 class BasePlatformConfig extends Config(
   topDefinitions = {
@@ -40,12 +41,19 @@ class BasePlatformConfig extends Config(
           site(TLKey("L2toMC")).copy(dataBeats = edgeDataBeats)
         case TLKey("MMIOtoEdge") =>
           site(TLKey("L2toMMIO")).copy(dataBeats = edgeDataBeats)
+        case BuildCoreplex =>
+          (c: CoreplexConfig, p: Parameters) => LazyModule(new DefaultCoreplex(c)(p)).module
         case NExtTopInterrupts => 2
         case SOCBusKey => SOCBusConfig(beatBytes = site(TLKey("L2toMMIO")).dataBitsPerBeat/8)
         case PeripheryBusKey => PeripheryBusConfig(arithAMO = true, beatBytes = 4)
         // Note that PLIC asserts that this is > 0.
         case AsyncDebugBus => false
         case IncludeJtagDTM => false
+        case AsyncMMIOChannels => false
+        case ExtMMIOPorts => if (site(UseSim)) Nil else Seq(AddrMapEntry("mmio", MemRange(0x60000000, 0x20000000, MemAttr(AddrMapProt.RW))))
+        case NExtMMIOAXIChannels => if (site(UseSim)) 0 else 1
+        case NExtMMIOAHBChannels => 0
+        case NExtMMIOTLChannels  => 0
         case AsyncBusChannels => false
         case NExtBusAXIChannels => 0
         case HastiId => "Ext"
@@ -63,7 +71,9 @@ class BasePlatformConfig extends Config(
         case ExtMemSize => Dump("MEM_SIZE", 0x10000000L)
         case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
         case BuildExampleTop =>
-          (p: Parameters) => LazyModule(new PARDSimTop(new DefaultCoreplex()(_))(p))
+          (p: Parameters) => LazyModule(new PARDSimTop(p))
+        case BuildFPGATop =>
+          (p: Parameters) => LazyModule(new PARDFPGATop(p))
         case SimMemLatency => 100
         case _ => throw new CDEMatchError
       }
@@ -103,6 +113,17 @@ class WithExtMemSize(n: Long) extends Config(
     case _ => throw new CDEMatchError
   }
 )
+class WithAHB extends Config(
+  (pname, site, here) => pname match {
+    case TMemoryChannels     => BusType.AHB
+    case NExtMMIOAHBChannels => 1
+  })
+
+class WithTL extends Config(
+  (pname, site, here) => pname match {
+    case TMemoryChannels     => BusType.TL
+    case NExtMMIOTLChannels  => 1
+  })
 
 class WithScratchpads extends Config(new WithNMemoryChannels(0) ++ new WithDataScratchpad(16384))
 
@@ -217,6 +238,13 @@ class WithNBreakpoints(hwbp: Int) extends Config (
 class WithRTCPeriod(p: Int) extends Config(
   (pname, site, here) => pname match {
     case RTCPeriod => p
+    case _ => throw new CDEMatchError
+  }
+)
+
+class WithNExtBusAXIChannels(n: Int) extends Config(
+  (pname, site, here) => pname match {
+    case NExtBusAXIChannels => n
     case _ => throw new CDEMatchError
   }
 )

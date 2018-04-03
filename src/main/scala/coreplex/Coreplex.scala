@@ -3,30 +3,14 @@ package coreplex
 import Chisel._
 import cde.{Parameters, Field}
 import junctions._
-import diplomacy._
 import uncore.tilelink._
-import uncore.tilelink2._
 import uncore.util._
 import util._
 import rocket._
 
-trait BroadcastL2 {
-    this: CoreplexNetwork =>
-  def l2ManagerFactory() = {
-    val bh = LazyModule(new TLBroadcast(l1tol2_lineBytes, nTrackersPerBank))
-    (bh.node, bh.node)
-  }
-}
-
-/////
-
 trait DirectConnection {
-    this: CoreplexNetwork with CoreplexRISCVPlatform =>
-  lazyTiles.map(_.slave).flatten.foreach { scratch => scratch := cbus.node }
-}
-
-trait DirectConnectionModule {
-    this: CoreplexNetworkModule with CoreplexRISCVPlatformModule =>
+  val tiles: Seq[Tile]
+  val uncoreTileIOs: Seq[TileIO]
 
   val tlBuffering = TileLinkDepths(1,1,2,2,0)
   val ultBuffering = UncachedTileLinkDepths(1,2)
@@ -34,6 +18,7 @@ trait DirectConnectionModule {
   (tiles zip uncoreTileIOs) foreach { case (tile, uncore) =>
     (uncore.cached zip tile.io.cached) foreach { case (u, t) => u <> TileLinkEnqueuer(t, tlBuffering) }
     (uncore.uncached zip tile.io.uncached) foreach { case (u, t) => u <> TileLinkEnqueuer(t, ultBuffering) }
+    tile.io.slave.foreach { _ <> TileLinkEnqueuer(uncore.slave.get, 1) }
 
     tile.io.interrupts <> uncore.interrupts
 
@@ -46,54 +31,30 @@ trait DirectConnectionModule {
   }
 }
 
-class DefaultCoreplex(implicit p: Parameters) extends BaseCoreplex
-    with DirectConnection {
-  override lazy val module = new DefaultCoreplexModule(this, () => new DefaultCoreplexBundle(this))
+class DefaultCoreplex(c: CoreplexConfig)(implicit p: Parameters) extends BaseCoreplex(c)(p) {
+  override lazy val module = Module(new DefaultCoreplexModule(c, this, new DefaultCoreplexBundle(c)(p))(p))
 }
 
-class DefaultCoreplexBundle[+L <: DefaultCoreplex](_outer: L) extends BaseCoreplexBundle(_outer)
+class DefaultCoreplexBundle(c: CoreplexConfig)(implicit p: Parameters) extends BaseCoreplexBundle(c)(p)
 
-class DefaultCoreplexModule[+L <: DefaultCoreplex, +B <: DefaultCoreplexBundle[L]](_outer: L, _io: () => B) extends BaseCoreplexModule(_outer, _io)
-    with DirectConnectionModule
+class DefaultCoreplexModule[+L <: DefaultCoreplex, +B <: DefaultCoreplexBundle](
+    c: CoreplexConfig, l: L, b: => B)(implicit p: Parameters) extends BaseCoreplexModule(c, l, b)(p)
+    with DirectConnection
 
 /////
 
-trait AsyncConnection {
-    this: CoreplexNetwork with CoreplexRISCVPlatform =>
-  val crossings = lazyTiles.map(_.slave).map(_.map { scratch =>
-    val crossing = LazyModule(new TLAsyncCrossing)
-    crossing.node := cbus.node
-    val monitor = (scratch := crossing.node)
-    (crossing, monitor)
-  })
-}
-
-trait AsyncConnectionBundle {
-    this: CoreplexNetworkBundle with CoreplexRISCVPlatformBundle =>
-  val tcrs = Vec(nTiles, new Bundle {
+trait TileClockResetBundle {
+  val c: CoreplexConfig
+  val tcrs = Vec(c.nTiles, new Bundle {
     val clock = Clock(INPUT)
     val reset = Bool(INPUT)
   })
 }
 
-trait AsyncConnectionModule {
-  this: Module with CoreplexNetworkModule with CoreplexRISCVPlatformModule {
-    val outer: AsyncConnection
-    val io: AsyncConnectionBundle
-  } =>
-
-  (outer.crossings zip io.tcrs) foreach { case (slaves, tcr) =>
-    slaves.foreach { case (crossing, monitor) =>
-      crossing.module.io.in_clock  := clock
-      crossing.module.io.in_reset  := reset
-      crossing.module.io.out_clock := tcr.clock
-      crossing.module.io.out_reset := tcr.reset
-      monitor.foreach { m =>
-        m.module.clock := tcr.clock
-        m.module.reset := tcr.reset
-      }
-    }
-  }
+trait AsyncConnection {
+  val io: TileClockResetBundle
+  val tiles: Seq[Tile]
+  val uncoreTileIOs: Seq[TileIO]
 
   (tiles, uncoreTileIOs, io.tcrs).zipped foreach { case (tile, uncore, tcr) =>
     tile.clock := tcr.clock
@@ -101,6 +62,7 @@ trait AsyncConnectionModule {
 
     (uncore.cached zip tile.io.cached) foreach { case (u, t) => u <> AsyncTileLinkFrom(tcr.clock, tcr.reset, t) }
     (uncore.uncached zip tile.io.uncached) foreach { case (u, t) => u <> AsyncUTileLinkFrom(tcr.clock, tcr.reset, t) }
+    tile.io.slave.foreach { _ <> AsyncUTileLinkTo(tcr.clock, tcr.reset, uncore.slave.get)}
 
     val ti = tile.io.interrupts
     val ui = uncore.interrupts
@@ -115,13 +77,13 @@ trait AsyncConnectionModule {
   }
 }
 
-class MultiClockCoreplex(implicit p: Parameters) extends BaseCoreplex
-    with AsyncConnection {
-  override lazy val module = new MultiClockCoreplexModule(this, () => new MultiClockCoreplexBundle(this))
+class MultiClockCoreplex(c: CoreplexConfig)(implicit p: Parameters) extends BaseCoreplex(c)(p) {
+  override lazy val module = Module(new MultiClockCoreplexModule(c, this, new MultiClockCoreplexBundle(c)(p))(p))
 }
 
-class MultiClockCoreplexBundle[+L <: MultiClockCoreplex](_outer: L) extends BaseCoreplexBundle(_outer)
-    with AsyncConnectionBundle
+class MultiClockCoreplexBundle(c: CoreplexConfig)(implicit p: Parameters) extends BaseCoreplexBundle(c)(p)
+    with TileClockResetBundle
 
-class MultiClockCoreplexModule[+L <: MultiClockCoreplex, +B <: MultiClockCoreplexBundle[L]](_outer: L, _io: () => B) extends BaseCoreplexModule(_outer, _io)
-    with AsyncConnectionModule
+class MultiClockCoreplexModule[+L <: MultiClockCoreplex, +B <: MultiClockCoreplexBundle](
+    c: CoreplexConfig, l: L, b: => B)(implicit p: Parameters) extends BaseCoreplexModule(c, l, b)(p)
+    with AsyncConnection

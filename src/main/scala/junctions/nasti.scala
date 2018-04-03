@@ -150,7 +150,7 @@ class NastiReadAddressChannel(implicit p: Parameters) extends NastiAddressChanne
   val id   = UInt(width = nastiRIdBits)
   val user = UInt(width = nastiARUserBits)
   def dump() = {
-    printf("ar: user: %d len: %d size: %d\n", user, len, size)
+    printf("ar: addr: %x len: %d size: %d\n", addr, len, size)
   }
 }
 
@@ -159,6 +159,7 @@ class NastiReadDataChannel(implicit p: Parameters) extends NastiResponseChannel(
   val id   = UInt(width = nastiRIdBits)
   val user = UInt(width = nastiRUserBits)
   def dump() = {
+    printf("r: data: %x\n", data)
   }
 }
 

@@ -10,28 +10,31 @@ import rocketchip._
 import sifive.blocks.devices.gpio.{GPIOPin, GPIOOutputPinCtrl, GPIOInputPinCtrl}
 import sifive.blocks.util.ShiftRegisterInit
 
-trait PeripheryUART {
-  this: TopNetwork {
-    val uartConfigs: Seq[UARTConfig]
-  } =>
+trait PeripheryUART extends HasPeripheryParameters {
+  implicit val p: Parameters
+  val peripheryBus: TLXbar
+  val uartConfigs: Seq[UARTConfig]
+
   val uartDevices = uartConfigs.zipWithIndex.map { case (c, i) =>
     val uart = LazyModule(new UART(c) { override lazy val valName = Some(s"uart$i") } )
     uart.node := TLFragmenter(peripheryBusConfig.beatBytes, cacheBlockBytes)(peripheryBus.node)
-    intBus.intnode := uart.intnode
+    //intBus.intnode := uart.intnode
     uart
   }
 }
 
 trait PeripheryUARTBundle {
-  this: { val uartConfigs: Seq[UARTConfig] } =>
+  implicit val p: Parameters
+  val uartConfigs: Seq[UARTConfig]
+
   val uarts = Vec(uartConfigs.size, new UARTPortIO)
 }
 
 trait PeripheryUARTModule {
-  this: TopNetworkModule {
-    val outer: PeripheryUART
-    val io: PeripheryUARTBundle
-  } =>
+  implicit val p: Parameters
+  val outer: PeripheryUART
+  val io: PeripheryUARTBundle
+
   (io.uarts zip outer.uartDevices).foreach { case (io, device) =>
     io <> device.module.io.port
   }
