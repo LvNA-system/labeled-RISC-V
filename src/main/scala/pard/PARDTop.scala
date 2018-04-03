@@ -13,7 +13,7 @@ import sifive.blocks.devices.uart.{UARTConfig, PeripheryUART, PeripheryUARTBundl
 trait PARDSimTopConfigs {
   val uartConfigs = List(
     UARTConfig(address = 0x60000000),
-    UARTConfig(address = 0x60010000))
+    UARTConfig(address = 0x60001000))
 }
 
 /** PARDSimTop */
