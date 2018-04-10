@@ -63,7 +63,7 @@ cd u-boot-xlnx
 make xilinx_zynqmp_zcu102_rev1_0_defconfig  # can be found under u-boot-xlnx/configs/
 make CROSS_COMPILE=aarch64-linux-gnu-
 ```
-Find `u-boot` under `u-boot-xlnx/`.
+Find `u-boot.elf` under `u-boot-xlnx/`.
 
 ### Some useful build-in commands under u-boot
 
@@ -168,6 +168,8 @@ sudo chroot /mnt /bin/bash
 passwd
 apt-get update
 apt-get install openssh-server vim build-essential minicom tmux
+# for nfs
+apt-get install nfs-common autofs
 exit
 ```
 * Add a line of `ttyPS0` in `/mnt/etc/securetty` to allow login debian via `ttyPS0`. See [here](http://www.linuxquestions.org/questions/linux-newbie-8/login-incorrect-error-after-boot-no-password-prompted-881131/) for more details.
