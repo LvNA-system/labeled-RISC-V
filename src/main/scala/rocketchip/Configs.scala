@@ -29,7 +29,7 @@ class BasePlatformConfig extends Config(
       pname match {
         //Memory Parameters
         case EdgeDataBits => 64
-        case EdgeIDBits => 5
+        case EdgeIDBits => 1
         case NastiKey => NastiParameters(
           dataBits = edgeDataBits,
           addrBits = site(PAddrBits),

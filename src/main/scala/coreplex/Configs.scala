@@ -24,7 +24,7 @@ class BaseCoreplexConfig extends Config (
     lazy val innerDataBeats = (8 * site(CacheBlockBytes)) / innerDataBits
     pname match {
       //Memory Parameters
-      case PAddrBits => 32
+      case PAddrBits => 40
       case PgLevels => if (site(XLen) == 64) 3 /* Sv39 */ else 2 /* Sv32 */
       case ASIdBits => 7
       //Params used by all caches
