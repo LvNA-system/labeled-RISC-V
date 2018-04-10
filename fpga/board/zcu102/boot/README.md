@@ -168,6 +168,8 @@ sudo chroot /mnt /bin/bash
 passwd
 apt-get update
 apt-get install openssh-server vim build-essential minicom tmux
+# for nfs
+apt-get install nfs-common autofs
 exit
 ```
 * Add a line of `ttyPS0` in `/mnt/etc/securetty` to allow login debian via `ttyPS0`. See [here](http://www.linuxquestions.org/questions/linux-newbie-8/login-incorrect-error-after-boot-no-password-prompted-881131/) for more details.
