@@ -4,10 +4,10 @@ module system_top (
   output [7:0] led
 );
 
-  `axi_wire(AXI_MEM_MAPPED, 64, 5);
-  `axi_wire(AXI_MEM, 64, 5);
+  `axi_wire(AXI_MEM_MAPPED, 64, 1);
+  `axi_wire(AXI_MEM, 64, 1);
   `axilite_wire(AXILITE_MMIO);
-  `axi_wire(AXI_DMA, 64, 5);
+  `axi_wire(AXI_DMA, 64, 1);
 
   wire jtag_TCK;
   wire jtag_TMS;

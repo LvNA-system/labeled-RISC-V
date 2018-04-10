@@ -248,7 +248,7 @@ proc create_root_design { parentCell } {
    ] $M_AXI_MEM
   set S_AXI_DMA [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 S_AXI_DMA ]
   set_property -dict [ list \
-   CONFIG.ADDR_WIDTH {32} \
+   CONFIG.ADDR_WIDTH {40} \
    CONFIG.ARUSER_WIDTH {5} \
    CONFIG.AWUSER_WIDTH {5} \
    CONFIG.BUSER_WIDTH {5} \
@@ -263,7 +263,7 @@ proc create_root_design { parentCell } {
    CONFIG.HAS_REGION {1} \
    CONFIG.HAS_RRESP {1} \
    CONFIG.HAS_WSTRB {1} \
-   CONFIG.ID_WIDTH {5} \
+   CONFIG.ID_WIDTH {1} \
    CONFIG.MAX_BURST_LENGTH {256} \
    CONFIG.NUM_READ_OUTSTANDING {2} \
    CONFIG.NUM_READ_THREADS {1} \
