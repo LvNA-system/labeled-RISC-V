@@ -25,7 +25,7 @@ cd u-boot-xlnx
 make zynq_zed_defconfig  # can be found under u-boot-xlnx/configs/
 make CROSS_COMPILE=arm-linux-gnueabihf-
 ```
-Find `u-boot` under `u-boot-xlnx/`.
+Find `u-boot.elf` under `u-boot-xlnx/`.
 
 ### Some useful build-in commands under u-boot
 

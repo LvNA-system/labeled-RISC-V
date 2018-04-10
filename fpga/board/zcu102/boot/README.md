@@ -63,7 +63,7 @@ cd u-boot-xlnx
 make xilinx_zynqmp_zcu102_rev1_0_defconfig  # can be found under u-boot-xlnx/configs/
 make CROSS_COMPILE=aarch64-linux-gnu-
 ```
-Find `u-boot` under `u-boot-xlnx/`.
+Find `u-boot.elf` under `u-boot-xlnx/`.
 
 ### Some useful build-in commands under u-boot
 
