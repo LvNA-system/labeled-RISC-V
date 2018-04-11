@@ -49,7 +49,7 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
 
   when (reset) {
     for (i <- 0 until nTiles) {
-      ptabDsidRegs(i) := UInt(i)
+      ptabDsidRegs(i) := UInt(0)
       ptabHartidRegs(i) := UInt(i)
       if (p(UseNoHype)) {
         if (p(UseSim)) {
