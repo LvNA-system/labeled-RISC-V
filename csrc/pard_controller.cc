@@ -71,14 +71,17 @@ void read_cp_reg(int addr) {
   char buf[1024];
   sprintf(buf, "rw=1 addr=%x", addr);
   handle_debug_request("write", "sbaddr0", buf);
+  handle_debug_request("read", "sbdata1", buf);
   handle_debug_request("read", "sbdata0", buf);
 }
 
-void write_cp_reg(int addr, int value) {
+void write_cp_reg(int addr, uint64_t value) {
   char buf[1024];
   sprintf(buf, "rw=0 addr=%x", addr);
   handle_debug_request("write", "sbaddr0", buf);
-  sprintf(buf, "data=%x", value);
+  sprintf(buf, "data=%x", (uint32_t)(value >> 32));
+  handle_debug_request("write", "sbdata1", buf);
+  sprintf(buf, "data=%x", (uint32_t)value);
   handle_debug_request("write", "sbdata0", buf);
 }
 
@@ -257,6 +260,7 @@ int main(int argc, char *argv[]) {
 
   connect_server(ip == NULL ? "127.0.0.1" : ip, port == 0 ? 8080 : port);
   init_dtm();
+  /*
   clock_t start;
 
   const char *bin_file = "cachesizetest-riscv64-rocket.bin";
@@ -275,6 +279,7 @@ int main(int argc, char *argv[]) {
   printf("check loaded program use time: %.6fs\n", get_timestamp(start));
 
   start_program(1);
+  */
 
   srand(time(NULL));
 
@@ -290,7 +295,7 @@ int main(int argc, char *argv[]) {
       int tabIdx = -1;
       int col = -1;
       int row = -1;
-      int val = -1;
+      uint64_t val = (uint64_t)-1;
 
       char *s = line;
       if (!strcmp(s, "help")) {
@@ -319,7 +324,7 @@ int main(int argc, char *argv[]) {
 
         if (!strcmp(field, "rw")) {
           incorrect_order = rw != -1 || cpIdx != -1 || tabIdx != -1 ||
-            col != -1 || row != -1 || val != -1;
+            col != -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order ||
               (rw = string_to_idx(value, rw_tables,sizeof(rw_tables) / sizeof(char *))) == -1) {
             invalid_command();
@@ -327,7 +332,7 @@ int main(int argc, char *argv[]) {
           }
         } else if(!strcmp(field, "cp")) {
           incorrect_order = rw == -1 || cpIdx != -1 || tabIdx != -1 ||
-            col != -1 || row != -1 || val != -1;
+            col != -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order ||
               (cpIdx = string_to_idx(value, cp_tables,sizeof(cp_tables) / sizeof(char *))) == -1) {
             invalid_command();
@@ -335,7 +340,7 @@ int main(int argc, char *argv[]) {
           }
         } else if(!strcmp(field, "tab")) {
           incorrect_order = rw == -1 || cpIdx == -1 || tabIdx != -1 ||
-            col != -1 || row != -1 || val != -1;
+            col != -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order ||
               (tabIdx = string_to_idx(value, tab_tables[cpIdx],sizeof(tab_tables[cpIdx]) / sizeof(char *))) == -1) {
             invalid_command();
@@ -343,7 +348,7 @@ int main(int argc, char *argv[]) {
           }
         } else if(!strcmp(field, "col")) {
           incorrect_order = rw == -1 || cpIdx == -1 || tabIdx == -1 ||
-            col != -1 || row != -1 || val != -1;
+            col != -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order ||
               (col = string_to_idx(value, col_tables[cpIdx][tabIdx],sizeof(col_tables[cpIdx][tabIdx]) / sizeof(char *))) == -1) {
             invalid_command();
@@ -351,7 +356,7 @@ int main(int argc, char *argv[]) {
           }
         } else if(!strcmp(field, "row")) {
           incorrect_order = rw == -1 || cpIdx == -1 || tabIdx == -1 ||
-            col == -1 || row != -1 || val != -1;
+            col == -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order) {
             invalid_command();
             break;
@@ -363,12 +368,12 @@ int main(int argc, char *argv[]) {
         } else if(!strcmp(field, "val")) {
           // only write needs val
           incorrect_order = rw != 1 || cpIdx == -1 || tabIdx == -1 ||
-            col == -1 || row == -1 || val != -1;
+            col == -1 || row == -1 || val != (uint64_t)-1;
           if (incorrect_order) {
             invalid_command();
             break;
           }
-          val = (int)strtol(value, NULL, 16);
+          val = (uint64_t)strtoll(value, NULL, 16);
           // execute the command
           write_cp_reg(get_cp_addr(cpIdx, tabIdx,col, row), val);
         } else {
