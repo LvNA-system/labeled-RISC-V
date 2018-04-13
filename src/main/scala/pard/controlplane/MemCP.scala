@@ -134,7 +134,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
             incRegs(wrow) := io.rw.wdata
           }
 		  is (UInt(dsidCol)) {
-			dsidRegs(wrow) := io.rw.wdata
+			dsidRegs(wrow) := (io.rw.wdata << p(LDomDsidBits))
 		  }
         }
       }
