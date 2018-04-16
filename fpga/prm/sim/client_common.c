@@ -1,7 +1,3 @@
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <cassert>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -197,59 +193,6 @@ struct Entry entries[] = {
   { "sbdata0", 0x18, SBDATA0_REQ, SBDATA0_RESP }
 };
 
-
-static uint64_t req_to_bits(struct DMI_Req req) {
-  uint64_t opcode = get_bits(req.opcode, DEBUG_OP_BITS - 1, 0);
-  uint64_t addr = get_bits(req.addr, DEBUG_ADDR_BITS - 1, 0);
-  uint64_t data = get_bits(req.data, DEBUG_DATA_BITS - 1, 0);
-  uint64_t req_bits = (addr << (DEBUG_OP_BITS + DEBUG_DATA_BITS)) |
-    (data << DEBUG_OP_BITS) | opcode;
-  return req_bits;
-}
-
-static struct DMI_Resp bits_to_resp(uint64_t val) {
-  struct DMI_Resp resp;
-  resp.state = get_bits(val, DEBUG_OP_BITS - 1, 0);
-  resp.data = get_bits(val, DEBUG_DATA_BITS + DEBUG_OP_BITS - 1, DEBUG_OP_BITS);
-  return resp;
-}
-
-static struct DMI_Resp send_debug_request(struct DMI_Req req) {
-  uint64_t req_bits = req_to_bits(req);
-  // the value shifted out are old values
-  rw_jtag_reg(REG_DEBUG_ACCESS, req_bits, REG_DEBUG_ACCESS_WIDTH);
-
-  // we need another nop request to shift out the new values
-  struct DMI_Req nop_req;
-  nop_req.opcode = OP_READ;
-  nop_req.addr = 0x10;
-  nop_req.data = 0x0;
-  uint64_t nop_bits = req_to_bits(nop_req);
-  uint64_t resp = rw_jtag_reg(REG_DEBUG_ACCESS, nop_bits, REG_DEBUG_ACCESS_WIDTH);
-  struct DMI_Resp d_resp = bits_to_resp(resp);
-  return d_resp;
-}
-
-uint64_t rw_debug_reg(int opcode, uint32_t addr, uint64_t data) {
-  struct DMI_Req req;
-  req.opcode = opcode;
-  req.addr = addr;
-  req.data = data;
-  uint64_t req_bits = req_to_bits(req);
-  // the value shifted out are old values
-  rw_jtag_reg(REG_DEBUG_ACCESS, req_bits, REG_DEBUG_ACCESS_WIDTH);
-
-  // we need another nop request to shift out the new values
-  struct DMI_Req nop_req;
-  nop_req.opcode = OP_READ;
-  nop_req.addr = 0x10;
-  nop_req.data = 0x0;
-  uint64_t nop_bits = req_to_bits(nop_req);
-  uint64_t resp = rw_jtag_reg(REG_DEBUG_ACCESS, nop_bits, REG_DEBUG_ACCESS_WIDTH);
-  struct DMI_Resp d_resp = bits_to_resp(resp);
-  assert(d_resp.state == 0);
-  return d_resp.data;
-}
 
 // handle debug bus request
 void handle_debug_request(const char *cmd, const char *reg, char *values) {

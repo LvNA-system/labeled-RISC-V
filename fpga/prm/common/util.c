@@ -1,4 +1,6 @@
 #include "common.h"
+#include "util.h"
+#include <stdlib.h>
 
 #define	XFERT_MAX_SIZE	512
 
@@ -30,9 +32,9 @@ void pr_times(clock_t rtime, struct tms *tmsstart, struct tms *tmsend,
 
 // given a start time, return current timestamp
 double get_timestamp(clock_t start) {
-  clock_t end = Times(nullptr);
+  clock_t end = Times(NULL);
   double real;
-  pr_times(end - start, nullptr, nullptr, &real, nullptr, nullptr);
+  pr_times(end - start, NULL, NULL, &real, NULL, NULL);
   return real;
 }
 
@@ -75,7 +77,7 @@ int get_bit(unsigned char value, int index) {
   return (value >> index) & 0x1;
 }
 
-void set_bit(unsigned char &value, int index, int bit) {
+void set_bit(unsigned char value, int index, int bit) {
   assert(index >= 0 && index <= 7 && (bit == 0 || bit == 1));
   unsigned char mask = 1 << index;
   if (bit) {
@@ -87,8 +89,7 @@ void set_bit(unsigned char &value, int index, int bit) {
   }
 }
 
-void str_to_bits(const char *str, int &length,
-	int &nb_bits, unsigned char *buffer) {
+void str_to_bits(const char *str, int length, int nb_bits, unsigned char *buffer) {
   nb_bits = 0;
   while (*str) {
 	assert(*str == '0' || *str == '1');
@@ -118,8 +119,8 @@ char *bits_to_str(int length,
 }
 
 // shift a uint64_t value into a buffer
-void shift_bits_into_buffer(uint64_t value, int nb_bits,int &ret_length,
-	int &ret_nb_bits, unsigned char *buffer) {
+void shift_bits_into_buffer(uint64_t value, int nb_bits,int ret_length,
+	int ret_nb_bits, unsigned char *buffer) {
   assert(nb_bits > 0 && nb_bits <= 64);
   for (int i = 0; i < nb_bits; i++) {
 	// which byte are we handling?

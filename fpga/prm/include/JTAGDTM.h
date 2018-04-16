@@ -21,7 +21,7 @@ const char * cmd_to_string_table[] = {
   "CMD_RESET_SOFT"
 };
 
-const char *cmd_to_string(int cmd) {
+static inline const char *cmd_to_string(int cmd) {
   assert(cmd >= 0 && cmd < 6);
   return cmd_to_string_table[cmd];
 }

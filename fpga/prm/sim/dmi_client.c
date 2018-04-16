@@ -1,6 +1,6 @@
-#include <cstring>
-#include <string>
+#include "common.h"
 #include "client_common.h"
+#include <stdlib.h>
 
 static void help(void);
 
@@ -10,10 +10,10 @@ int main(int argc, char *argv[]) {
   char *ip = NULL;
   int port = 0;
   for (int i = 1; i < argc; i++) {
-    std::string arg = argv[i];
-    if (arg.substr(0, 2) == "-p")
+    char *arg = argv[i];
+    if (strncmp(arg, "-p", 2) == 0)
       port = atoi(argv[i] + 2);
-    else if (arg.substr(0, 3) == "-ip")
+    else if (strncmp(arg, "-ip", 3) == 0)
       ip = argv[i] + 3;
   }
 
