@@ -5,9 +5,10 @@
 #include <readline/history.h>
 
 #include "JTAGDTM.h"
-#include "dmi.h"
 #include "common.h"
 #include "client_common.h"
+#include "util.h"
+#include <stdlib.h>
 
 #define DEBUG_INFO 0
 
@@ -49,7 +50,7 @@ static uint64_t scan(uint64_t value, int nb_bits) {
 }
 
 // goto test logic reset state
-static void reset_soft(void) {
+static inline void reset_soft(void) {
   if (DEBUG_INFO)
     printf("CMD_RESET\n");
   struct vpi_cmd command;
@@ -66,26 +67,6 @@ static void reset_hard(void) {
   command.cmd = CMD_RESET;
   send(sfd, &command, sizeof(command), 0);
 }
-
-#define IR_BITS 5
-
-//RISCV DTM Registers (see RISC-V Debug Specification)
-// All others are treated as 'BYPASS'.
-#define REG_BYPASS        0x1f
-#define REG_IDCODE        0x1
-#define REG_DEBUG_ACCESS  0x11
-#define REG_DTM_INFO      0x10
-
-#define DEBUG_DATA_BITS   34
-// Spec allows values are 5-7
-#define DEBUG_ADDR_BITS   5
-// OP and RESP are the same size. 
-#define DEBUG_OP_BITS     2
-
-#define REG_BYPASS_WIDTH        1
-#define REG_IDCODE_WIDTH        32
-#define REG_DEBUG_ACCESS_WIDTH  (DEBUG_DATA_BITS + DEBUG_ADDR_BITS + DEBUG_OP_BITS)
-#define REG_DTM_INFO_WIDTH      32
 
 
 
@@ -123,12 +104,13 @@ static uint64_t write_dr(uint64_t value, int nb_bits) {
   return ret_value;
 }
 
-static uint64_t rw_jtag_reg(uint64_t ir_val, uint64_t dr_val, int nb_bits) {
-  reset_soft();
+uint64_t rw_jtag_reg(uint64_t ir_val, uint64_t dr_val, int nb_bits) {
+//  reset_soft();
   write_ir(ir_val);
   return write_dr(dr_val, nb_bits);
 }
 
+#include "dmi.h"
 
 // ********************* debug protocol related functions ******************************
 

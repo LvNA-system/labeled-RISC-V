@@ -9,6 +9,14 @@
 #define DEBUG_INFO 0
 #define TCK_HALF_PERIOD 10
 
+#define LEN_IDX 0
+#define TMS_IDX 1
+#define TDI_IDX 2
+#define TDO_IDX 3
+#define CTRL_IDX 4
+
+void goto_run_test_idle_from_reset();
+
 int cmd;
 // number of bytes to send
 int length;

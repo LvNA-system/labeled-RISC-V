@@ -2,8 +2,6 @@
 // handle debug bus request
 void handle_debug_request(const char *command, const char *reg, char *values);
 
-uint64_t rw_debug_reg(int opcode, uint32_t addr, uint64_t data);
-
 // ********************* connection and initialization functions ******************************
 void connect_server(const char *ip_addr, int port);
 

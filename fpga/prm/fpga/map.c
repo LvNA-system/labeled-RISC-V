@@ -12,7 +12,7 @@
 #define GPIO_RESET_TOTAL_SIZE	(1 << 12)
 #define JTAG_TOTAL_SIZE		(1 << 12)
 
-volatile uint32_t *gpio_reset_base;
+static volatile uint32_t *gpio_reset_base;
 volatile uint32_t *jtag_base;
 
 static inline void* create_map(size_t size, int fd, off_t offset) {
