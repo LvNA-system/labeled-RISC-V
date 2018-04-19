@@ -6,11 +6,14 @@ COMMON_CC:= common.cc client_common.cc
 LINKERFLAGS:=-lreadline
 
 
-all: dmi_client pard_controller
+all: dmi_client pard_controller pard_dbg
 dmi_client:$(COMMON_H) $(COMMON_CC) dmi_client.cc
 	$(CC) $(CPPFLAGS) $^ -o $@ $(LINKERFLAGS)
 
 pard_controller:pard_controller.cc $(COMMON_H) $(COMMON_CC)
+	$(CC) $(CPPFLAGS) $^ -o $@ $(LINKERFLAGS)
+
+pard_dbg:pard_dbg.cc pard_dbg.h $(COMMON_H) $(COMMON_CC)
 	$(CC) $(CPPFLAGS) $^ -o $@ $(LINKERFLAGS)
 
 clean:
