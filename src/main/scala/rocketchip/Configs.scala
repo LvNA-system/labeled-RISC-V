@@ -69,6 +69,7 @@ class BasePlatformConfig extends Config(
         case NMemoryChannels => Dump("N_MEM_CHANNELS", 1)
         case TMemoryChannels => BusType.AXI
         case ExtMemSize => Dump("MEM_SIZE", 0x10000000L)
+        case ExtMemBase => 0x80000000L
         case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
         case BuildExampleTop =>
           (p: Parameters) => LazyModule(new PARDSimTop(p))

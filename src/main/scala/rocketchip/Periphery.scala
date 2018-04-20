@@ -45,6 +45,7 @@ case object AsyncMMIOChannels extends Field[Boolean]
 case object ExtMMIOPorts extends Field[Seq[AddrMapEntry]]
 /** Specifies the size of external memory */
 case object ExtMemSize extends Field[Long]
+case object ExtMemBase extends Field[Long]
 /** Specifies the number of external interrupts */
 case object NExtTopInterrupts extends Field[Int]
 /** Source of RTC. First bundle is TopIO.extra, Second bundle is periphery.io.extra  **/
