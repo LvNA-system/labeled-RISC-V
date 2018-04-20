@@ -6,7 +6,8 @@ _start:
 1:
   j 1b
 #else
-tail 0x80000000
+  li t0, 0x100000000
+  jr t0
 #endif
   .word 0 // reserved
   .word 0 // reserved
