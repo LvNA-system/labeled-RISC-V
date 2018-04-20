@@ -735,24 +735,34 @@ class DebugModule ()(implicit val p:cde.Parameters)
   cpAddr := new ControlPlaneAddrFields().fromBits(dbReq.data)
   cpData := new ControlPlaneDataFields().fromBits(dbReq.data)
 
-  isCP := (dbReq.addr === SBUSADDRESS0 || dbReq.addr === SBDATA0)
+  isCP := (dbReq.addr === SBUSADDRESS0 || dbReq.addr === SBDATA0 || dbReq.addr === SBDATA1)
   // we always return sucessful
   dbCPResult.resp := db_RESP_SUCCESS
 
   val isCPAddrWrite = (dbReq.op === db_OP_READ_WRITE && dbReq.addr === SBUSADDRESS0)
-  val isCPDataWrite = (dbReq.op === db_OP_READ_WRITE && dbReq.addr === SBDATA0)
+  // High 32bits of cpdata
+  val isCPDataHighWrite = (dbReq.op === db_OP_READ_WRITE && dbReq.addr === SBDATA1)
+  // Low 32bits of cpdata
+  val isCPDataLowWrite = (dbReq.op === db_OP_READ_WRITE && dbReq.addr === SBDATA0)
 
   val isCPAddrRead = (dbReq.op === db_OP_READ && dbReq.addr === SBUSADDRESS0)
-  val isCPDataRead = (dbReq.op === db_OP_READ && dbReq.addr === SBDATA0)
+  val isCPDataHighRead = (dbReq.op === db_OP_READ && dbReq.addr === SBDATA1)
+  val isCPDataLowRead = (dbReq.op === db_OP_READ && dbReq.addr === SBDATA0)
 
   val dbReqFire = io.db.req.fire()
   val cpAddrWriteFire = isCPAddrWrite && dbReqFire
-  val cpDataWriteFire = isCPDataWrite && dbReqFire
+  val cpDataHighWriteFire = isCPDataHighWrite && dbReqFire
+  val cpDataLowWriteFire = isCPDataLowWrite && dbReqFire
   val cpAddrReadFire = isCPAddrRead && dbReqFire
-  val cpDataReadFire = isCPDataRead && dbReqFire
+  val cpDataHighReadFire = isCPDataHighRead && dbReqFire
+  val cpDataLowReadFire = isCPDataLowRead && dbReqFire
 
   val cpRen = cpAddrWriteFire && (cpAddr.rw === cpRead)
-  val cpWen = cpDataWriteFire && cpBusy
+  // cpDataSize is 64bit, but debug bus is 34bit
+  // so to rw a control plane register
+  // we need to two debug bus requests to retrieve/send data
+  // for cp write, you need to write high first, when you write low, the data is actually written
+  val cpWen = cpDataLowWriteFire && cpBusy
 
   // give priority to system bus cp access
   io.cpio.ren := cpRen || sbCPRdEn
@@ -760,7 +770,7 @@ class DebugModule ()(implicit val p:cde.Parameters)
   // if cpBusy is set, we know that, we already write the cp addr
   io.cpio.wen := cpWen || sbCPWrEn
   io.cpio.waddr := Mux(sbCPWrEn, sbCPAddr, cpAddrReg)
-  io.cpio.wdata := Mux(sbCPWrEn, sbWrData, cpData.data)
+  io.cpio.wdata := Mux(sbCPWrEn, sbWrData, Cat(cpDataReg(63, 32), cpData.data))
 
   // handle write on sbusaddr0 and sdata0
   when (cpAddrWriteFire) {
@@ -768,8 +778,12 @@ class DebugModule ()(implicit val p:cde.Parameters)
     when (cpAddr.rw === cpWrite) { cpBusy := true.B }
   }
 
-  when (cpDataWriteFire) {
-    cpDataReg := cpData.data
+  when (cpDataHighWriteFire) {
+    cpDataReg := Cat(cpData.data(31, 0), UInt(0, width = 32))
+  }
+
+  when (cpDataLowWriteFire) {
+    cpDataReg := Cat(cpDataReg(63, 32), cpData.data(31, 0))
     cpBusy := false.B
   }
 
@@ -787,10 +801,18 @@ class DebugModule ()(implicit val p:cde.Parameters)
     dbCPResult.data := cpAddrResp.asUInt
   }
 
-  when (cpDataReadFire) {
+  when (cpDataHighReadFire) {
     val cpDataResp = Wire(new ControlPlaneDataFields())
     cpDataResp.reserved := UInt(0)
-    cpDataResp.data := cpDataReg
+    cpDataResp.data := cpDataReg(63, 32)
+
+    dbCPResult.data := cpDataResp.asUInt
+  }
+
+  when (cpDataLowReadFire) {
+    val cpDataResp = Wire(new ControlPlaneDataFields())
+    cpDataResp.reserved := UInt(0)
+    cpDataResp.data := cpDataReg(31, 0)
 
     dbCPResult.data := cpDataResp.asUInt
   }
@@ -1097,7 +1119,7 @@ class DebugModule ()(implicit val p:cde.Parameters)
     }
   }.elsewhen (sbAddr >= UInt(CPBASE) && sbAddr < UInt(CPBASE + nRegs * 8)){ //0x900- Memory Mapped Control Plane registers
       sbCPRdEn := sbRdEn
-      sbRdData := Cat(UInt(0, width = tlDataBits - cpDataSize), sbCPRdData)
+      sbRdData := sbCPRdData
   }. otherwise {
     // All readable registers are Not Implemented.
     sbRdData := UInt(0)

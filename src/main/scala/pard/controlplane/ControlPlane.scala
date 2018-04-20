@@ -17,7 +17,7 @@ trait HasControlPlaneParameters {
   val nDsids = 1 << dsidBits
   val nTiles = p(NTiles)
   val cpAddrSize = 32
-  val cpDataSize = 32
+  val cpDataSize = 64
 
   // control plane register address space
   // 31     23        21     11       0

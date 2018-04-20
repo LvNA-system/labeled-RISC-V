@@ -50,6 +50,10 @@
   FIELD(data, 32) \
   FIELD(reserved0, 2)
 
+#define SBDATA1_FIELDS \
+  FIELD(data, 32) \
+  FIELD(reserved0, 2)
+
 struct DMI_Req {
   int opcode;
   int addr;
@@ -76,6 +80,7 @@ DEF(DMCONTROL);
 DEF(DMINFO);
 DEF(SBADDR0);
 DEF(SBDATA0);
+DEF(SBDATA1);
 
 #undef FIELD
 

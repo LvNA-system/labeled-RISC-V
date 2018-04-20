@@ -156,6 +156,7 @@ static uint64_t rw_jtag_reg(uint64_t ir_val, uint64_t dr_val, int nb_bits) {
 REQ(DMCONTROL);
 REQ(SBADDR0);
 REQ(SBDATA0);
+REQ(SBDATA1);
 
 
 #undef FIELD
@@ -178,6 +179,7 @@ RESP(DMCONTROL);
 RESP(DMINFO);
 RESP(SBADDR0);
 RESP(SBDATA0);
+RESP(SBDATA1);
 
 
 #undef FIELD
@@ -194,7 +196,8 @@ struct Entry entries[] = {
   { "dmcontrol", 0x10, DMCONTROL_REQ, DMCONTROL_RESP },
   { "dminfo",  0x11, NULL, DMINFO_RESP  },
   { "sbaddr0", 0x16, SBADDR0_REQ, SBADDR0_RESP },
-  { "sbdata0", 0x18, SBDATA0_REQ, SBDATA0_RESP }
+  { "sbdata0", 0x18, SBDATA0_REQ, SBDATA0_RESP },
+  { "sbdata1", 0x19, SBDATA1_REQ, SBDATA1_RESP }
 };
 
 
