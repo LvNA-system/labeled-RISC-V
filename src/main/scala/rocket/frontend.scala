@@ -5,6 +5,7 @@ import uncore.tilelink._
 import util._
 import Chisel.ImplicitConversions._
 import cde.{Parameters, Field}
+import rocketchip.ExtMemBase
 
 class FrontendReq(implicit p: Parameters) extends CoreBundle()(p) {
   val pc = UInt(width = vaddrBitsExtended)
@@ -119,9 +120,10 @@ class Frontend(implicit p: Parameters) extends CoreModule()(p) with HasL1CachePa
   icache.io.req.bits.addr := io.cpu.npc
   icache.io.invalidate := io.cpu.flush_icache
 
-  val isMMIO = (tlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
-  val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
-  val ppn = Mux(isMMIO, tlb.io.resp.ppn, (tlb.io.resp.ppn & ((io.size - 1) >> pgIdxBits)) | base)
+  val extMemBasePPN = UInt((p(ExtMemBase) >> pgIdxBits))
+  val isMMIO = tlb.io.resp.ppn < extMemBasePPN
+  val isLegal = tlb.io.resp.ppn < extMemBasePPN + (io.size >> pgIdxBits)
+  val ppn = Mux(isLegal, tlb.io.resp.ppn + Mux(isMMIO, UInt(0), io.base >> pgIdxBits), UInt(0))
 
   icache.io.s1_ppn := ppn
   icache.io.s1_kill := io.cpu.req.valid || tlb.io.resp.miss || tlb.io.resp.xcpt_if || icmiss || io.cpu.flush_tlb

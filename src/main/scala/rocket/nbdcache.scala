@@ -11,6 +11,7 @@ import uncore.util._
 import util._
 import Chisel.ImplicitConversions._
 import cde.{Parameters, Field}
+import rocketchip.ExtMemBase
 
 case class DCacheConfig(
   nMSHRs: Int = 1,
@@ -850,9 +851,11 @@ class HellaCache(cfg: DCacheConfig)(implicit p: Parameters) extends L1HellaCache
     s1_req := s2_req
   }
 
-  val isMMIO = (dtlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
-  val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
-  val ppn = Mux(isMMIO, dtlb.io.resp.ppn, (dtlb.io.resp.ppn & ((io.size - 1) >> pgIdxBits)) | base)
+  val extMemBasePPN = UInt((p(ExtMemBase) >> pgIdxBits))
+  val isMMIO = dtlb.io.resp.ppn < extMemBasePPN
+  val isLegal = dtlb.io.resp.ppn < extMemBasePPN + (io.size >> pgIdxBits)
+  val ppn = Mux(isLegal, dtlb.io.resp.ppn + Mux(isMMIO, UInt(0), io.base >> pgIdxBits), UInt(0))
+
   val s1_addr = Cat(ppn, s1_req.addr(pgIdxBits-1,0))
 
   when (s1_clk_en) {
