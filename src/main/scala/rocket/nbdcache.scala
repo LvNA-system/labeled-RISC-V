@@ -852,7 +852,7 @@ class HellaCache(cfg: DCacheConfig)(implicit p: Parameters) extends L1HellaCache
 
   val isMMIO = (dtlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
   val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
-  val ppn = Mux(isMMIO, dtlb.io.resp.ppn, (dtlb.io.resp.ppn & ((io.size - 1) >> pgIdxBits)) | base)
+  val ppn = dtlb.io.resp.ppn + base
   val s1_addr = Cat(ppn, s1_req.addr(pgIdxBits-1,0))
 
   when (s1_clk_en) {

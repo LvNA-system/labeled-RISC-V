@@ -121,7 +121,7 @@ class Frontend(implicit p: Parameters) extends CoreModule()(p) with HasL1CachePa
 
   val isMMIO = (tlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
   val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
-  val ppn = Mux(isMMIO, tlb.io.resp.ppn, (tlb.io.resp.ppn & ((io.size - 1) >> pgIdxBits)) | base)
+  val ppn = tlb.io.resp.ppn + base
 
   icache.io.s1_ppn := ppn
   icache.io.s1_kill := io.cpu.req.valid || tlb.io.resp.miss || tlb.io.resp.xcpt_if || icmiss || io.cpu.flush_tlb

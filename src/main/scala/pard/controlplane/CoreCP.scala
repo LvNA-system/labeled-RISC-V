@@ -54,13 +54,13 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
         if (p(UseSim)) {
           val size = p(ExtMemSize) / nTiles
           ptabDsidRegs(i) := UInt(i)
-          ptabBaseRegs(i) := UInt(p(ExtMemBase) + size  * i)
+          ptabBaseRegs(i) := UInt(size * i)
           ptabSizeRegs(i) := UInt(size)
         }
       }
       else {
         ptabDsidRegs(i) := UInt(0)
-        ptabBaseRegs(i) := UInt(p(ExtMemBase))
+        ptabBaseRegs(i) := UInt(0)
         ptabSizeRegs(i) := UInt(p(ExtMemSize))
       }
     }

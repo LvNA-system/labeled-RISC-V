@@ -129,7 +129,7 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
 
   val isMMIO = (tlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
   val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
-  val ppn = Mux(isMMIO, tlb.io.resp.ppn, (tlb.io.resp.ppn & ((io.size - 1) >> pgIdxBits)) | base)
+  val ppn = tlb.io.resp.ppn + base
 
   val s1_paddr = Cat(ppn, s1_req.addr(pgIdxBits-1,0))
   val s1_tag = Mux(s1_probe, probe_bits.addr_block >> idxBits, s1_paddr(paddrBits-1, untagBits))
