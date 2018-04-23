@@ -12,6 +12,7 @@ import uncore.util._
 import util._
 import Chisel.ImplicitConversions._
 import cde.{Parameters, Field}
+import rocketchip.ExtMemBase
 
 class DCacheDataReq(implicit p: Parameters) extends L1HellaCacheBundle()(p) {
   val addr = Bits(width = untagBits)
@@ -127,9 +128,10 @@ class DCache(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   when (!tlb.io.req.ready && !io.cpu.req.bits.phys) { io.cpu.req.ready := false }
   when (s1_valid && s1_readwrite && tlb.io.resp.miss) { s1_nack1 := true }
 
-  val isMMIO = (tlb.io.resp.ppn << pgIdxBits) < UInt(0x80000000L)
-  val base = Mux(isMMIO, UInt(0), io.base >> pgIdxBits)
-  val ppn = tlb.io.resp.ppn + base
+  val extMemBasePPN = UInt((p(ExtMemBase) >> pgIdxBits))
+  val isMMIO = tlb.io.resp.ppn < extMemBasePPN
+  val isLegal = tlb.io.resp.ppn < extMemBasePPN + (io.size >> pgIdxBits)
+  val ppn = Mux(isLegal, tlb.io.resp.ppn + Mux(isMMIO, UInt(0), io.base >> pgIdxBits), UInt(0))
 
   val s1_paddr = Cat(ppn, s1_req.addr(pgIdxBits-1,0))
   val s1_tag = Mux(s1_probe, probe_bits.addr_block >> idxBits, s1_paddr(paddrBits-1, untagBits))
