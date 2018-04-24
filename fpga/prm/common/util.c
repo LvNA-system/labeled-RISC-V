@@ -77,30 +77,30 @@ int get_bit(unsigned char value, int index) {
   return (value >> index) & 0x1;
 }
 
-void set_bit(unsigned char value, int index, int bit) {
+void set_bit(unsigned char *value, int index, int bit) {
   assert(index >= 0 && index <= 7 && (bit == 0 || bit == 1));
   unsigned char mask = 1 << index;
   if (bit) {
 	// set bit
-	value |= mask;
+	*value |= mask;
   } else {
 	// clear bit
-	value &= ~mask;
+	*value &= ~mask;
   }
 }
 
-void str_to_bits(const char *str, int length, int nb_bits, unsigned char *buffer) {
-  nb_bits = 0;
+void str_to_bits(const char *str, int *length, int *nb_bits, unsigned char *buffer) {
+  *nb_bits = 0;
   while (*str) {
 	assert(*str == '0' || *str == '1');
 	// which byte are we handling?
-	int index = nb_bits / 8;
-	set_bit(buffer[index], nb_bits % 8, *str - '0');
+	int index = *nb_bits / 8;
+	set_bit(&buffer[index], *nb_bits % 8, *str - '0');
 	str++;
-	nb_bits++;
-	assert(nb_bits <= XFERT_MAX_SIZE * 8);
+	(*nb_bits)++;
+	assert(*nb_bits <= XFERT_MAX_SIZE * 8);
   }
-  length = (nb_bits + 7) / 8;
+  *length = (*nb_bits + 7) / 8;
 }
 
 char *bits_to_str(int length,
@@ -119,17 +119,17 @@ char *bits_to_str(int length,
 }
 
 // shift a uint64_t value into a buffer
-void shift_bits_into_buffer(uint64_t value, int nb_bits,int ret_length,
-	int ret_nb_bits, unsigned char *buffer) {
+void shift_bits_into_buffer(uint64_t value, int nb_bits,int *ret_length,
+	int *ret_nb_bits, unsigned char *buffer) {
   assert(nb_bits > 0 && nb_bits <= 64);
   for (int i = 0; i < nb_bits; i++) {
 	// which byte are we handling?
 	int index = i / 8;
-	set_bit(buffer[index], i % 8, value & 0x1);
+	set_bit(&buffer[index], i % 8, value & 0x1);
 	value >>= 1;
   }
-  ret_nb_bits = nb_bits;
-  ret_length = (nb_bits + 7) / 8;
+  *ret_nb_bits = nb_bits;
+  *ret_length = (nb_bits + 7) / 8;
 }
 
 // shift a uint64_t value out of a buffer

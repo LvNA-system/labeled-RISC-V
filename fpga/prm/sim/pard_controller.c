@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
 
   connect_server(ip == NULL ? "127.0.0.1" : ip, port == 0 ? 8080 : port);
   init_dtm();
+  /*
   clock_t start;
 
   const char *bin_file = "cachesizetest-riscv64-rocket.bin";
@@ -54,6 +55,7 @@ int main(int argc, char *argv[]) {
   printf("check loaded program use time: %.6fs\n", get_timestamp(start));
 
   start_program(1);
+  */
 
   srand(time(NULL));
 

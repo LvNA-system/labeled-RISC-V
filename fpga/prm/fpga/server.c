@@ -177,7 +177,7 @@ void do_scan_chain() {
       enable_shift();
       wait_jtag_idle();
       int out = get_tdo_vec() & 1;
-      set_bit(data_in, _bit, out);
+      set_bit(&data_in, _bit, out);
       if (DEBUG_INFO)
         printf("in: %d out: %d\n", bit, out);
     }

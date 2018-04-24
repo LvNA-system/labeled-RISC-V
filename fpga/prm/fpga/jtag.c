@@ -76,7 +76,7 @@ static inline uint64_t scan(uint64_t val, int len) {
     send_cmd();
     ret |= (uint64_t)get_tdo() << 32;
   }
-  Log("@@@@@@@@@@@@ ret = 0x%llx", ret);
+  Log("@@@@@@@@@@@@ ret = 0x%lx", ret);
   return ret;
 }
 

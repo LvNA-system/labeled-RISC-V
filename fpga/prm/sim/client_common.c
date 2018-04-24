@@ -26,7 +26,7 @@ static void seq(const char *str) {
   struct vpi_cmd command;
   memset(&command, 0, sizeof(command));
   command.cmd = CMD_TMS_SEQ;
-  str_to_bits(str, command.length, command.nb_bits, command.buffer_out);
+  str_to_bits(str, &command.length, &command.nb_bits, command.buffer_out);
   send(sfd, &command, sizeof(command), 0);
 }
 
@@ -39,10 +39,11 @@ static uint64_t scan(uint64_t value, int nb_bits) {
   // we will transmit one more bit!
   command.cmd = CMD_SCAN_CHAIN_FLIP_TMS;
   shift_bits_into_buffer(value, nb_bits, 
-      command.length, command.nb_bits, command.buffer_out);
+      &command.length, &command.nb_bits, command.buffer_out);
   send(sfd, &command, sizeof(command), 0);
 
-  assert(myrecv(sfd, (char *)&command, sizeof(command)));
+  int ret = myrecv(sfd, (char *)&command, sizeof(command));
+  assert(ret);
   // since we are shift in and out bits from a single chain
   // so the number of bits shifted out == number of bits shifted in
   assert(command.nb_bits == nb_bits);
