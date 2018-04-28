@@ -307,8 +307,10 @@ proc create_root_design { parentCell } {
    }
   
   set_property -dict [ list \
+   CONFIG.SUPPORTS_NARROW_BURST {1} \
    CONFIG.NUM_READ_OUTSTANDING {2} \
    CONFIG.NUM_WRITE_OUTSTANDING {2} \
+   CONFIG.MAX_BURST_LENGTH {256} \
  ] [get_bd_intf_pins /PARDFPGATop_0/io_bus_axi_0]
 
   set_property -dict [ list \
@@ -375,8 +377,8 @@ proc create_root_design { parentCell } {
 
   # Create address segments
   create_bd_addr_seg -range 0x20000000 -offset 0x60000000 [get_bd_addr_spaces PARDFPGATop_0/io_mmio_axi_0] [get_bd_addr_segs M_AXILITE_MMIO/Reg] SEG_M_AXILITE_MMIO_Reg
-  create_bd_addr_seg -range 0x80000000 -offset 0x80000000 [get_bd_addr_spaces PARDFPGATop_0/io_mem_axi_0] [get_bd_addr_segs M_AXI_MEM/Reg] SEG_M_AXI_MEM_Reg
-  create_bd_addr_seg -range 0x80000000 -offset 0x80000000 [get_bd_addr_spaces S_AXI_DMA] [get_bd_addr_segs PARDFPGATop_0/io_bus_axi_0/reg0] SEG_PARDFPGATop_0_reg0
+  create_bd_addr_seg -range 0x010000000000 -offset 0x00000000 [get_bd_addr_spaces PARDFPGATop_0/io_mem_axi_0] [get_bd_addr_segs M_AXI_MEM/Reg] SEG_M_AXI_MEM_Reg
+  create_bd_addr_seg -range 0x010000000000 -offset 0x00000000 [get_bd_addr_spaces S_AXI_DMA] [get_bd_addr_segs PARDFPGATop_0/io_bus_axi_0/reg0] SEG_PARDFPGATop_0_reg0
 
 
   # Restore current instance
