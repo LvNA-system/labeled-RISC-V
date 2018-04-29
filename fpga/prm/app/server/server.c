@@ -1,7 +1,7 @@
-#include "JTAGDTM.h"
+#include "platform.h"
 #include "common.h"
+#include "vpi.h"
 #include "jtag.h"
-#include "map.h"
 #include "util.h"
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -309,8 +309,10 @@ void create_jtag_vpi_server()
 }
 
 int main(void) {
-  init_map();
+  init_platform(NULL, 0);
+
   create_jtag_vpi_server();
-  finish_map();
+
+  finish_platform();
   return 0;
 }

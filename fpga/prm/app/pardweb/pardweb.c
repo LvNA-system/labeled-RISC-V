@@ -1,7 +1,7 @@
 #include "common.h"
 #include "jtag.h"
 #include "cp.h"
-#include "map.h"
+#include "platform.h"
 #include <sys/time.h>
 #include <signal.h>
 #include <unistd.h>
@@ -105,11 +105,9 @@ static void init_timer(void *handler) {
 }
 
 int main(int argc, char *argv[]) {
-  /* map some devices into the address space of this program */
-  init_map();
+  init_platform(NULL, 0);
 
   reset_soft();
-  goto_run_test_idle_from_reset();
 
   sigset_t s;
   void *handler = (void *)send_to_web;
@@ -121,6 +119,6 @@ int main(int argc, char *argv[]) {
     sleep(1);
   }
 
-  finish_map();
+  finish_platform();
   return 0;
 }

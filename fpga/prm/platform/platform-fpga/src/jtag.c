@@ -80,14 +80,17 @@ static inline uint64_t scan(uint64_t val, int len) {
   return ret;
 }
 
+static inline void goto_run_test_idle_from_reset() {
+  seq_tms("0");
+}
+
+
 void reset_soft() {
   // change the state machine to test logic reset
   // does not clear any internal registers
   seq_tms("11111");
-}
 
-void goto_run_test_idle_from_reset() {
-  seq_tms("0");
+  goto_run_test_idle_from_reset();
 }
 
 // write value to ir, and return the old value of ir

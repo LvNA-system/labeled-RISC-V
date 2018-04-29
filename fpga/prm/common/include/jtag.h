@@ -24,7 +24,6 @@
 #define REG_DTM_INFO_WIDTH      32
 
 void reset_soft();
-void goto_run_test_idle_from_reset();
 uint64_t rw_jtag_reg(uint64_t ir_val, uint64_t dr_val, int nb_bits);
 
 #endif

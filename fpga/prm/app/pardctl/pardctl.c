@@ -1,10 +1,11 @@
 #include "common.h"
-#include "dmi.h"
-#include "client_common.h"
-#include "dtm-loader.h"
+#include "util.h"
+#include "rl.h"
+#include "jtag.h"
 #include "cp.h"
+#include "dtm.h"
 #include <stdlib.h>
-
+#include "platform.h"
 
 void help() {
   fprintf(stderr, "Command format:\n"
@@ -21,9 +22,9 @@ void invalid_command() {
 }
 
 int main(int argc, char *argv[]) {
+  bool automatic_test = false;
   char *ip = NULL;
   int port = 0;
-  bool automatic_test = false;
   for (int i = 1; i < argc; i++) {
     char *arg = argv[i];
     if (strncmp(arg, "-p", 2) == 0)
@@ -34,31 +35,15 @@ int main(int argc, char *argv[]) {
       automatic_test = true;
   }
 
-  connect_server(ip == NULL ? "127.0.0.1" : ip, port == 0 ? 8080 : port);
+  init_platform(ip, port);
+
+  reset_soft();
+
   init_dtm();
-  /*
-  clock_t start;
-
-  const char *bin_file = "cachesizetest-riscv64-rocket.bin";
-  start = Times(NULL);
-  load_program(bin_file, 0, 0x80000000);
-  printf("load program use time: %.6fs\n", get_timestamp(start));
-
-  start_program(0);
-
-  start = Times(NULL);
-  load_program(bin_file, 1, 0x80000000);
-  printf("load program use time: %.6fs\n", get_timestamp(start));
-
-  start = Times(NULL);
-  check_loaded_program(bin_file, 1, 0x80000000);
-  printf("check loaded program use time: %.6fs\n", get_timestamp(start));
-
-  start_program(1);
-  */
 
   srand(time(NULL));
 
+  // first, you have to manually set up addr map cp regs!
   while (1) {
     if (!automatic_test) {
       fflush(stdout);
@@ -79,8 +64,12 @@ int main(int argc, char *argv[]) {
         continue;
       }
 
+      if (!strcmp(s, "quit")) {
+        break;
+      }
+
       while (s != NULL) {
-        char *eq = strchr(s, '='); 
+        char *eq = strchr(s, '=');
         if (!eq) {
           invalid_command();
           break;
@@ -135,8 +124,10 @@ int main(int argc, char *argv[]) {
           }
           row = (int)strtol(value, NULL, 16);
           // read
-          if(rw == 0)
-            read_cp_reg(get_cp_addr(cpIdx, tabIdx, col, row));
+          if(rw == 0) {
+            uint32_t ret = read_cp_reg(get_cp_addr(cpIdx, tabIdx, col, row));
+            printf("val = 0x%08x\n", ret);
+          }
         } else if(!strcmp(field, "val")) {
           // only write needs val
           incorrect_order = rw != 1 || cpIdx == -1 || tabIdx == -1 ||
@@ -153,21 +144,39 @@ int main(int argc, char *argv[]) {
         }
       }
     } else {
-      /*
-         sleep(0);
-         int dsid = rand() % NDsids;
-         int size = rand() % 1000;
-         int freq = rand() % 1000;
-         int inc = rand() % 10;
-         int mask = rand();
-         change_size(dsid, size);
-         change_freq(dsid, freq);
-         change_inc(dsid, inc);
-         change_mask(dsid, mask);
-         */
+      int rw = rand() % 2;
+      int cpIdx = rand() % 3;
+      int tabIdx = rand() % 2;
+      int col =  rand() % 3;
+      int row = rand() % 32;
+      int val = rand();
+      if (rw)
+        write_cp_reg(get_cp_addr(cpIdx, tabIdx,col, row), val);
+      else
+        read_cp_reg(get_cp_addr(cpIdx, tabIdx,col, row));
     }
   }
 
-  disconnect_server();
+  /*
+  clock_t start;
+
+  start = Times(NULL);
+  load_program("/root/pard/cachesizetest-riscv64-rocket.bin", 0, 0x80000000);
+  printf("load program use time: %.6fs\n", get_timestamp(start));
+
+  start_program(0);
+
+  start = Times(NULL);
+  load_program("/root/pard/cachesizetest-riscv64-rocket.bin", 1, 0x80000000);
+  printf("load program use time: %.6fs\n", get_timestamp(start));
+
+  start = Times(NULL);
+  check_loaded_program("/root/pard/cachesizetest-riscv64-rocket.bin", 1, 0x80000000);
+  printf("check loaded program use time: %.6fs\n", get_timestamp(start));
+
+  start_program(1);
+  */
+
+  finish_platform();
   return 0;
 }

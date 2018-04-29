@@ -1,5 +1,6 @@
 #include "common.h"
 #include "dmi.h"
+#include "jtag.h"
 
 #define DEBUG_RAM 0x400
 
@@ -134,4 +135,17 @@ void check_loaded_program(const char *bin_file, uint64_t hartid, uint32_t base) 
     base += 4;
   }
   fclose(f);
+}
+
+void init_dtm() {
+  // get dtm info
+  uint64_t dtminfo = rw_jtag_reg(REG_DTM_INFO, 0, REG_DTM_INFO_WIDTH);
+
+  int dbusIdleCycles = get_bits(dtminfo, 12, 10);
+  int dbusStatus = get_bits(dtminfo, 9, 8);
+  int debugAddrBits = get_bits(dtminfo, 7, 4);
+  int debugVersion = get_bits(dtminfo, 3, 0);
+
+  printf("dbusIdleCycles: %d\ndbusStatus: %d\ndebugAddrBits: %d\ndebugVersion: %d\n",
+      dbusIdleCycles, dbusStatus, debugAddrBits, debugVersion);
 }
