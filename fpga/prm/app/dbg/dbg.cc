@@ -5,10 +5,17 @@
 #include <vector>
 #include <utility>
 
-#include "dmi.h"
+extern "C" {
 #include "common.h"
-#include "client_common.h"
-#include "pard_dbg.h"
+#include "util.h"
+#include "jtag.h"
+#include "platform.h"
+#include "dtm.h"
+#include "dmi.h"
+#include "rl.h"
+}
+
+#include "dbg.h"
 
 using std::string;
 using std::vector;
@@ -368,12 +375,12 @@ int main(int argc, char *argv[]) {
       ip = argv[i] + 3;
   }
 
-  connect_server(ip == NULL ? "127.0.0.1" : ip, port == 0 ? 8080 : port);
+  init_platform(ip, port);
   init_dtm();
 
   ui_mainloop();
 
-  disconnect_server();
+  finish_platform();
   return 0;
 }
 

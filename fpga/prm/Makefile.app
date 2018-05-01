@@ -19,7 +19,7 @@ LINK_FILES += $(PRM_SW_HOME)/common/build/common-$(PLATFORM).a
 
 .PHONY: app clean
 app: $(OBJS) platform common
-	$(CC) $(CFLAGS) -o $(BINARY) -Wl,--start-group $(LINK_FILES) -Wl,--end-group -lreadline
+	$(CXX) -o $(BINARY) -Wl,--start-group $(LINK_FILES) -Wl,--end-group -lreadline
 
 clean: 
 	rm -rf $(APP_DIR)/build/

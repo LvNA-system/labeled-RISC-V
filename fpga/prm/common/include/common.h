@@ -6,7 +6,10 @@
 #include <assert.h>
 #include <string.h>
 
+#ifndef __cplusplus
 typedef uint8_t bool;
+#endif
+
 #define true 1
 #define false 0
 

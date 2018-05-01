@@ -1,5 +1,5 @@
-#ifndef PARD_DBG_H
-#define PARD_DBG_H
+#ifndef __DBG_H__
+#define __DBG_H__
 struct {
   const char *name;
   int idx;
