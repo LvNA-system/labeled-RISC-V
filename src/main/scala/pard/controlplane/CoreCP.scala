@@ -4,7 +4,7 @@ package pard.cp
 
 import Chisel._
 import cde.{Parameters, Field}
-import rocketchip.ExtMemSize
+import rocketchip.{ExtMemSize, ExtMemBase}
 
 case object LDomDsidBits extends Field[Int]
 case object UseNoHype extends Field[Boolean]
@@ -54,13 +54,13 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
         if (p(UseSim)) {
           val size = p(ExtMemSize) / nTiles
           ptabDsidRegs(i) := UInt(i)
-          ptabBaseRegs(i) := UInt(0x80000000L + size  * i)
+          ptabBaseRegs(i) := UInt(size * i)
           ptabSizeRegs(i) := UInt(size)
         }
       }
       else {
         ptabDsidRegs(i) := UInt(0)
-        ptabBaseRegs(i) := UInt(0x80000000L)
+        ptabBaseRegs(i) := UInt(0)
         ptabSizeRegs(i) := UInt(p(ExtMemSize))
       }
     }
