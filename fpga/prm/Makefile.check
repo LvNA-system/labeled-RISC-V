@@ -4,7 +4,7 @@ ifeq ($(PRM_SW_HOME),)
 PRM_SW_HOME = $(shell echo $(abspath .) | sed -e 's+fpga/prm.*+fpga/prm+')
 endif
 
-PLATFORM ?= sim
+PLATFORM ?= emu
 PLATFORMS = $(shell ls $(PRM_SW_HOME)/platform/ | grep "platform-" | sed -e 's/platform-//')
 
 ifeq ($(filter $(PLATFORMS), $(PLATFORM)), ) # PLATFORM must be valid
