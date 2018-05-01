@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
       int tabIdx = -1;
       int col = -1;
       int row = -1;
-      int val = -1;
+      uint64_t val = (uint64_t)-1;
 
       char *s = line;
       if (!strcmp(s, "help")) {
@@ -89,35 +89,35 @@ int main(int argc, char *argv[]) {
 
         if (!strcmp(field, "rw")) {
           incorrect_order = rw != -1 || cpIdx != -1 || tabIdx != -1 ||
-            col != -1 || row != -1 || val != -1;
+            col != -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order || (rw = query_rw_tables(value)) == -1) {
             invalid_command();
             break;
           }
         } else if(!strcmp(field, "cp")) {
           incorrect_order = rw == -1 || cpIdx != -1 || tabIdx != -1 ||
-            col != -1 || row != -1 || val != -1;
+            col != -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order || (cpIdx = query_cp_tables(value)) == -1) {
             invalid_command();
             break;
           }
         } else if(!strcmp(field, "tab")) {
           incorrect_order = rw == -1 || cpIdx == -1 || tabIdx != -1 ||
-            col != -1 || row != -1 || val != -1;
+            col != -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order || (tabIdx = query_tab_tables(value, cpIdx)) == -1) {
             invalid_command();
             break;
           }
         } else if(!strcmp(field, "col")) {
           incorrect_order = rw == -1 || cpIdx == -1 || tabIdx == -1 ||
-            col != -1 || row != -1 || val != -1;
+            col != -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order || (col = query_col_tables(value, cpIdx, tabIdx)) == -1) {
             invalid_command();
             break;
           }
         } else if(!strcmp(field, "row")) {
           incorrect_order = rw == -1 || cpIdx == -1 || tabIdx == -1 ||
-            col == -1 || row != -1 || val != -1;
+            col == -1 || row != -1 || val != (uint64_t)-1;
           if (incorrect_order) {
             invalid_command();
             break;
@@ -131,12 +131,12 @@ int main(int argc, char *argv[]) {
         } else if(!strcmp(field, "val")) {
           // only write needs val
           incorrect_order = rw != 1 || cpIdx == -1 || tabIdx == -1 ||
-            col == -1 || row == -1 || val != -1;
+            col == -1 || row == -1 || val != (uint64_t)-1;
           if (incorrect_order) {
             invalid_command();
             break;
           }
-          val = (uint32_t)strtoll(value, NULL, 16);
+          val = (uint64_t)strtoll(value, NULL, 16);
           // execute the command
           write_cp_reg(get_cp_addr(cpIdx, tabIdx,col, row), val);
         } else {

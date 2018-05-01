@@ -82,7 +82,7 @@ int query_col_tables(const char *value, int cpIdx, int tabIdx) {
       sizeof(col_tables[cpIdx][tabIdx]) / sizeof(char *));
 }
 
-uint32_t read_cp_reg(int addr) {
+uint64_t read_cp_reg(int addr) {
   struct DMI_Req req;
   struct DMI_Resp resp;
   // write sbaddr0
@@ -97,10 +97,19 @@ uint32_t read_cp_reg(int addr) {
   req.addr = 0x18;
   req.data = 0;
   resp = send_debug_request(req);
-  return resp.data;
+  uint64_t val = resp.data;
+
+  // read sbdata1
+  req.opcode = OP_READ;
+  req.addr = 0x19;
+  req.data = 0;
+  resp = send_debug_request(req);
+  val = val | ((uint64_t)resp.data << 32);
+
+  return val;
 }
 
-void write_cp_reg(int addr, int value) {
+void write_cp_reg(int addr, uint64_t value) {
   struct DMI_Req req;
   // write sbaddr0
   req.opcode = OP_WRITE;
@@ -111,5 +120,10 @@ void write_cp_reg(int addr, int value) {
   req.opcode = OP_WRITE;
   req.addr = 0x18;
   req.data = (uint32_t)value;
+  send_debug_request(req);
+  // write sbdata1
+  req.opcode = OP_WRITE;
+  req.addr = 0x19;
+  req.data = (uint32_t)(value >> 32);
   send_debug_request(req);
 }
