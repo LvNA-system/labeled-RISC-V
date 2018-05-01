@@ -1,0 +1,25 @@
+include $(PRM_SW_HOME)/Makefile.check
+$(info Building $(NAME) [$(PLATFORM)])
+
+LIB_DIR ?= $(shell pwd)
+INC_DIR += $(LIB_DIR)/include/
+DST_DIR ?= $(LIB_DIR)/build/$(PLATFORM)/
+ARCHIVE ?= $(LIB_DIR)/build/$(NAME)-$(PLATFORM).a
+
+.DEFAULT_GOAL = $(ARCHIVE)
+
+INC_DIR += $(PRM_SW_HOME)/common/include/
+
+CFLAGS += -fdata-sections -ffunction-sections -fno-builtin
+
+$(shell mkdir -p $(DST_DIR))
+
+include $(PRM_SW_HOME)/Makefile.compile
+
+$(ARCHIVE): $(OBJS)
+	@echo + AR $@
+	@ar rcs $(ARCHIVE) $(OBJS)
+
+.PHONY: clean
+clean: 
+	rm -rf $(LIB_DIR)/build/

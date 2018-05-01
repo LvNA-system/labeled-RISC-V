@@ -1,28 +1,21 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <memory.h>
-#include <sys/socket.h>
-#include <sys/times.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <stdint.h>
-#include <fcntl.h>
-
-
-#include <assert.h>
-#include <sys/time.h>
-#include <time.h>
-
-#include "JTAGDTM.h"
+#include "platform.h"
 #include "common.h"
+#include "vpi.h"
+#include "jtag.h"
+#include "util.h"
+#include <stdlib.h>
+#include <arpa/inet.h>
 
 #define DEBUG_INFO 0
 #define TCK_HALF_PERIOD 10
+
+#define LEN_IDX 0
+#define TMS_IDX 1
+#define TDI_IDX 2
+#define TDO_IDX 3
+#define CTRL_IDX 4
+
+void goto_run_test_idle_from_reset();
 
 int cmd;
 // number of bytes to send
@@ -38,74 +31,30 @@ int flip_tms;
 unsigned char data_out;
 unsigned char data_in;
 
-#define JTAG_CONTROLLER_BASE ((uintptr_t)0x43c00000)
-#define JTAG_CONTROLLER_SIZE 20
-// Length of shift operation in bits
-#define JTAG_LENGTH          0x0
-// Test Mode Select (TMS) Bit Vector
-#define JTAG_TMS_VECTOR      0x1
-// Test Data In (TDI) Bit Vector
-#define JTAG_TDI_VECTOR      0x2
-// Test Data Out (TDO) Capture Vector
-#define JTAG_TDO_VECTOR      0x3
-// Bit 0: Enable Shift Operation
-#define JTAG_CTRL            0x4
-
-volatile uint32_t *jtag_base_ptr;
+extern volatile uint32_t *jtag_base;
 
 void wait_jtag_idle() {
-  while((*(jtag_base_ptr + JTAG_CTRL) & 0x1));
+  while((*(jtag_base + CTRL_IDX) & 0x1));
 }
 
 void enable_shift() {
-  *(jtag_base_ptr + JTAG_CTRL) = 0x1;
+  *(jtag_base + CTRL_IDX) = 0x1;
 }
 
 void set_tms_vec(uint32_t val, int length) {
   assert(length <= 32 && length >= 1);
-  *(jtag_base_ptr + JTAG_TMS_VECTOR) = val;
-  *(jtag_base_ptr + JTAG_LENGTH) = length;
+  *(jtag_base + TMS_IDX) = val;
+  *(jtag_base + LEN_IDX) = length;
 }
 
 void set_tdi_vec(uint32_t val, int length) {
   assert(length <= 32 && length >= 1);
-  *(jtag_base_ptr + JTAG_TDI_VECTOR) = val;
-  *(jtag_base_ptr + JTAG_LENGTH) = length;
+  *(jtag_base + TDI_IDX) = val;
+  *(jtag_base + LEN_IDX) = length;
 }
 
 uint32_t get_tdo_vec() {
-  return *(jtag_base_ptr + JTAG_TDO_VECTOR);
-}
-
-int	fd;
-
-void* create_map(size_t size, int fd, off_t offset) {
-  void *base = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, offset);
-
-  if (base == MAP_FAILED) {
-    perror("init_mem mmap failed:");
-    close(fd);
-    exit(1);
-  }
-
-  printf("mapping paddr 0x%lx to vaddr 0x%x\n", offset, (uintptr_t)base);
-
-  return base;
-}
-
-void init_map() {
-  fd = open("/dev/mem", O_RDWR|O_SYNC);
-  if (fd == -1)  {
-    perror("init_map open failed:");
-    exit(1);
-  }
-
-  jtag_base_ptr = (uint32_t *)create_map(JTAG_CONTROLLER_SIZE, fd, JTAG_CONTROLLER_BASE);
-}
-
-void finish_map() {
-  munmap((void *)jtag_base_ptr, JTAG_CONTROLLER_SIZE);
-  close(fd);
+  return *(jtag_base + TDO_IDX);
 }
 
 static int create_server(short port)
@@ -159,15 +108,6 @@ void reset_tap_soft() {
   wait_jtag_idle();
   // five consecutive tms is enough
   set_tms_vec(0x1f, 5);
-  enable_shift();
-}
-
-// Goes to RunTestIdle state
-void goto_run_test_idle_from_reset() {
-  if (DEBUG_INFO)
-    printf("Task goto_run_test_idle_from_reset\n");
-  wait_jtag_idle();
-  set_tms_vec(0x0, 1);
   enable_shift();
 }
 
@@ -237,7 +177,7 @@ void do_scan_chain() {
       enable_shift();
       wait_jtag_idle();
       int out = get_tdo_vec() & 1;
-      set_bit(data_in, _bit, out);
+      set_bit(&data_in, _bit, out);
       if (DEBUG_INFO)
         printf("in: %d out: %d\n", bit, out);
     }
@@ -369,8 +309,10 @@ void create_jtag_vpi_server()
 }
 
 int main(void) {
-  init_map();
+  init_platform(NULL, 0);
+
   create_jtag_vpi_server();
-  finish_map();
+
+  finish_platform();
   return 0;
 }

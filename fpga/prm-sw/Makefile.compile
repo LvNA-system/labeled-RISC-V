@@ -1,0 +1,39 @@
+# Compilation flags
+
+CROSS_COMPILE ?=
+
+AS = $(CROSS_COMPILE)gcc
+CC = $(CROSS_COMPILE)gcc
+CXX = $(CROSS_COMPILE)g++
+LD = $(CROSS_COMPILE)ld
+OBJCOPY = $(CROSS_COMPILE)objcopy
+READELF = $(CROSS_COMPILE)readelf
+
+INCLUDES  = $(addprefix -I, $(INC_DIR)) -I$(PRM_SW_HOME)/platform/
+INCLUDES += -I$(PRM_SW_HOME)/platform/$(PLATFORM)/include
+CFLAGS   += -std=gnu99 -O2 -MMD -Wall -Werror -ggdb $(INCLUDES)
+CXXFLAGS += -std=c++11 -O2 -MMD -Wall -Werror -ggdb $(INCLUDES)
+
+# Files to be compiled
+OBJS = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
+
+# Compilation patterns
+$(DST_DIR)/%.o: %.cc
+	@echo + CXX $<
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) -c -o $@ $<
+$(DST_DIR)/%.o: %.c
+	@echo + CC $<
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) -c -o $@ $<
+
+# Depencies
+DEPS = $(addprefix $(DST_DIR)/, $(addsuffix .d, $(basename $(SRCS))))
+-include $(DEPS)
+
+# Dependent AM and libraries
+.PHONY: common platform
+platform:
+	@$(MAKE) -C $(PRM_SW_HOME)/platform
+common:
+	@$(MAKE) -C $(PRM_SW_HOME)/common
