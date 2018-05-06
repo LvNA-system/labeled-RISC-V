@@ -787,7 +787,8 @@ class DebugModule ()(implicit val p:cde.Parameters)
     cpBusy := false.B
   }
 
-  when (cpRen) { cpDataReg := io.cpio.rdata }
+  // Now, control plane registers are sync read/write
+  when (RegNext(cpRen)) { cpDataReg := io.cpio.rdata }
 
   // handle read on sbusaddr0 and sdata0
   when (cpAddrReadFire) {
@@ -1166,7 +1167,10 @@ class DebugModule ()(implicit val p:cde.Parameters)
   }
   
 
-  io.tl.grant.valid := sbAcqValidReg
+  // cacheCP uses SeqMem instead of Reg
+  // so we turn control plane into sync read/write
+  // the result will be valid in next cycle
+  io.tl.grant.valid := Mux(sbCPRdEn, RegNext(sbCPRdEn), sbAcqValidReg)
   io.tl.grant.bits := Grant(
     is_builtin_type = Bool(true),
     g_type = sbAcqReg.getBuiltInGrantType(),

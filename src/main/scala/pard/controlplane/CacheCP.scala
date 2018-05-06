@@ -9,8 +9,7 @@ import coreplex.UseL2
 
 
 class CachePartitionConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
-  // need to retrive waymask in the same cycle, not latched
-  val dsid = UInt(INPUT, width = dsidBits)
+  val p_dsid = UInt(INPUT, width = dsidBits)
   val waymask = UInt(OUTPUT, width = if (p(UseL2)) p(NWays) else 1)
 
   val curr_dsid = UInt(INPUT, width = dsidBits)
@@ -34,30 +33,23 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
 
   // ptab
   val waymaskCol = 0
-  val ptabWaymaskRegs = Reg(Vec(nDsids, UInt(width = nWays)))
+  val ptabWaymaskRegs = SeqMem(nDsids, UInt(width = nWays))
 
   // stab
   val accessCounterCol = 0
   val missCounterCol = 1
   val usageCounterCol = 2
-  val accessCounterRegs = Reg(Vec(nDsids, UInt(width = cpDataSize)))
-  val missCounterRegs = Reg(Vec(nDsids, UInt(width = cpDataSize)))
+  val accessCounterRegs = SeqMem(nDsids, UInt(width = cpDataSize))
+  val missCounterRegs = SeqMem(nDsids, UInt(width = cpDataSize))
+  // usageCounter needs at least two write ports, so use reg
   val usageCounterRegs = Reg(Vec(nDsids, UInt(width = cpDataSize)))
-
-  when (reset) {
-    for (i <- 0 until nDsids)
-      ptabWaymaskRegs(i) := UInt((BigInt(1) << nWays) - 1)
-    accessCounterRegs foreach {case a => a := 0.U }
-    missCounterRegs foreach {case a => a := 0.U }
-    usageCounterRegs foreach {case a => a := 0.U }
-  }
 
   val cpRen = io.rw.ren
   val cpWen = io.rw.wen
   val cpRWEn = cpRen || cpWen
 
   val cache = io.cacheConfig
-  val dsid = cache.dsid
+  val dsid = cache.p_dsid
 
   // latched to avoid long signal path
   val cacheRWEn = RegNext(cache.access)
@@ -71,9 +63,9 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
 
-  val waymaskRdata = ptabWaymaskRegs(Mux(cpRWEn, rrow, dsid))
-  val accessRdata = accessCounterRegs(Mux(cpRWEn, rrow, curr_dsid))
-  val missRdata = missCounterRegs(Mux(cpRWEn, rrow, curr_dsid))
+  val waymaskRdata = ptabWaymaskRegs.read(Mux(cpRWEn, rrow, dsid))
+  val accessRdata = accessCounterRegs.read(Mux(cpRWEn, rrow, curr_dsid))
+  val missRdata = missCounterRegs.read(Mux(cpRWEn, rrow, curr_dsid))
   val currentUsageRdata = usageCounterRegs(Mux(cpRWEn, rrow, curr_dsid))
   val replacedUsageRdata = usageCounterRegs(Mux(cpRWEn, rrow, replaced_dsid))
 
@@ -108,10 +100,10 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
     Mux(miss && !underflow, replacedUsageRdata - UInt(1), replacedUsageRdata))
 
   when (accessWen) {
-    accessCounterRegs(Mux(cpRWEn, wrow, curr_dsid)) := accessWdata
+    accessCounterRegs.write(Mux(cpRWEn, wrow, curr_dsid), accessWdata)
   }
   when (missWen) {
-    missCounterRegs(Mux(cpRWEn, wrow, curr_dsid)) := missWdata
+    missCounterRegs.write(Mux(cpRWEn, wrow, curr_dsid), missWdata)
   }
   when (usageWen) {
     usageCounterRegs(Mux(cpRWEn, wrow, curr_dsid)) := currentUsageWdata
@@ -129,8 +121,10 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
 
 	val stabData = MuxLookup(rcol, UInt(0), Array(
 	  UInt(accessCounterCol)   -> accessRdata,
-	  UInt(missCounterCol)   -> missRdata,
-	  UInt(usageCounterCol)   -> currentUsageRdata
+	  UInt(missCounterCol)     -> missRdata,
+      // all others are sync read
+      // we use RegNext to make usage looks like sync read to outsiders.
+	  UInt(usageCounterCol)    -> RegNext(currentUsageRdata)
 	))
 
 	io.rw.rdata := MuxLookup(rtab, UInt(0), Array(
@@ -146,7 +140,7 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
       is (UInt(ptabIdx)) {
         switch (wcol) {
           is (UInt(waymaskCol)) {
-            ptabWaymaskRegs(wrow) := io.rw.wdata
+            ptabWaymaskRegs.write(wrow, io.rw.wdata)
           }
         }
       }
