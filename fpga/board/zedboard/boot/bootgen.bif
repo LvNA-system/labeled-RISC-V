@@ -1,6 +1,0 @@
-the_ROM_image:
-{
-  [bootloader] build/fsbl.elf
-  // build/system_top.bit
-  build/u-boot
-}
