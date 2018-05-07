@@ -108,14 +108,18 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
 
   val controlledCachedPorts = (cachedPorts zip cachedControlCrossing) map {case (p, cross) =>
     cross.io.in <> p
-    cross.io.enable := io.trafficEnable.map(e => Mux(e.dsid === p.acquire.bits.dsid, e.enable, Bool(true))).reduce(_ && _)
     cross.io.out
+  }
+  cachedControlCrossing.zipWithIndex.foreach{case (cross,i) =>
+	  cross.io.enable := io.trafficEnable(i).enable
   }
 
   val controlledUncachedPorts = (uncachedPorts zip uncachedControlCrossing) map {case (p, cross) =>
     cross.io.in <> p
-    cross.io.enable := io.trafficEnable.map(e => Mux(e.dsid === p.acquire.bits.dsid, e.enable, Bool(true))).reduce(_ && _)
     cross.io.out
+  }
+  uncachedControlCrossing.zipWithIndex.foreach{case (cross,i) =>
+    cross.io.enable := io.trafficEnable(i).enable
   }
 
   // Build an uncore backing the Tiles
