@@ -1014,9 +1014,9 @@ class DebugModule ()(implicit val p:cde.Parameters)
   def idx2cpaddr(idx: UInt, dsid: UInt): UInt = {
     val procDsid = (idx & UInt((1 << p(ProcDsidBits)) - 1))(p(ProcDsidBits) - 1, 0)
     val columnIdx = idx >> p(ProcDsidBits)
-    val cpIdxTable = Vec(Seq(2, 2, 2, 2, 1, 1, 1, 1, 1).map(num => UInt(num, width = cpIdxLen)))
-    val tabIdxTable = Vec(Seq(0, 1, 1, 1, 0, 0, 0, 1, 1).map(num => UInt(num, width = tabIdxLen)))
-    val colIdxTable = Vec(Seq(0, 0, 1, 2, 0, 1, 2, 0, 1).map(num => UInt(num, width = colIdxLen)))
+    val cpIdxTable = Vec(Seq(2, 2, 2, 2, 1, 1, 1, 1, 1, 1).map(num => UInt(num, width = cpIdxLen)))
+    val tabIdxTable = Vec(Seq(0, 1, 1, 1, 0, 0, 0, 0, 1, 1).map(num => UInt(num, width = tabIdxLen)))
+    val colIdxTable = Vec(Seq(0, 0, 1, 2, 0, 1, 2, 3, 0, 1).map(num => UInt(num, width = colIdxLen)))
 
     val row = Cat(UInt(0, width = rowIdxLen - dsidBits),
       Cat(procDsid, dsid(p(LDomDsidBits) - 1, 0)))
