@@ -66,6 +66,8 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
     }
   }
 
+  io.rw.rready := true.B
+
   // read
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)

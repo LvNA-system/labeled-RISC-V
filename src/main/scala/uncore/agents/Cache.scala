@@ -252,7 +252,7 @@ class DsidSeqPLRU(n_sets: Int, n_ways: Int, n_dsids: Int, dsid: UInt, cacheParti
 }
 */
 
-class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, s0_dsid: UInt, s1_dsid: UInt, cache_config: CachePartitionConfigIO) extends SeqReplacementPolicy {
+class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, s0_dsid: UInt, s1_dsid: UInt, s1_valid_way: UInt, cache_config: CachePartitionConfigIO) extends SeqReplacementPolicy {
   val state = SeqMem(n_sets, Bits(width = n_ways))
   val curr_state = Wire(Bits(width = n_ways))
   val next_state = Wire(Bits())
@@ -279,6 +279,7 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, s0_dsid: UInt, s1_dsid: U
     cache_config.miss := valid && !hit
     cache_config.curr_dsid := s1_dsid
     cache_config.replaced_dsid := set_dsids(update_way)
+    cache_config.victim_way_valid := s1_valid_way(update_way)
 
     val wmask = (0 until n_ways).map(i => update_way === UInt(i))
     when (valid) {
@@ -522,7 +523,8 @@ class L2MetadataArray(implicit p: Parameters) extends L2HellaCacheModule()(p) {
   val s2_tag_match = s2_tag_match_way.orR
   val s2_hit_coh = Mux1H(s2_tag_match_way, wayMap((w: Int) => RegEnable(meta.io.resp(w).coh, s1_clk_en)))
 
-  val replacer = new DsidRR(nSets, nWays, p(DsidBits), metaRead.bits.dsid, s1_dsid, io.cachePartitionConfig)
+  val s1_valid_way = wayMap((w: Int) => meta.io.resp(w).coh.outer.isValid()).asUInt
+  val replacer = new DsidRR(nSets, nWays, p(DsidBits), metaRead.bits.dsid, s1_dsid, s1_valid_way, io.cachePartitionConfig)
   val s1_hit_way = Wire(Bits())
   s1_hit_way := Bits(0)
   (0 until nWays).foreach(i => when (s1_tag_match_way(i)) { s1_hit_way := Bits(i) })

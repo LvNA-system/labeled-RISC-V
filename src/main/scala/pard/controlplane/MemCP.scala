@@ -93,6 +93,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
     writeCounterRegs(Mux(cpRWEn, wrow, monitor.writeDsid)) := writeCounterWdata
   }
 
+  io.rw.rready := true.B
   // ControlPlaneIO
   // read decoding
   when (cpRen) {
