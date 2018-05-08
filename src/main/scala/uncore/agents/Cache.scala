@@ -261,7 +261,8 @@ class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, s0_dsid: UInt, s1_dsid: U
   val set_dsids = Wire(Vec(n_ways, UInt(width = dsid_bits)))
 
   cache_config.p_dsid := s0_dsid
-  val curr_mask = cache_config.waymask
+  val curr_mask = Mux(cache_config.waymask === 0.U,
+    UInt((BigInt(1) << n_ways) - 1), cache_config.waymask)
 
   val target_way = Mux((curr_state & curr_mask).orR, PriorityEncoder(curr_state & curr_mask),
     Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
