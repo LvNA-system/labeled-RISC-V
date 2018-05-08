@@ -376,6 +376,7 @@ int main(int argc, char *argv[]) {
   }
 
   init_platform(ip, port);
+  reset_soft();
   init_dtm();
 
   ui_mainloop();
