@@ -43,6 +43,20 @@ class PARDFPGAConfigzcu102 extends Config(
   ++ new WithoutFPU
   ++ new WithJtagDTM
   ++ new WithNExtBusAXIChannels(1)
+  ++ new WithExtMemSize(0x10000000000L)
+  ++ new WithNCores(4)
+  ++ new WithRTCPeriod(10) // gives 10 MHz RTC assuming 100 MHz uncore clock
+  ++ new WithL2Capacity(2048)
+  ++ new WithNL2Ways(16)
+  ++ new DefaultL2FPGAConfig
+)
+
+class PARDFPGAConfigsidewinder extends Config(
+  new WithBlockingL1
+  ++ new WithDirectBoot
+  ++ new WithoutFPU
+  ++ new WithJtagDTM
+  ++ new WithNExtBusAXIChannels(1)
   ++ new WithExtMemSize(0x80000000L)
   ++ new WithNCores(4)
   ++ new WithRTCPeriod(10) // gives 10 MHz RTC assuming 100 MHz uncore clock
