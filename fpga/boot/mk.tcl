@@ -48,7 +48,9 @@ exec bootgen -arch ${arch} -image ${script_dir}/bootgen-${arch}.bif -w -o i ${bu
 #device tree
 set_repo_path ${device_tree_repo_path}
 create_sw_design device-tree -os device_tree -proc $processor
-set_property CONFIG.periph_type_overrides "{BOARD ${brd_version}}" [get_os]
+if {$brd != "ultraZ"} {
+  set_property CONFIG.periph_type_overrides "{BOARD ${brd_version}}" [get_os]
+}
 generate_target -dir ${build_dir}/dts
 
 exit
