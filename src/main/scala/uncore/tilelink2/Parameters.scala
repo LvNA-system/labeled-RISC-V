@@ -47,7 +47,7 @@ case class TLManagerParameters(
       require (a.contiguous) // Config String is not so flexible
       "  addr 0x%x;\n  size 0x%x;\n".format(a.base, a.mask+1)
     }
-    val footer = "}\n"
+    val footer = "};\n"
     header + middle.reduce(_ + _) + footer
   }
 
