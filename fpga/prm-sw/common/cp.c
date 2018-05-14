@@ -1,10 +1,6 @@
 #include "common.h"
 #include "dmi.h"
 
-// control plane address space
-static const int cpAddrSize = 32;
-static const int cpDataSize = 32;
-
 // control plane register address space;
 // 31     23        21     11       0;
 // +-------+--------+-------+-------+;
