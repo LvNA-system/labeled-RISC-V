@@ -13,18 +13,27 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define ARCH ARM64
+#define BOARD_zedboard   0
+#define BOARD_zcu102     1
+#define BOARD_sidewinder 2
+#define BOARD_ultraZ     3
 
-#if ARCH == ARM64
-# define DDR_TOTAL_SIZE		0x80000000
+#define BOARD BOARD_ultraZ
+
+#if BOARD == BOARD_zcu102
+# define DDR_TOTAL_SIZE		((uintptr_t)0x80000000)
 # define DDR_BASE_ADDR		((uintptr_t)0x800000000)
-# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x80002000)
-#elif ARCH == ARM
+# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x80010000)
+#elif BOARD == BOARD_ultraZ
+# define DDR_TOTAL_SIZE		((uintptr_t)0x40000000)
+# define DDR_BASE_ADDR		((uintptr_t)0x40000000)
+# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x80010000)
+#elif BOARD == BOARD_zedboard
 # define DDR_TOTAL_SIZE		((uintptr_t)0x10000000)
 # define DDR_BASE_ADDR		((uintptr_t)0x10000000)
-# define GPIO_RESET_BASE_ADDR	0x41200000
+# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x41200000)
 #elif
-# error unsupported ARCH
+# error unsupported BOARD
 #endif
 
 #define GPIO_RESET_TOTAL_SIZE	0x1000
@@ -88,6 +97,7 @@ void init_map() {
 	} 
 
 	gpio_reset_base = create_map(GPIO_RESET_TOTAL_SIZE, fd, GPIO_RESET_BASE_ADDR);
+	printf("DDR_TOTAL_SIZE = %lx, DDR_BASE_ADDR = %lx\n", DDR_TOTAL_SIZE, DDR_BASE_ADDR);
 	ddr_base = create_map(DDR_TOTAL_SIZE, fd, DDR_BASE_ADDR);
 }
 
