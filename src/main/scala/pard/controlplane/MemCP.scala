@@ -97,6 +97,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
     writeCounterRegs(Mux(cpRWEn, wrow, monitor.writeDsid)) := writeCounterWdata
   }
 
+  io.rw.rready := true.B
   // ControlPlaneIO
   // read decoding
   when (cpRen) {
@@ -112,10 +113,11 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
       UInt(writeCounterCol)   -> writeCounterRdata
     ))
 
-    io.rw.rdata := MuxLookup(rtab, UInt(0), Array(
+    val rdata = MuxLookup(rtab, UInt(0), Array(
       UInt(ptabIdx)   -> ptabData,
       UInt(stabIdx)   -> stabData
     ))
+    io.rw.rdata := RegNext(rdata)
   }
 
   // write

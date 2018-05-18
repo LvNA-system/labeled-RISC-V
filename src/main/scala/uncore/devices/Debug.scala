@@ -764,6 +764,8 @@ class DebugModule ()(implicit val p:cde.Parameters)
   // for cp write, you need to write high first, when you write low, the data is actually written
   val cpWen = cpDataLowWriteFire && cpBusy
 
+  val cpReady = io.cpio.rready
+
   // give priority to system bus cp access
   io.cpio.ren := cpRen || sbCPRdEn
   io.cpio.raddr := Mux(sbCPRdEn, sbCPAddr, cpAddr.addr)
@@ -787,7 +789,8 @@ class DebugModule ()(implicit val p:cde.Parameters)
     cpBusy := false.B
   }
 
-  when (cpRen) { cpDataReg := io.cpio.rdata }
+  // Now, control plane registers are sync read/write
+  when (RegNext(cpRen && cpReady)) { cpDataReg := io.cpio.rdata }
 
   // handle read on sbusaddr0 and sdata0
   when (cpAddrReadFire) {
@@ -950,7 +953,7 @@ class DebugModule ()(implicit val p:cde.Parameters)
 
   // -----------------------------------------
   // DB Access State Machine Decode (Combo)
-  io.db.req.ready := !stallFromSb && ((dbStateReg === s_DB_READY) ||
+  io.db.req.ready := !stallFromSb && cpReady && ((dbStateReg === s_DB_READY) ||
     (dbStateReg === s_DB_RESP && io.db.resp.fire()))
 
   io.db.resp.valid := (dbStateReg === s_DB_RESP)
@@ -1166,7 +1169,10 @@ class DebugModule ()(implicit val p:cde.Parameters)
   }
   
 
-  io.tl.grant.valid := sbAcqValidReg
+  // cacheCP uses SeqMem instead of Reg
+  // so we turn control plane into sync read/write
+  // the result will be valid in next cycle
+  io.tl.grant.valid := Mux(sbCPRdEn, RegNext(sbCPRdEn && cpReady), sbAcqValidReg)
   io.tl.grant.bits := Grant(
     is_builtin_type = Bool(true),
     g_type = sbAcqReg.getBuiltInGrantType(),

@@ -65,6 +65,7 @@ class ControlPlaneRWIO(implicit p: Parameters) extends ControlPlaneBundle
   with HasControlPlaneParameters {
   // read
   val ren = Bool(OUTPUT)
+  val rready = Bool(INPUT)
   val raddr = UInt(OUTPUT, width = cpAddrSize)
   val rdata = UInt(INPUT, width = cpDataSize)
 
@@ -103,6 +104,8 @@ class ControlPlaneTopModule(implicit p: Parameters) extends ControlPlaneModule {
   coreCP.io.rw <> io.rw
   cacheCP.io.rw <> io.rw
   memCP.io.rw <> io.rw
+
+  io.rw.rready := coreCP.io.rw.rready && cacheCP.io.rw.rready && memCP.io.rw.rready
 
   coreCP.io.rw.ren := io.rw.ren && (coreCP.cpIdx === rcpIdx)
   coreCP.io.rw.wen := io.rw.wen && (coreCP.cpIdx === wcpIdx)

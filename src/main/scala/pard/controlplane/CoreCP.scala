@@ -66,15 +66,18 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
     }
   }
 
+  io.rw.rready := true.B
+
   // read
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
-  io.rw.rdata := Mux(io.rw.ren, MuxLookup(rcol, UInt(0), Array(
+  val rdata = Mux(io.rw.ren, MuxLookup(rcol, UInt(0), Array(
     UInt(dsidCol)   -> ptabDsidRegs(rrow),
     UInt(baseCol)   -> ptabBaseRegs(rrow),
     UInt(sizeCol)   -> ptabSizeRegs(rrow),
     UInt(hartidCol) -> ptabHartidRegs(rrow)
   )), UInt(0))
+  io.rw.rdata := RegNext(rdata)
 
   // write
   val wrow = getRowFromAddr(io.rw.waddr)
