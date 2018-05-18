@@ -210,8 +210,8 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
       bktCh.ready := axiCh.ready
       bktCh.bits := (axiCh.bits.len + 1.U) << axiCh.bits.size
     }
-    bucketIO.rmatch := axiIn.ar.bits.user === UInt(i)
-    bucketIO.wmatch := axiIn.aw.bits.user === UInt(i)
+    bucketIO.rmatch := axiIn.ar.bits.user === tokenBucketConfig.dsid(i)
+    bucketIO.wmatch := axiIn.aw.bits.user === tokenBucketConfig.dsid(i)
 
     coreplexTrafficEnable(i).dsid := UInt(i)
     coreplexTrafficEnable(i).enable := bucketIO.enable

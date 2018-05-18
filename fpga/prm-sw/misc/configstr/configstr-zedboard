@@ -45,7 +45,7 @@ rtc {
 };
 ram {
   0 {
-    addr 0x80000000;
+    addr 0x100000000;
     size 0x10000000;
   };
 };
@@ -111,7 +111,7 @@ core {
 eth {
   interface "xilinx-eth-rv";
   dma {
-    mem { 0x60020000 0x6002ffff; };
+    mem { 0x60010000 0x60010fff; };
   };
   tx { irq 0; };
   rx { irq 1; };
@@ -119,16 +119,20 @@ eth {
 bootrom {
   addr 0x1000;
   size 0x1000;
-}
+};
 debug {
   addr 0x0;
   size 0x1000;
-}
+};
 clint {
   addr 0x2000000;
   size 0x10000;
-}
+};
 plic {
   addr 0xc000000;
   size 0x4000000;
+};
+uart0 {
+  addr 0x60000000;
+  size 0x1000;
 };

@@ -1,5 +1,5 @@
-set device xczu9eg-ffvb1156-2-e
-set board xilinx.com:zcu102:part0:3.1
+set device xczu19eg-ffvc1760-2-i-es2
+set board fidus:none:part0:2.0
 
 set script_dir  [file dirname [info script]]
 

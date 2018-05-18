@@ -1,15 +1,40 @@
 plic {
+  interface "plic";
   priority 0xc000000;
   pending 0xc001000;
   ndevs 2;
+  0 {
+    0 {
+      m {
+       ie  { mem { 0xc002000 0xc00207f; }; };
+       ctl { mem { 0xc200000 0xc200007; }; };
+      };
+      s {
+       ie  { mem { 0xc002080 0xc0020ff; }; };
+       ctl { mem { 0xc201000 0xc201007; }; };
+      };
+    };
+  };
+  1 {
+    0 {
+      m {
+       ie  { mem { 0xc002100 0xc00217f; }; };
+       ctl { mem { 0xc202000 0xc202007; }; };
+      };
+      s {
+       ie  { mem { 0xc002180 0xc0021ff; }; };
+       ctl { mem { 0xc203000 0xc203007; }; };
+      };
+    };
+  };
 };
 rtc {
   addr 0x200bff8;
 };
 ram {
   0 {
-    addr 0x80000000;
-    size 0x80000000;
+    addr 0x100000000;
+    size 0x40000000;
   };
 };
 core {
@@ -51,44 +76,14 @@ core {
       };
     };
   };
-  2 {
-    0 {
-      isa rv64imas;
-      timecmp 0x2004010;
-      ipi 0x2000008;
-      plic {
-        m {
-         ie 0xc002200;
-         thresh 0xc204000;
-         claim 0xc204004;
-        };
-        s {
-         ie 0xc002280;
-         thresh 0xc205000;
-         claim 0xc205004;
-        };
-      };
-    };
+};
+eth {
+  interface "xilinx-eth-rv";
+  dma {
+    mem { 0x60010000 0x60010fff; };
   };
-  3 {
-    0 {
-      isa rv64imas;
-      timecmp 0x2004018;
-      ipi 0x200000c;
-      plic {
-        m {
-         ie 0xc002300;
-         thresh 0xc206000;
-         claim 0xc206004;
-        };
-        s {
-         ie 0xc002380;
-         thresh 0xc207000;
-         claim 0xc207004;
-        };
-      };
-    };
-  };
+  tx { irq 0; };
+  rx { irq 1; };
 };
 bootrom {
   addr 0x1000;
@@ -102,11 +97,7 @@ clint {
   addr 0x2000000;
   size 0x10000;
 }
-PARDFPGATop {
-  addr 0x60000000;
-  size 0x20000000;
-}
 plic {
   addr 0xc000000;
   size 0x4000000;
-}
+};

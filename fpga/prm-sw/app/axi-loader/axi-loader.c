@@ -13,17 +13,37 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define DDR_TOTAL_SIZE		(1 << 28)
-#define DDR_BASE_ADDR		0x10000000
+#define BOARD_zedboard   0
+#define BOARD_zcu102     1
+#define BOARD_sidewinder 2
+#define BOARD_ultraZ     3
 
-#define GPIO_RESET_TOTAL_SIZE	(1 << 16)
-#define GPIO_RESET_BASE_ADDR	0x41200000
+#define BOARD BOARD_ultraZ
+
+#if BOARD == BOARD_zcu102
+# define DDR_TOTAL_SIZE		((uintptr_t)0x80000000)
+# define DDR_BASE_ADDR		((uintptr_t)0x800000000)
+# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x80010000)
+#elif BOARD == BOARD_ultraZ
+# define DDR_TOTAL_SIZE		((uintptr_t)0x40000000)
+# define DDR_BASE_ADDR		((uintptr_t)0x40000000)
+# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x80010000)
+#elif BOARD == BOARD_zedboard
+# define DDR_TOTAL_SIZE		((uintptr_t)0x10000000)
+# define DDR_BASE_ADDR		((uintptr_t)0x10000000)
+# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x41200000)
+#elif
+# error unsupported BOARD
+#endif
+
+#define GPIO_RESET_TOTAL_SIZE	0x1000
+#define LDOM_MEM_SIZE		(DDR_TOTAL_SIZE / 2)
 
 void *ddr_base;
 volatile uint32_t *gpio_reset_base;
 int	fd;
 
-void loader(char *imgfile, char *dtbfile, int offset) {
+void loader(char *imgfile, char *dtbfile, uint32_t offset) {
 	FILE *fp = fopen(imgfile, "rb");
 	assert(fp);
 
@@ -32,22 +52,25 @@ void loader(char *imgfile, char *dtbfile, int offset) {
 	printf("image size = %ld\n", size);
 
 	fseek(fp, 0, SEEK_SET);
-	fread(ddr_base + offset, size, 1, fp);
+
+	size_t ret = fread(ddr_base + offset, size, 1, fp);
+  assert(ret == 1);
 
 	fclose(fp);
 
 	fp = fopen(dtbfile, "rb");
 	if (fp == NULL) {
-		printf("No valid dtb file provided. Dtb in bootrom will be used.\n");
+		printf("No valid configure string file provided. Configure string in bootrom will be used.\n");
 		return ;
 	}
 
 	fseek(fp, 0, SEEK_END);
 	size = ftell(fp);
-	printf("dtb size = %ld\n", size);
+	printf("configure string size = %ld\n", size);
 
 	fseek(fp, 0, SEEK_SET);
-	fread(ddr_base + offset + 0x8, size, 1, fp);
+	ret = fread(ddr_base + offset + 0x8, size, 1, fp);
+  assert(ret == 1);
 
 	fclose(fp);
 }
@@ -55,11 +78,13 @@ void loader(char *imgfile, char *dtbfile, int offset) {
 void* create_map(size_t size, int fd, off_t offset) {
 	void *base = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, offset);
 	
-	if (base == NULL) {
+	if (base == MAP_FAILED) {
 		perror("init_mem mmap failed:");
 		close(fd);
 		exit(1);
 	}
+
+	printf("mapping paddr 0x%lx to vaddr 0x%lx\n", offset, (uintptr_t)base);
 
 	return base;
 }
@@ -72,6 +97,7 @@ void init_map() {
 	} 
 
 	gpio_reset_base = create_map(GPIO_RESET_TOTAL_SIZE, fd, GPIO_RESET_BASE_ADDR);
+	printf("DDR_TOTAL_SIZE = %lx, DDR_BASE_ADDR = %lx\n", DDR_TOTAL_SIZE, DDR_BASE_ADDR);
 	ddr_base = create_map(DDR_TOTAL_SIZE, fd, DDR_BASE_ADDR);
 }
 
@@ -93,8 +119,6 @@ int main(int argc, char *argv[]) {
 	resetn(0);
 
 	loader(argv[1], argv[2], 0);
-
-//	loader(argv[1], argv[2], 0x4000000);
 
 	/* finish resetting RISC-V cores */
 	resetn(3);

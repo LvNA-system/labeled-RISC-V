@@ -165,7 +165,7 @@ object GenerateConfigString {
       res append s"${entry.name} {\n"
       res append s"  addr 0x${region.start.toString(16)};\n"
       res append s"  size 0x${region.size.toString(16)}; \n"
-      res append  "}\n"
+      res append  "};\n"
     }
     peripheryManagers.foreach { manager => res append manager.dts }
     res append '\u0000'

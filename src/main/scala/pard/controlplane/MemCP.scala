@@ -18,6 +18,8 @@ class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val sizes = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
   val freqs = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
   val incs  = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
+  val dsid = Vec(nTiles, UInt(OUTPUT, width = cpDataSize))
+
   override def cloneType = (new TokenBucketConfigIO).asInstanceOf[this.type]
 }
 
@@ -38,6 +40,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val freqRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
   val incCol = 2
   val incRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
+  val dsidCol = 3
+  val dsidRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
 
   // stab
   val readCounterCol = 0
@@ -68,7 +72,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
 
   // read
   val rtab = getTabFromAddr(io.rw.raddr)
-  val rrow = getRowFromAddr(io.rw.raddr)
+  val rrow = getRowFromAddr(io.rw.raddr) >> p(LDomDsidBits)
   val rcol = getColFromAddr(io.rw.raddr)
 
   val readCounterRdata = readCounterRegs(Mux(cpRWEn, rrow, monitor.readDsid))
@@ -76,7 +80,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
 
   // write
   val wtab = getTabFromAddr(io.rw.waddr)
-  val wrow = getRowFromAddr(io.rw.waddr)
+  val wrow = getRowFromAddr(io.rw.waddr) >> p(LDomDsidBits)
   val wcol = getColFromAddr(io.rw.waddr)
 
   val cpReadCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(readCounterCol)
@@ -100,7 +104,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
     val ptabData = MuxLookup(rcol, UInt(0), Array(
       UInt(sizeCol)   -> sizeRegs(rrow),
       UInt(freqCol)   -> freqRegs(rrow),
-      UInt(incCol)   -> incRegs(rrow)
+      UInt(incCol)   -> incRegs(rrow),
+      UInt(dsidCol)  -> dsidRegs(rrow)
     ))
 
     val stabData = MuxLookup(rcol, UInt(0), Array(
@@ -130,6 +135,9 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
           is (UInt(incCol)) {
             incRegs(wrow) := io.rw.wdata
           }
+          is (UInt(dsidCol)) {
+            dsidRegs(wrow) := (io.rw.wdata << p(LDomDsidBits))
+          }
         }
       }
     }
@@ -138,5 +146,6 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   // wire out cpRegs
   (io.tokenBucketConfig.sizes zip sizeRegs) ++
     (io.tokenBucketConfig.freqs zip freqRegs) ++
-    (io.tokenBucketConfig.incs zip incRegs) map { case (o, i) => o := i } 
+    (io.tokenBucketConfig.incs zip incRegs) ++
+	(io.tokenBucketConfig.dsid zip dsidRegs) map { case (o, i) => o := i }
 }
