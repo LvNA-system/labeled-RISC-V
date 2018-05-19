@@ -46,8 +46,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   // stab
   val readCounterCol = 0
   val writeCounterCol = 1
-  val readCounterRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
-  val writeCounterRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
+  val readCounterRegs = Reg(Vec(nDsids, UInt(width = cpDataSize)))
+  val writeCounterRegs = Reg(Vec(nDsids, UInt(width = cpDataSize)))
 
   when (reset) {
     for (i <- 0 until nTiles) {
@@ -72,7 +72,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
 
   // read
   val rtab = getTabFromAddr(io.rw.raddr)
-  val rrow = getRowFromAddr(io.rw.raddr) >> p(LDomDsidBits)
+  val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
 
   val readCounterRdata = readCounterRegs(Mux(cpRWEn, rrow, monitor.readDsid))
@@ -80,7 +80,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
 
   // write
   val wtab = getTabFromAddr(io.rw.waddr)
-  val wrow = getRowFromAddr(io.rw.waddr) >> p(LDomDsidBits)
+  val wrow = getRowFromAddr(io.rw.waddr)
   val wcol = getColFromAddr(io.rw.waddr)
 
   val cpReadCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(readCounterCol)
@@ -136,7 +136,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
             incRegs(wrow) := io.rw.wdata
           }
           is (UInt(dsidCol)) {
-            dsidRegs(wrow) := (io.rw.wdata << p(LDomDsidBits))
+            dsidRegs(wrow) := io.rw.wdata
           }
         }
       }
