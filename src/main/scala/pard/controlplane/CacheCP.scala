@@ -80,8 +80,8 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   // update cache access/miss statistics have the following stages
   //   1. read out the old value
   //   2. update with old value + 1
-  val accessCounterRegs = SeqMem(nDsids, UInt(width = cpDataSize))
-  val missCounterRegs = SeqMem(nDsids, UInt(width = cpDataSize))
+  val accessCounterRegs = SeqMem(nDsids, UInt(width = 32))
+  val missCounterRegs = SeqMem(nDsids, UInt(width = 32))
 
   val cacheAccessWen = cacheRWEn
   val cacheMissWen = cacheRWEn && miss

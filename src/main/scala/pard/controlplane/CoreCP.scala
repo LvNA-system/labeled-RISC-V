@@ -5,6 +5,7 @@ package pard.cp
 import Chisel._
 import cde.{Parameters, Field}
 import rocketchip.{ExtMemSize, ExtMemBase}
+import junctions.{PAddrBits}
 
 case object LDomDsidBits extends Field[Int]
 case object UseNoHype extends Field[Boolean]
@@ -43,9 +44,9 @@ class CoreControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule 
   val hartidCol = 3
 
   val ptabDsidRegs   = Reg(Vec(nTiles, UInt(width = p(LDomDsidBits))))
-  val ptabBaseRegs   = Reg(Vec(nTiles, UInt(width = cpDataSize)))
-  val ptabSizeRegs   = Reg(Vec(nTiles, UInt(width = cpDataSize)))
-  val ptabHartidRegs = Reg(Vec(nTiles, UInt(width = cpDataSize)))
+  val ptabBaseRegs   = Reg(Vec(nTiles, UInt(width = p(PAddrBits))))
+  val ptabSizeRegs   = Reg(Vec(nTiles, UInt(width = p(PAddrBits))))
+  val ptabHartidRegs = Reg(Vec(nTiles, UInt(width = p(LDomDsidBits))))
 
   when (reset) {
     for (i <- 0 until nTiles) {
