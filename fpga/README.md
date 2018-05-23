@@ -46,8 +46,7 @@ The following files will be generated
 2. `emulator/build/test/emu.log` is the output of emulator, including `printf()` and `assert()` in scala code
 3. `emulator/build/test/serial@6000?000` is the output of the ?th UART. Use `tail -f serial@60000000` to observe the output.
 
-It may cost about one hour (it depends on the performance of your host) to boot linux in emulator. After `stream` exits, kernel will display a panic message, since `stream` is the first process (`init`) from the view of kernel.
-This is expected, since we use a minimal rootfs, and it can be considered as running emulator successfully.
+It may cost about one hour (it depends on the performance of your host) to boot linux in emulator. After `stream` exits, it can be considered as running emulator successfully.
 
 ### Run with FPGA
 
