@@ -2,8 +2,15 @@
 
 package freechips.rocketchip.jtag
 
-import chisel3._
+import scala.collection.SortedMap
+
+// !!! See Issue #1160.
+// import chisel3._
+import Chisel._
+import chisel3.core.{Input, Output}
 import chisel3.util._
+import chisel3.experimental.withReset
+
 import freechips.rocketchip.config.Parameters
 
 /** JTAG signals, viewed from the master side
@@ -66,22 +73,26 @@ class JtagTapController(irLength: Int, initialInstruction: BigInt)(implicit val 
 
   val tdo = Wire(Bool())  // 4.4.1c TDI should appear here uninverted after shifting
   val tdo_driven = Wire(Bool())
-  io.jtag.TDO.data := NegativeEdgeLatch(clock, tdo, name = Some("tdoReg"))  // 4.5.1a TDO changes on falling edge of TCK, 6.1.2.1d driver active on first TCK falling edge in ShiftIR and ShiftDR states
-  io.jtag.TDO.driven := NegativeEdgeLatch(clock, tdo_driven, name = Some("tdoeReg"))
+  io.jtag.TDO.data := NegEdgeReg(clock, tdo, name = Some("tdoReg"))  // 4.5.1a TDO changes on falling edge of TCK, 6.1.2.1d driver active on first TCK falling edge in ShiftIR and ShiftDR states
+  io.jtag.TDO.driven := NegEdgeReg(clock, tdo_driven, name = Some("tdoeReg"))
 
   //
   // JTAG state machine
   //
-  val stateMachine = Module(new JtagStateMachine)
-  stateMachine.io.tms := io.jtag.TMS
-  val currState = stateMachine.io.currState
-  io.output.state := stateMachine.io.currState
+
+  val currState = Wire(JtagState.State.chiselType)
 
   // At this point, the TRSTn should already have been
   // combined with any POR, and it should also be
   // synchronized to TCK.
   require(!io.jtag.TRSTn.isDefined, "TRSTn should be absorbed into jtckPOReset outside of JtagTapController.")
-  stateMachine.io.jtag_reset := io.control.jtag_reset
+  withReset(io.control.jtag_reset) {
+    val stateMachine = Module(new JtagStateMachine)
+    stateMachine.suggestName("stateMachine")
+    stateMachine.io.tms := io.jtag.TMS
+    currState := stateMachine.io.currState
+    io.output.state := stateMachine.io.currState
+  }
 
   //
   // Instruction Register
@@ -100,7 +111,7 @@ class JtagTapController(irLength: Int, initialInstruction: BigInt)(implicit val 
   val updateInstruction = Wire(Bool())
 
   val nextActiveInstruction = Wire(UInt(irLength.W))
-  val activeInstruction = NegativeEdgeLatch(clock, nextActiveInstruction, updateInstruction, name = Some("irReg"))   // 7.2.1d active instruction output latches on TCK falling edge
+  val activeInstruction = NegEdgeReg(clock, nextActiveInstruction, updateInstruction, name = Some("irReg"))   // 7.2.1d active instruction output latches on TCK falling edge
 
   when (reset.toBool) {
     nextActiveInstruction := initialInstruction.U(irLength.W)
@@ -109,6 +120,8 @@ class JtagTapController(irLength: Int, initialInstruction: BigInt)(implicit val 
     nextActiveInstruction := irChain.io.update.bits
     updateInstruction := true.B
   } .otherwise {
+    //!!! Needed when using chisel3._ (See #1160)
+    // nextActiveInstruction := DontCare
     updateInstruction := false.B
   }
   io.output.instruction := activeInstruction
@@ -133,6 +146,8 @@ class JtagTapController(irLength: Int, initialInstruction: BigInt)(implicit val 
     tdo := irChain.io.chainOut.data
     tdo_driven := true.B
   } .otherwise {
+    //!!! Needed when using chisel3._ (See #1160)
+    //tdo := DontCare
     tdo_driven := false.B
   }
 }
@@ -203,9 +218,12 @@ object JtagTapGenerator {
     bypassChain.io.chainIn := controllerInternal.io.dataChainOut  // for simplicity, doesn't visibly affect anything else
     require(allInstructions.size > 0, "Seriously? JTAG TAP with no instructions?")
 
-    val chainToIcode = allInstructions groupBy { case (icode, chain) => chain } map {
+    // Need to ensure that this mapping is ordered to produce deterministic verilog,
+    // and neither Map nor groupBy are deterministic.
+    // Therefore, we first sort by IDCODE, then sort the groups by the first IDCODE in each group.
+    val chainToIcode = (SortedMap(allInstructions.toList:_*).groupBy { case (icode, chain) => chain } map {
       case (chain, icodeToChain) => chain -> icodeToChain.keys
-    }
+    }).toList.sortBy(_._2.head)
 
     val chainToSelect = chainToIcode map {
       case (chain, icodes) => {
@@ -240,8 +258,8 @@ object JtagTapGenerator {
     chainToSelect.map(mapInSelect)
 
     controllerInternal.io.jtag <> internalIo.jtag
-    controllerInternal.io.control <> internalIo.control
-    controllerInternal.io.output <> internalIo.output
+    internalIo.control <> controllerInternal.io.control
+    internalIo.output <> controllerInternal.io.output
 
     internalIo
   }

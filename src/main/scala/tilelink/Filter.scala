@@ -3,7 +3,6 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import scala.math.{min,max}
@@ -29,28 +28,42 @@ class TLFilter(
       }
       out
     })},
-    managerFn = { mp => mp.copy(managers = mp.managers.flatMap { m =>
-      val out = Mfilter(m)
-      out.map { o => // Confirm the filter only REMOVES capability
-        o.address.foreach { a => require (m.address.map(_.contains(a)).reduce(_||_)) }
-        require (o.regionType <= m.regionType)
-        // we allow executable to be changed both ways
-        require (m.supportsAcquireT.contains(o.supportsAcquireT))
-        require (m.supportsAcquireB.contains(o.supportsAcquireB))
-        require (m.supportsArithmetic.contains(o.supportsArithmetic))
-        require (m.supportsLogical.contains(o.supportsLogical))
-        require (m.supportsGet.contains(o.supportsGet))
-        require (m.supportsPutFull.contains(o.supportsPutFull))
-        require (m.supportsPutPartial.contains(o.supportsPutPartial))
-        require (m.supportsHint.contains(o.supportsHint))
-        require (m.fifoId == o.fifoId) // could relax this, but hard to validate
+    managerFn = { mp =>
+      val managers = mp.managers.flatMap { m =>
+        val out = Mfilter(m)
+        out.map { o => // Confirm the filter only REMOVES capability
+          o.address.foreach { a => require (m.address.map(_.contains(a)).reduce(_||_)) }
+          require (o.regionType <= m.regionType)
+          // we allow executable to be changed both ways
+          require (m.supportsAcquireT.contains(o.supportsAcquireT))
+          require (m.supportsAcquireB.contains(o.supportsAcquireB))
+          require (m.supportsArithmetic.contains(o.supportsArithmetic))
+          require (m.supportsLogical.contains(o.supportsLogical))
+          require (m.supportsGet.contains(o.supportsGet))
+          require (m.supportsPutFull.contains(o.supportsPutFull))
+          require (m.supportsPutPartial.contains(o.supportsPutPartial))
+          require (m.supportsHint.contains(o.supportsHint))
+          require (!o.fifoId.isDefined || m.fifoId == o.fifoId)
+        }
+        out
       }
-      out
-    })})
+      mp.copy(managers = managers,
+              endSinkId = if (managers.exists(_.supportsAcquireB)) mp.endSinkId else 0)
+    })
 
   lazy val module = new LazyModuleImp(this) {
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       out <> in
+
+      // In case the inner interface removes Acquire, tie-off the channels
+      if (!edgeIn.manager.anySupportAcquireB) {
+        in.b.valid := Bool(false)
+        in.c.ready := Bool(true)
+        in.e.ready := Bool(true)
+        out.b.ready := Bool(true)
+        out.c.valid := Bool(false)
+        out.e.valid := Bool(false)
+      }
     }
   }
 }
@@ -92,9 +105,9 @@ object TLFilter
   def apply(
     Mfilter: TLManagerParameters => Option[TLManagerParameters] = TLFilter.Midentity,
     Cfilter: TLClientParameters  => Option[TLClientParameters]  = TLFilter.Cidentity
-    )(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
+    )(implicit p: Parameters): TLNode =
+  {
     val filter = LazyModule(new TLFilter(Mfilter, Cfilter))
-    filter.node := x
     filter.node
   }
 }

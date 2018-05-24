@@ -10,8 +10,11 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.rocket.Instructions._
 import freechips.rocketchip.util._
+import freechips.rocketchip.util.property._
+import chisel3.internal.sourceinfo.SourceInfo
 
 case class FPUParams(
+  fLen: Int = 64,
   divSqrt: Boolean = true,
   sfmaLatency: Int = 3,
   dfmaLatency: Int = 4
@@ -166,6 +169,12 @@ class FPResult(implicit p: Parameters) extends CoreBundle()(p) {
   val exc = Bits(width = FPConstants.FLAGS_SZ)
 }
 
+class IntToFPInput(implicit p: Parameters) extends CoreBundle()(p) with HasFPUCtrlSigs {
+  val rm = Bits(width = FPConstants.RM_SZ)
+  val typ = Bits(width = 2)
+  val in1 = Bits(width = xLen)
+}
+
 class FPInput(implicit p: Parameters) extends CoreBundle()(p) with HasFPUCtrlSigs {
   val rm = Bits(width = FPConstants.RM_SZ)
   val fmaCmd = Bits(width = 2)
@@ -231,6 +240,7 @@ object FType {
 }
 
 trait HasFPUParameters {
+  require(fLen == 32 || fLen == 64)
   val fLen: Int
   def xLen: Int
   val minXLen = 32
@@ -362,7 +372,7 @@ trait HasFPUParameters {
 
 abstract class FPUModule(implicit p: Parameters) extends CoreModule()(p) with HasFPUParameters
 
-class FPToInt(implicit p: Parameters) extends FPUModule()(p) {
+class FPToInt(implicit p: Parameters) extends FPUModule()(p) with ShouldBeRetimed {
   class Output extends Bundle {
     val in = new FPInput
     val lt = Bool()
@@ -388,7 +398,7 @@ class FPToInt(implicit p: Parameters) extends FPUModule()(p) {
   val store = ieee(in.in1)
   val toint = Wire(init = store)
   val intType = Wire(init = tag)
-  io.out.bits.store := ((0 until nIntTypes).map(i => Fill(1 << (nIntTypes - i - 1), store((minXLen << i) - 1, 0))): Seq[UInt])(tag)
+  io.out.bits.store := (floatTypes.map(t => Fill(maxType.ieeeWidth / t.ieeeWidth, store(t.ieeeWidth - 1, 0))): Seq[UInt])(tag)
   io.out.bits.toint := ((0 until nIntTypes).map(i => toint((minXLen << i) - 1, 0).sextTo(xLen)): Seq[UInt])(intType)
   io.out.bits.exc := Bits(0)
 
@@ -437,9 +447,9 @@ class FPToInt(implicit p: Parameters) extends FPUModule()(p) {
   io.out.bits.in := in
 }
 
-class IntToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
+class IntToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) with ShouldBeRetimed {
   val io = new Bundle {
-    val in = Valid(new FPInput).flip
+    val in = Valid(new IntToFPInput).flip
     val out = Valid(new FPResult)
   }
 
@@ -482,7 +492,7 @@ class IntToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
   io.out <> Pipe(in.valid, mux, latency-1)
 }
 
-class FPToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) {
+class FPToFP(val latency: Int)(implicit p: Parameters) extends FPUModule()(p) with ShouldBeRetimed {
   val io = new Bundle {
     val in = Valid(new FPInput).flip
     val out = Valid(new FPResult)
@@ -605,7 +615,8 @@ class MulAddRecFNPipe(latency: Int, expWidth: Int, sigWidth: Int) extends Module
     io.exceptionFlags := roundRawFNToRecFN.io.exceptionFlags
 }
 
-class FPUFMAPipe(val latency: Int, val t: FType)(implicit p: Parameters) extends FPUModule()(p) {
+class FPUFMAPipe(val latency: Int, val t: FType)
+                (implicit p: Parameters) extends FPUModule()(p) with ShouldBeRetimed {
   require(latency>0)
 
   val io = new Bundle {
@@ -768,6 +779,7 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   val wbInfo = Reg(Vec(maxLatency-1, new WBInfo))
   val mem_wen = mem_reg_valid && (mem_ctrl.fma || mem_ctrl.fastpipe || mem_ctrl.fromint)
   val write_port_busy = RegEnable(mem_wen && (memLatencyMask & latencyMask(ex_ctrl, 1)).orR || (wen & latencyMask(ex_ctrl, 0)).orR, req_valid)
+  ccover(mem_reg_valid && write_port_busy, "WB_STRUCTURAL", "structural hazard on writeback")
 
   for (i <- 0 until maxLatency-2) {
     when (wen(i+1)) { wbInfo(i) := wbInfo(i+1) }
@@ -820,11 +832,15 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
   io.sboard_set := wb_reg_valid && !wb_cp_valid && Reg(next=useScoreboard(_._1.cond(mem_ctrl)) || mem_ctrl.div || mem_ctrl.sqrt)
   io.sboard_clr := !wb_cp_valid && (divSqrt_wen || (wen(0) && useScoreboard(x => wbInfo(0).pipeid === UInt(x._2))))
   io.sboard_clra := waddr
+  ccover(io.sboard_clr && load_wb, "DUAL_WRITEBACK", "load and FMA writeback on same cycle")
   // we don't currently support round-max-magnitude (rm=4)
   io.illegal_rm := io.inst(14,12).isOneOf(5, 6) || io.inst(14,12) === 7 && io.fcsr_rm >= 5
 
   if (cfg.divSqrt) {
     val divSqrt_killed = Reg(Bool())
+    ccover(divSqrt_inFlight && divSqrt_killed, "DIV_KILLED", "divide killed after issued to divider")
+    ccover(divSqrt_inFlight && mem_reg_valid && (mem_ctrl.div || mem_ctrl.sqrt), "DIV_BUSY", "divider structural hazard")
+    ccover(mem_reg_valid && divSqrt_write_port_busy, "DIV_WB_STRUCTURAL", "structural hazard on division writeback")
 
     for (t <- floatTypes) {
       val tag = !mem_ctrl.singleOut // TODO typeTag
@@ -873,13 +889,7 @@ class FPU(cfg: FPUParams)(implicit p: Parameters) extends FPUModule()(p) {
     }
     req
   }
-}
 
-/** Mix-ins for constructing tiles that may have an FPU external to the core pipeline */
-trait CanHaveSharedFPU extends HasTileParameters
-
-trait CanHaveSharedFPUModule {
-  val outer: CanHaveSharedFPU
-  val fpuOpt = outer.tileParams.core.fpu.map(params => Module(new FPU(params)(outer.p)))
-  // TODO fpArb could go here instead of inside LegacyRoccComplex
+  def ccover(cond: Bool, label: String, desc: String)(implicit sourceInfo: SourceInfo) =
+    cover(cond, s"FPU_$label", "Core;;" + desc)
 }

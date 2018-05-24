@@ -10,7 +10,6 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
@@ -79,24 +78,23 @@ class TLRationalCrossingSink(direction: RationalDirection = Symmetric)(implicit 
 
 object TLRationalCrossingSource
 {
-  // applied to the TL source node; y.node := TLRationalCrossingSource()(x.node)
-  def apply()(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLRationalOutwardNode = {
-    val source = LazyModule(new TLRationalCrossingSource)
-    source.node :=? x
-    source.node
+  def apply()(implicit p: Parameters) =
+  {
+    val rsource = LazyModule(new TLRationalCrossingSource)
+    rsource.node
   }
 }
 
 object TLRationalCrossingSink
 {
-  // applied to the TL source node; y.node := TLRationalCrossingSink()(x.node)
-  def apply(direction: RationalDirection = Symmetric)(x: TLRationalOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
-    val sink = LazyModule(new TLRationalCrossingSink(direction))
-    sink.node :=? x
-    sink.node
+  def apply(direction: RationalDirection = Symmetric)(implicit p: Parameters) =
+  {
+    val rsink = LazyModule(new TLRationalCrossingSink(direction))
+    rsink.node
   }
 }
 
+@deprecated("TLRationalCrossing is fragile. Use TLRationalCrossingSource and TLRationalCrossingSink", "rocket-chip 1.2")
 class TLRationalCrossing(direction: RationalDirection = Symmetric)(implicit p: Parameters) extends LazyModule
 {
   val source = LazyModule(new TLRationalCrossingSource)
@@ -128,8 +126,11 @@ class TLRAMRationalCrossingSource(name: String, txns: Int)(implicit p: Parameter
   val fuzz  = LazyModule(new TLFuzzer(txns))
   val model = LazyModule(new TLRAMModel(name))
 
-  model.node := fuzz.node
-  node := TLRationalCrossingSource()(TLDelayer(0.25)(model.node))
+  (node
+    := TLRationalCrossingSource()
+    := TLDelayer(0.25)
+    := model.node
+    := fuzz.node)
 
   lazy val module = new LazyModuleImp(this) {
     val io = IO(new Bundle {
@@ -143,7 +144,11 @@ class TLRAMRationalCrossingSink(direction: RationalDirection)(implicit p: Parame
   val node = TLRationalIdentityNode()
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x3ff)))
 
-  ram.node := TLFragmenter(4, 256)(TLDelayer(0.25)(TLRationalCrossingSink(direction)(node)))
+  (ram.node
+    := TLFragmenter(4, 256)
+    := TLDelayer(0.25)
+    := TLRationalCrossingSink(direction)
+    := node)
 
   lazy val module = new LazyModuleImp(this) { }
 }
@@ -192,5 +197,6 @@ class TLRAMRationalCrossing(txns: Int)(implicit p: Parameters) extends LazyModul
 }
 
 class TLRAMRationalCrossingTest(txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
-  io.finished := Module(LazyModule(new TLRAMRationalCrossing(txns)).module).io.finished
+  val dut = Module(LazyModule(new TLRAMRationalCrossing(txns)).module)
+  io.finished := dut.io.finished
 }

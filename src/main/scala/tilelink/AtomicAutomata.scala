@@ -3,7 +3,6 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
@@ -16,7 +15,6 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
   require (concurrency >= 1)
 
   val node = TLAdapterNode(
-    clientFn  = { case cp => require (!cp.unsafeAtomics); cp.copy(unsafeAtomics = true) },
     managerFn = { case mp => mp.copy(managers = mp.managers.map { m =>
       val ourSupport = TransferSizes(1, mp.beatBytes)
       def widen(x: TransferSizes) = if (passthrough && x.min <= 2*mp.beatBytes) TransferSizes(1, max(mp.beatBytes, x.max)) else ourSupport
@@ -25,13 +23,21 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
       require (!m.supportsPutFull || !m.supportsGet || canDoit, s"${m.name} has $ourSupport, needed PutFull(${m.supportsPutFull}) or Get(${m.supportsGet})")
       m.copy(
         supportsArithmetic = if (!arithmetic || !canDoit) m.supportsArithmetic else widen(m.supportsArithmetic),
-        supportsLogical    = if (!logical    || !canDoit) m.supportsLogical    else widen(m.supportsLogical))
+        supportsLogical    = if (!logical    || !canDoit) m.supportsLogical    else widen(m.supportsLogical),
+        mayDenyGet         = m.mayDenyGet || m.mayDenyPut)
     })})
 
   lazy val module = new LazyModuleImp(this) {
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       val managers = edgeOut.manager.managers
       val beatBytes = edgeOut.manager.beatBytes
+
+      // This is necessary (though not sufficient) for correctness:
+      edgeOut.manager.findTreeViolation() match {
+        case None => ()
+        case Some(node) => require(edgeOut.manager.isTree, s"AtomicAutomata can only be placed infront of a tree of diplomatic nodes (${node.name} has parents ${node.inputs.map(_._1.name)})")
+      }
+      // You also need to know that the slaves don't have an internal masters that can get between the read and write
 
       // To which managers are we adding atomic support?
       val ourSupport = TransferSizes(1, edgeOut.manager.beatBytes)
@@ -150,7 +156,12 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
         // Potentially take the message from the CAM
         val source_c = Wire(in.a)
         source_c.valid := a_cam_any_put
-        source_c.bits := edgeOut.Put(a_cam_a.bits.source, edgeIn.address(a_cam_a.bits), a_cam_a.bits.size, amo_data)._2
+        source_c.bits := edgeOut.Put(
+          fromSource = a_cam_a.bits.source,
+          toAddress  = edgeIn.address(a_cam_a.bits),
+          lgSize     = a_cam_a.bits.size,
+          data       = amo_data,
+          corrupt    = a_cam_a.bits.corrupt || a_cam_d.corrupt)._2
 
         // Finishing an AMO from the CAM has highest priority
         TLArbiter(TLArbiter.lowestIndexFirst)(out.a, (UInt(0), source_c), (edgeOut.numBeats1(in.a.bits), source_i))
@@ -189,6 +200,8 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
         val d_cam_sel_raw = cam_a.map(_.bits.source === in.d.bits.source)
         val d_cam_sel_match = (d_cam_sel_raw zip cam_dmatch) map { case (a,b) => a&&b }
         val d_cam_data = Mux1H(d_cam_sel_match, cam_d.map(_.data))
+        val d_cam_denied = Mux1H(d_cam_sel_match, cam_d.map(_.denied))
+        val d_cam_corrupt = Mux1H(d_cam_sel_match, cam_d.map(_.corrupt))
         val d_cam_sel_bypass = if (edgeOut.manager.minLatency > 0) Bool(false) else
                                out.d.bits.source === in.a.bits.source && in.a.valid && !a_isSupported
         val d_cam_sel = (a_cam_sel_free zip d_cam_sel_match) map { case (a,d) => Mux(d_cam_sel_bypass, a, d) }
@@ -200,6 +213,8 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
           (d_cam_sel zip cam_d) foreach { case (en, r) =>
             when (en && d_ackd) {
               r.data := out.d.bits.data
+              r.denied := out.d.bits.denied
+              r.corrupt := out.d.bits.corrupt
             }
           }
           (d_cam_sel zip cam_s) foreach { case (en, r) =>
@@ -220,6 +235,8 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
         when (d_replace) { // minimal muxes
           in.d.bits.opcode := TLMessages.AccessAckData
           in.d.bits.data := d_cam_data
+          in.d.bits.corrupt := d_cam_corrupt || out.d.bits.denied
+          in.d.bits.denied  := d_cam_denied  || out.d.bits.denied
         }
       } else {
         out.a.valid := in.a.valid
@@ -257,10 +274,9 @@ class TLAtomicAutomata(logical: Boolean = true, arithmetic: Boolean = true, conc
 
 object TLAtomicAutomata
 {
-  // applied to the TL source node; y.node := TLAtomicAutomata(x.node)
-  def apply(logical: Boolean = true, arithmetic: Boolean = true, concurrency: Int = 1, passthrough: Boolean = true)(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
+  def apply(logical: Boolean = true, arithmetic: Boolean = true, concurrency: Int = 1, passthrough: Boolean = true)(implicit p: Parameters): TLNode =
+  {
     val atomics = LazyModule(new TLAtomicAutomata(logical, arithmetic, concurrency, passthrough))
-    atomics.node :=? x
     atomics.node
   }
 
@@ -275,22 +291,39 @@ object TLAtomicAutomata
     val lut     = UInt(width = 4)
   }
   class CAM_D(params: CAMParams) extends GenericParameterizedBundle(params) {
-    val data = UInt(width = params.a.dataBits)
+    val data    = UInt(width = params.a.dataBits)
+    val denied  = Bool()
+    val corrupt = Bool()
   }
 }
 
 /** Synthesizeable unit tests */
 import freechips.rocketchip.unittest._
 
-//TODO ensure handler will pass through operations to clients that can handle them themselves
-
 class TLRAMAtomicAutomata(txns: Int)(implicit p: Parameters) extends LazyModule {
   val fuzz = LazyModule(new TLFuzzer(txns))
   val model = LazyModule(new TLRAMModel("AtomicAutomata"))
   val ram  = LazyModule(new TLRAM(AddressSet(0x0, 0x3ff)))
 
-  model.node := fuzz.node
-  ram.node := TLFragmenter(4, 256)(TLDelayer(0.1)(TLAtomicAutomata()(TLDelayer(0.1)(model.node))))
+  // Confirm that the AtomicAutomata combines read + write errors
+  import TLMessages._
+  val test = new RequestPattern({a: TLBundleA =>
+    val doesA = a.opcode === ArithmeticData || a.opcode === LogicalData
+    val doesR = a.opcode === Get || doesA
+    val doesW = a.opcode === PutFullData || a.opcode === PutPartialData || doesA
+    (doesR && RequestPattern.overlaps(Seq(AddressSet(0x08, ~0x08)))(a)) ||
+    (doesW && RequestPattern.overlaps(Seq(AddressSet(0x10, ~0x10)))(a))
+  })
+
+  (ram.node
+    := TLErrorEvaluator(test)
+    := TLFragmenter(4, 256)
+    := TLDelayer(0.1)
+    := TLAtomicAutomata()
+    := TLDelayer(0.1)
+    := TLErrorEvaluator(test, testOn=true, testOff=true)
+    := model.node
+    := fuzz.node)
 
   lazy val module = new LazyModuleImp(this) with UnitTestModule {
     io.finished := fuzz.module.io.finished
@@ -298,5 +331,6 @@ class TLRAMAtomicAutomata(txns: Int)(implicit p: Parameters) extends LazyModule 
 }
 
 class TLRAMAtomicAutomataTest(txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
-  io.finished := Module(LazyModule(new TLRAMAtomicAutomata(txns)).module).io.finished
+  val dut = Module(LazyModule(new TLRAMAtomicAutomata(txns)).module)
+  io.finished := dut.io.finished
 }

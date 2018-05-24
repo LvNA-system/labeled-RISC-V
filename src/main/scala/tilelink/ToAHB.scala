@@ -3,7 +3,6 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.amba.ahb._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
@@ -12,7 +11,7 @@ import scala.math.{min, max}
 import AHBParameters._
 
 case class TLToAHBNode()(implicit valName: ValName) extends MixedAdapterNode(TLImp, AHBImp)(
-  dFn = { case TLClientPortParameters(clients, unsafeAtomics, minLatency) =>
+  dFn = { case TLClientPortParameters(clients, minLatency) =>
     val masters = clients.map { case c => AHBMasterParameters(name = c.name, nodePath = c.nodePath) }
     AHBMasterPortParameters(masters)
   },
@@ -26,9 +25,10 @@ case class TLToAHBNode()(implicit valName: ValName) extends MixedAdapterNode(TLI
         nodePath           = s.nodePath,
         supportsGet        = s.supportsRead,
         supportsPutFull    = s.supportsWrite, // but not PutPartial
-        fifoId             = Some(0))
+        fifoId             = Some(0),
+        mayDenyPut         = true)
     }
-    TLManagerPortParameters(managers, beatBytes, 1, 1)
+    TLManagerPortParameters(managers, beatBytes, 0, 1)
   })
 
 class AHBControlBundle(params: TLEdge) extends GenericParameterizedBundle(params)
@@ -162,20 +162,22 @@ class TLToAHB(val aFlow: Boolean = false)(implicit p: Parameters) extends LazyMo
       d_block := d_flight >= UInt(depth)
 
       val d_valid   = RegInit(Bool(false))
-      val d_error   = Reg(Bool())
+      val d_denied  = Reg(Bool())
       val d_write   = RegEnable(send.write,  out.hreadyout)
       val d_source  = RegEnable(send.source, out.hreadyout)
       val d_size    = RegEnable(send.size,   out.hreadyout)
 
       when (out.hreadyout) {
         d_valid := send.send && (send.last || !send.write)
-        when (out.hresp)  { d_error := d_write }
-        when (send.first) { d_error := Bool(false) }
+        when (out.hresp)  { d_denied := Bool(true) }
+        when (send.first) { d_denied := Bool(false) }
       }
 
       d.valid := d_valid && out.hreadyout
-      d.bits  := edgeIn.AccessAck(d_source, d_size, out.hrdata, out.hresp || d_error)
+      d.bits  := edgeIn.AccessAck(d_source, d_size, out.hrdata)
       d.bits.opcode := Mux(d_write, TLMessages.AccessAck, TLMessages.AccessAckData)
+      d.bits.denied  := (out.hresp || d_denied) && d_write
+      d.bits.corrupt := out.hresp && !d_write
 
       // AHB has no cache coherence
       in.b.valid := Bool(false)
@@ -187,10 +189,9 @@ class TLToAHB(val aFlow: Boolean = false)(implicit p: Parameters) extends LazyMo
 
 object TLToAHB
 {
-  // applied to the TL source node; y.node := TLToAHB()(x.node)
-  def apply(aFlow: Boolean = true)(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): AHBOutwardNode = {
-    val ahb = LazyModule(new TLToAHB(aFlow))
-    ahb.node :=? x
-    ahb.node
+  def apply(aFlow: Boolean = true)(implicit p: Parameters) =
+  {
+    val tl2ahb = LazyModule(new TLToAHB(aFlow))
+    tl2ahb.node
   }
 }

@@ -4,12 +4,14 @@ package freechips.rocketchip.devices.debug
 
 import Chisel._
 import chisel3.core.{IntParam, Input, Output}
+import chisel3.util.HasBlackBoxResource
 import freechips.rocketchip.config.{Field, Parameters}
-import freechips.rocketchip.coreplex.HasPeripheryBus
+import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.jtag._
 import freechips.rocketchip.util._
+import freechips.rocketchip.tilelink._
 
 /** A knob selecting one of the two possible debug interfaces */
 case object IncludeJtagDTM extends Field[Boolean](false)
@@ -26,12 +28,14 @@ class DebugIO(implicit val p: Parameters) extends ParameterizedBundle()(p) with 
 /** Either adds a JTAG DTM to system, and exports a JTAG interface,
   * or exports the Debug Module Interface (DMI), based on a global parameter.
   */
-trait HasPeripheryDebug extends HasPeripheryBus {
-  val module: HasPeripheryDebugModuleImp
+trait HasPeripheryDebug { this: BaseSubsystem =>
+  val debug = LazyModule(new TLDebugModule(pbus.beatBytes))
+  pbus.toVariableWidthSlave(Some("debug")){ debug.node }
 
-  val debug = LazyModule(new TLDebugModule())
 
-  debug.node := pbus.toVariableWidthSlaves
+  debug.dmInner.dmInner.sb2tlOpt.foreach { sb2tl  =>
+    fbus.fromPort(Some("debug_sb")){ TLWidthWidget(1) := sb2tl.node }
+  }
 }
 
 trait HasPeripheryDebugBundle {
@@ -49,7 +53,8 @@ trait HasPeripheryDebugBundle {
       val dtm = Module(new SimDTM).connect(c, r, d, out)
     }
     debug.systemjtag.foreach { sj =>
-      val jtag = Module(new JTAGVPI(tckHalfPeriod = tckHalfPeriod, cmdDelay = cmdDelay)).connect(sj.jtag, sj.reset, r, out)
+      val jtag = Module(new SimJTAG(tickDelay=3)).connect(sj.jtag, c, r, ~r, out)
+      sj.reset := r
       sj.mfr_id := p(JtagDTMKey).idcodeManufId.U(11.W)
     }
     debug.psd.foreach { _ <> psd }
@@ -89,7 +94,7 @@ trait HasPeripheryDebugModuleImp extends LazyModuleImp with HasPeripheryDebugBun
   outer.debug.module.io.ctrl.debugUnavail.foreach { _ := Bool(false) }
 }
 
-class SimDTM(implicit p: Parameters) extends BlackBox {
+class SimDTM(implicit p: Parameters) extends BlackBox with HasBlackBoxResource {
   val io = new Bundle {
     val clk = Clock(INPUT)
     val reset = Bool(INPUT)
@@ -110,28 +115,43 @@ class SimDTM(implicit p: Parameters) extends BlackBox {
       stop(1)
     }
   }
+
+  setResource("/vsrc/SimDTM.v")
+  setResource("/csrc/SimDTM.cc")
 }
 
-class JTAGVPI(tckHalfPeriod: Int = 2, cmdDelay: Int = 2)(implicit val p: Parameters)
-    extends BlackBox ( Map ("TCK_HALF_PERIOD" -> IntParam(tckHalfPeriod),
-      "CMD_DELAY" -> IntParam(cmdDelay))) {
+class SimJTAG(tickDelay: Int = 50) extends BlackBox(Map("TICK_DELAY" -> IntParam(tickDelay)))
+  with HasBlackBoxResource {
   val io = new Bundle {
-    val jtag = new JTAGIO(hasTRSTn = false)
+    val clock = Clock(INPUT)
+    val reset = Bool(INPUT)
+    val jtag = new JTAGIO(hasTRSTn = true)
     val enable = Bool(INPUT)
     val init_done = Bool(INPUT)
+    val exit = UInt(OUTPUT, 32)
   }
 
-  def connect(dutio: JTAGIO, jtag_reset: Bool, tbreset: Bool, tbsuccess: Bool) = {
+  def connect(dutio: JTAGIO, tbclock: Clock, tbreset: Bool, init_done: Bool, tbsuccess: Bool) = {
     dutio <> io.jtag
 
-    dutio.TRSTn.foreach{ _:= false.B}
-    jtag_reset := tbreset
+    io.clock := tbclock
+    io.reset := tbreset
 
-    io.enable    := ~tbreset
-    io.init_done := ~tbreset
+    io.enable    := PlusArg("jtag_rbb_enable", 0, "Enable SimJTAG for JTAG Connections. Simulation will pause until connection is made.")
+    io.init_done := init_done
 
     // Success is determined by the gdbserver
     // which is controlling this simulation.
-    tbsuccess := Bool(false)
+    tbsuccess := io.exit === UInt(1)
+    when (io.exit >= UInt(2)) {
+      printf("*** FAILED *** (exit code = %d)\n", io.exit >> UInt(1))
+      stop(1)
+    }
   }
+
+  setResource("/vsrc/SimJTAG.v")
+  setResource("/csrc/SimJTAG.cc")
+  setResource("/csrc/remote_bitbang.h")
+  setResource("/csrc/remote_bitbang.cc")
 }
+

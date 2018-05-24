@@ -3,7 +3,6 @@
 package freechips.rocketchip.amba.axi4
 
 import Chisel._
-import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
@@ -119,7 +118,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
       val ok_b  = Wire(in.b)
       val ok_r  = Wire(in.r)
 
-      val d_resp = Mux(out.d.bits.error, AXI4Parameters.RESP_SLVERR, AXI4Parameters.RESP_OKAY)
+      val d_resp = Mux(out.d.bits.denied || out.d.bits.corrupt, AXI4Parameters.RESP_SLVERR, AXI4Parameters.RESP_OKAY)
       val d_hasData = edgeOut.hasData(out.d.bits)
       val d_last = edgeOut.last(out.d)
 
@@ -171,9 +170,9 @@ class AXI4BundleRError(params: AXI4BundleParameters) extends AXI4BundleBase(para
 
 object AXI4ToTL
 {
-  def apply()(x: AXI4OutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
-    val tl = LazyModule(new AXI4ToTL)
-    tl.node :=? x
-    tl.node
+  def apply()(implicit p: Parameters) =
+  {
+    val axi42tl = LazyModule(new AXI4ToTL)
+    axi42tl.node
   }
 }

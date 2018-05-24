@@ -5,24 +5,25 @@
 # Verilog sources
 
 bb_vsrcs = \
-	$(base_dir)/vsrc/jtag_vpi.v \
-	$(base_dir)/vsrc/plusarg_reader.v \
-	$(base_dir)/vsrc/ClockDivider2.v \
-	$(base_dir)/vsrc/ClockDivider3.v \
-	$(base_dir)/vsrc/AsyncResetReg.v \
+    $(vsrc)/plusarg_reader.v \
+    $(vsrc)/ClockDivider2.v \
+    $(vsrc)/ClockDivider3.v \
+    $(vsrc)/AsyncResetReg.v \
 
 sim_vsrcs = \
-	$(generated_dir)/$(long_name).v \
-	$(generated_dir)/$(long_name).behav_srams.v \
-	$(base_dir)/vsrc/$(TB).v \
-	$(base_dir)/vsrc/SimDTM.v \
-	$(bb_vsrcs)
+    $(generated_dir)/$(long_name).v \
+    $(generated_dir)/$(long_name).behav_srams.v \
+    $(vsrc)/$(TB).v \
+    $(vsrc)/SimDTM.v \
+    $(vsrc)/SimJTAG.v \
+    $(bb_vsrcs)
 
 # C sources
 
 sim_csrcs = \
-	$(base_dir)/csrc/SimDTM.cc \
-	$(base_dir)/csrc/jtag_vpi.c
+    $(csrc)/SimDTM.cc \
+    $(csrc)/SimJTAG.cc \
+    $(csrc)/remote_bitbang.cc
 
 #--------------------------------------------------------------------
 # Build Verilog
@@ -56,11 +57,6 @@ VCS_OPTS = -notice -line +lint=all,noVCDE,noONGS,noUI -error=PCWM-L -timescale=1
 	+define+RANDOMIZE_INVALID_ASSIGN \
 	+libext+.v \
 
-VCS_OPTS += +vpi
-VCS_OPTS += -P $(base_dir)/vsrc/jtag_vpi.tab
-VCS_OPTS += -CC "-DVCS_VPI"
-
-
 #--------------------------------------------------------------------
 # Build the simulator
 #--------------------------------------------------------------------
@@ -84,5 +80,5 @@ $(simv_debug) : $(sim_vsrcs) $(sim_csrcs)
 #--------------------------------------------------------------------
 
 seed = $(shell date +%s)
-exec_simv = $(simv) -q +ntb_random_seed_automatic
-exec_simv_debug = $(simv_debug) -q +ntb_random_seed_automatic
+exec_simv = $(simv) +permissive -q +ntb_random_seed_automatic +permissive-off
+exec_simv_debug = $(simv_debug) +permissive -q +ntb_random_seed_automatic +permissive-off

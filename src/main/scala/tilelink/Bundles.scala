@@ -41,6 +41,9 @@ object TLMessages
   def isB(x: UInt) = x <= Probe
   def isC(x: UInt) = x <= ReleaseData
   def isD(x: UInt) = x <= ReleaseAck
+
+  def adResponse = Vec(AccessAck, AccessAck, AccessAckData, AccessAckData, AccessAckData, HintAck, Grant, Grant)
+  def bcResponse = Vec(AccessAck, AccessAck, AccessAckData, AccessAckData, AccessAckData, HintAck, ProbeAck, ProbeAck)
 }
 
 /**
@@ -76,7 +79,7 @@ object TLPermissions
   def BtoN = UInt(2, cWidth)
   def isShrink(x: UInt) = x <= BtoN
 
-  // Report types (ProbeAck)
+  // Report types (ProbeAck, Release)
   def TtoT = UInt(3, cWidth)
   def BtoB = UInt(4, cWidth)
   def NtoN = UInt(5, cWidth)
@@ -131,6 +134,7 @@ final class TLBundleA(params: TLBundleParameters)
   // variable fields during multibeat:
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
+  val corrupt = Bool() // only applies to *Data messages
 }
 
 final class TLBundleB(params: TLBundleParameters)
@@ -147,6 +151,7 @@ final class TLBundleB(params: TLBundleParameters)
   // variable fields during multibeat:
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
+  val corrupt = Bool() // only applies to *Data messages
 }
 
 final class TLBundleC(params: TLBundleParameters)
@@ -162,7 +167,7 @@ final class TLBundleC(params: TLBundleParameters)
   val dsid = UInt(width = 16)
   // variable fields during multibeat:
   val data    = UInt(width = params.dataBits)
-  val error   = Bool() // AccessAck[Data]
+  val corrupt = Bool() // only applies to *Data messages
 }
 
 final class TLBundleD(params: TLBundleParameters)
@@ -175,9 +180,10 @@ final class TLBundleD(params: TLBundleParameters)
   val size    = UInt(width = params.sizeBits)
   val source  = UInt(width = params.sourceBits) // to
   val sink    = UInt(width = params.sinkBits)   // from
+  val denied  = Bool() // implies corrupt iff *Data
   // variable fields during multibeat:
   val data    = UInt(width = params.dataBits)
-  val error   = Bool() // AccessAck[Data], Grant[Data]
+  val corrupt = Bool() // only applies to *Data messages
 }
 
 final class TLBundleE(params: TLBundleParameters)
@@ -194,6 +200,24 @@ class TLBundle(params: TLBundleParameters) extends TLBundleBase(params)
   val c = Decoupled(new TLBundleC(params))
   val d = Decoupled(new TLBundleD(params)).flip
   val e = Decoupled(new TLBundleE(params))
+
+  def tieoff() {
+    a.ready.dir match {
+      case INPUT =>
+        a.ready := Bool(false)
+        c.ready := Bool(false)
+        e.ready := Bool(false)
+        b.valid := Bool(false)
+        d.valid := Bool(false)
+      case OUTPUT =>
+        a.valid := Bool(false)
+        c.valid := Bool(false)
+        e.valid := Bool(false)
+        b.ready := Bool(false)
+        d.ready := Bool(false)
+      case _ =>
+    }
+  }
 }
 
 object TLBundle
@@ -207,7 +231,7 @@ final class DecoupledSnoop[+T <: Data](gen: T) extends Bundle
   val valid = Bool()
   val bits = gen.asOutput
 
-  def fire(dummy: Int = 0) = ready && valid
+  def fire() = ready && valid
   override def cloneType: this.type = new DecoupledSnoop(gen).asInstanceOf[this.type]
 }
 
