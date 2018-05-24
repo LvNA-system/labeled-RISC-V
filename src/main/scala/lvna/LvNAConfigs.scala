@@ -11,7 +11,7 @@ class WithEmu extends Config ((site, here, up) => {
   case UseEmu => true
 })
 
-class PARDConfigemu extends Config(
+class LvNAConfigemu extends Config(
   new WithNBigCores(2)
   ++ new WithEmu
   ++ new WithoutFPU
@@ -21,7 +21,7 @@ class PARDConfigemu extends Config(
   ++ new WithDebugSBA
   ++ new BaseConfig)
 
-class PARDFPGAConfigzedboard extends Config(
+class LvNAFPGAConfigzedboard extends Config(
   new WithNBigCores(2)
   ++ new WithoutFPU
 //  ++ new WithAsynchronousRocketTiles(8, 3)
@@ -30,7 +30,7 @@ class PARDFPGAConfigzedboard extends Config(
   ++ new WithDebugSBA
   ++ new BaseFPGAConfig)
 
-class PARDFPGAConfigzcu102 extends Config(
+class LvNAFPGAConfigzcu102 extends Config(
   new WithNBigCores(4)
   ++ new WithoutFPU
 //  ++ new WithAsynchronousRocketTiles(8, 3)
