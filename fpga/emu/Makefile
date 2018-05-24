@@ -10,7 +10,7 @@ generated_dir = $(build_dir)/generated-src
 # Emulator generation
 #--------------------------------------------------------------------
 
-SIM_CONFIG ?= PARDSimConfig
+SIM_CONFIG ?= LvNAConfigemu
 original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(SIM_CONFIG)
 emu = $(build_dir)/emu
 emu_bin_file = bbl

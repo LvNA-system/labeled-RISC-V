@@ -11,7 +11,7 @@ class TestHarness()(implicit p: Parameters) extends Module {
     val success = Bool(OUTPUT)
   }
 
-  val dut = Module(LazyModule(new ExampleRocketSystem).module)
+  val dut = Module(LazyModule(if (p(UseEmu)) new LvNAEmuTop else new LvNAFPGATop).module)
   dut.reset := reset | dut.debug.ndreset
 
   dut.dontTouchPorts()
