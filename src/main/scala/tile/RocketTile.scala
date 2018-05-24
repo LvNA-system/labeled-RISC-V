@@ -12,7 +12,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.util._
-import uncore.pard.ControlledCrossing
+import freechips.rocketchip.pard.ControlledCrossing
 
 case class RocketTileParams(
     core: RocketCoreParams = RocketCoreParams(),
@@ -129,7 +129,7 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
   core.io.rocc.busy := roccCore.busy
   core.io.rocc.interrupt := roccCore.interrupt
 
-  val dsid = UInt(0x1, width = 16) + io.hartid
+  val dsid = UInt(0x1, width = 16) + constants.hartid
   val (masterBundleOut, _) = outer.masterNode.out.unzip
   masterBundleOut.foreach { x => {
       x.a.bits.dsid := dsid

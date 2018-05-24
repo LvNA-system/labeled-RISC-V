@@ -1,4 +1,4 @@
-package uncore.pard
+package freechips.rocketchip.pard
 
 import chisel3._
 import chisel3.internal.sourceinfo.SourceInfo

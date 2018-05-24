@@ -1,11 +1,10 @@
-package uncore.pard
+package freechips.rocketchip.pard
 
 import chisel3._
 import chisel3.util._
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
-import freechips.rocketchip.coreplex.{ExtMem, NTiles}
 import freechips.rocketchip.util.UIntToOH1
 
 
@@ -84,11 +83,13 @@ class TrafficGenerator (
   }
 }
 
+/*
 object TrafficGenerator {
   def apply(dsid: Int, base: String, mask: String)(implicit p: Parameters) = {
     LazyModule(new TrafficGenerator(dsid, base, mask))
   }
 }
+*/
 
 /*
  * I still do not know how to deal with the p(NTiles) problem
