@@ -2,13 +2,18 @@
 
 package freechips.rocketchip.system
 
-import freechips.rocketchip.config.Config
+import freechips.rocketchip.config.{Field, Config}
 import freechips.rocketchip.subsystem._
 
-// To correctly override the RTCPeriod in BaseConfig
-// WithRTCPeriod should be put in front of BaseConfig
-class PARDSimConfig extends Config(
+case object UseEmu extends Field[Boolean](false)
+
+class WithEmu extends Config ((site, here, up) => {
+  case UseEmu => true
+})
+
+class PARDConfigemu extends Config(
   new WithNBigCores(2)
+  ++ new WithEmu
   ++ new WithoutFPU
 //  ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x800000L) // 8MB
