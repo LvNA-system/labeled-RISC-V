@@ -25,7 +25,7 @@ object RegionType {
 case class IdRange(start: Int, end: Int) extends Ordered[IdRange]
 {
   require (start >= 0, s"Ids cannot be negative, but got: $start.")
-  require (start < end, "Id ranges cannot be empty.")
+  require (start <= end, "Id ranges cannot be negative.")
 
   def compare(x: IdRange) = {
     val primary   = (this.start - x.start).signum
@@ -35,11 +35,12 @@ case class IdRange(start: Int, end: Int) extends Ordered[IdRange]
 
   def overlaps(x: IdRange) = start < x.end && x.start < end
   def contains(x: IdRange) = start <= x.start && x.end <= end
-  // contains => overlaps (because empty is forbidden)
 
   def contains(x: Int)  = start <= x && x < end
   def contains(x: UInt) =
-    if (size == 1) { // simple comparison
+    if (size == 0) {
+      Bool(false)
+    } else if (size == 1) { // simple comparison
       x === UInt(start)
     } else {
       // find index of largest different bit
@@ -56,6 +57,7 @@ case class IdRange(start: Int, end: Int) extends Ordered[IdRange]
 
   def shift(x: Int) = IdRange(start+x, end+x)
   def size = end - start
+  def isEmpty = end == start
   
   def range = start until end
 }
@@ -102,40 +104,6 @@ object TransferSizes {
   val none = new TransferSizes(0)
 
   implicit def asBool(x: TransferSizes) = !x.none
-}
-
-// Use AddressSet instead -- this is just for pretty printing
-case class AddressRange(base: BigInt, size: BigInt) extends Ordered[AddressRange]
-{
-  val end = base + size
-
-  require (base >= 0, s"AddressRange base must be positive, got: $base")
-  require (size > 0, s"AddressRange size must be > 0, got: $size")
-
-  def compare(x: AddressRange) = {
-    val primary   = (this.base - x.base).signum
-    val secondary = (x.size - this.size).signum
-    if (primary != 0) primary else secondary
-  }
-
-  def contains(x: AddressRange) = base <= x.base && x.end <= end
-  def union(x: AddressRange): Option[AddressRange] = {
-    if (base > x.end || x.base > end) {
-      None
-    } else {
-      val obase = if (base < x.base) base else x.base
-      val oend  = if (end  > x.end)  end  else x.end
-      Some(AddressRange(obase, oend-obase))
-    }
-  }
-
-  private def helper(base: BigInt, end: BigInt) =
-    if (base < end) Seq(AddressRange(base, end-base)) else Nil
-  def subtract(x: AddressRange) =
-    helper(base, end min x.base) ++ helper(base max x.end, end)
-
-  // We always want to see things in hex
-  override def toString() = "AddressRange(0x%x, 0x%x)".format(base, size)
 }
 
 // AddressSets specify the address space managed by the manager
@@ -208,24 +176,6 @@ case class AddressSet(base: BigInt, mask: BigInt) extends Ordered[AddressSet]
       AddressRange(off, size)
     }
   }
-}
-
-object AddressRange
-{
-  def fromSets(seq: Seq[AddressSet]): Seq[AddressRange] = unify(seq.flatMap(_.toRanges))
-  def unify(seq: Seq[AddressRange]): Seq[AddressRange] = {
-    if (seq.isEmpty) return Nil
-    val ranges = seq.sorted
-    ranges.tail.foldLeft(Seq(ranges.head)) { case (head :: tail, x) =>
-      head.union(x) match {
-        case Some(z) => z :: tail
-        case None => x :: head :: tail
-      }
-    }.reverse
-  }
-  // Set subtraction... O(n*n) b/c I am lazy
-  def subtract(from: Seq[AddressRange], take: Seq[AddressRange]): Seq[AddressRange] =
-    take.foldLeft(from) { case (left, r) => left.flatMap { _.subtract(r) } }
 }
 
 object AddressSet

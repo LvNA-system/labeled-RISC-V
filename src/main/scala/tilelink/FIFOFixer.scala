@@ -3,9 +3,10 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.util._
+import freechips.rocketchip.util.property._
 import scala.math.max
 
 class TLFIFOFixer(policy: TLFIFOFixer.Policy = TLFIFOFixer.all)(implicit p: Parameters) extends LazyModule
@@ -50,8 +51,9 @@ class TLFIFOFixer(policy: TLFIFOFixer.Policy = TLFIFOFixer.all)(implicit p: Para
       val compacted = ((fixMap zip splatMap) zip edgeOut.manager.managers) flatMap {
         case ((f, s), m) => if (f == Some(0)) Some(m.copy(fifoId = s)) else None
       }
+      val sinks = if (compacted.exists(_.supportsAcquireB)) edgeOut.manager.endSinkId else 0
       val a_id = if (compacted.isEmpty) UInt(0) else
-        edgeOut.manager.copy(managers = compacted).findFifoIdFast(in.a.bits.address)
+        edgeOut.manager.copy(managers = compacted, endSinkId = sinks).findFifoIdFast(in.a.bits.address)
       val a_noDomain = a_id === UInt(0)
 
       if (false) {
@@ -99,6 +101,31 @@ class TLFIFOFixer(policy: TLFIFOFixer.Policy = TLFIFOFixer.all)(implicit p: Para
         out.c.valid := Bool(false)
         out.e.valid := Bool(false)
       }
+
+//Functional cover properties
+     
+      cover(in.a.valid && stall, "COVER FIFOFIXER STALL", "Cover: Stall occured for a valid transaction")
+
+      val SourceIdFIFOed = RegInit(UInt(0, width = edgeIn.client.endSourceId))
+      val SourceIdSet = Wire(init = UInt(0, width = edgeIn.client.endSourceId))
+      val SourceIdClear = Wire(init = UInt(0, width = edgeIn.client.endSourceId))
+
+      when (a_first && in.a.fire() && !a_notFIFO)  {
+        SourceIdSet := UIntToOH(in.a.bits.source)
+      }
+      when (d_first && in.d.fire())  {
+        SourceIdClear := UIntToOH(in.d.bits.source)
+      }
+
+      SourceIdFIFOed := SourceIdFIFOed | SourceIdSet
+      val allIDs_FIFOed = SourceIdFIFOed===Fill(SourceIdFIFOed.getWidth, 1.U)
+
+      cover(allIDs_FIFOed, "COVER all sources", "Cover: FIFOFIXER covers all Source IDs")
+    //cover(flight.reduce(_ && _), "COVER full", "Cover: FIFO is full with all Source IDs")
+      cover(!(flight.reduce(_ || _)), "COVER empty", "Cover: FIFO is empty")
+      cover(SourceIdSet > 0.U, "COVER at least one push", "Cover: At least one Source ID is pushed")
+      cover(SourceIdClear > 0.U, "COVER at least one pop", "Cover: At least one Source ID is popped")
+
     }
   }
 }
@@ -114,10 +141,9 @@ object TLFIFOFixer
   val allFIFO:        Policy = m => m.fifoId.isDefined
   val allUncacheable: Policy = m => m.regionType <= UNCACHEABLE
 
-  // applied to the TL source node; y.node := TLFIFOFixer()(x.node)
-  def apply(policy: Policy = all)(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
+  def apply(policy: Policy = all)(implicit p: Parameters): TLNode =
+  {
     val fixer = LazyModule(new TLFIFOFixer(policy))
-    fixer.node :=? x
     fixer.node
   }
 }

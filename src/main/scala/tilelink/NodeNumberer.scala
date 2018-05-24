@@ -3,11 +3,10 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 
-case class TLNodeNumbererNode(nodeAddressOffset: Option[Int] = None)(implicit valName: ValName) extends TLCustomNode(0 to 999, 0 to 999)
+case class TLNodeNumbererNode(nodeAddressOffset: Option[Int] = None)(implicit valName: ValName) extends TLCustomNode
 {
   def resolveStar(iKnown: Int, oKnown: Int, iStars: Int, oStars: Int): (Int, Int) = {
     require (oStars + iStars <= 1, s"${name} (a custom adapter) appears left of a :*= ${iStars} times and right of a :=* ${oStars} times; at most once is allowed${lazyModule.line}")
@@ -56,10 +55,9 @@ class TLNodeNumberer(nodeAddressOffset: Option[Int] = None)(implicit p: Paramete
 
 object TLNodeNumberer
 {
-  // applied to the TL source node; y.node := TLBuffer(x.node)
-  def apply(nodeAddressOffset: Option[Int] = None)(x: TLOutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
+  def apply(nodeAddressOffset: Option[Int] = None)(implicit p: Parameters): TLNode =
+  {
     val numberer = LazyModule(new TLNodeNumberer(nodeAddressOffset))
-    numberer.node :=? x
     numberer.node
   }
 }

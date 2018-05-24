@@ -31,11 +31,7 @@ private case object ForceFanoutKey extends Field(ForceFanoutParams(false, false,
 class TLXbar(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parameters) extends LazyModule
 {
   val node = TLNexusNode(
-    numClientPorts  = 1 to 999,
-    numManagerPorts = 1 to 999,
     clientFn  = { seq =>
-      require (!seq.exists(_.unsafeAtomics) || seq.size == 1,
-        "An unsafe atomic port can not be combined with any other!")
       seq(0).copy(
         minLatency = seq.map(_.minLatency).min,
         clients = (TLXbar.mapInputIds(seq) zip seq) flatMap { case (range, port) =>
@@ -47,10 +43,9 @@ class TLXbar(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parame
     },
     managerFn = { seq =>
       val fifoIdFactory = TLXbar.relabeler()
-      val outputIdRanges = TLXbar.mapOutputIds(seq)
       seq(0).copy(
         minLatency = seq.map(_.minLatency).min,
-        endSinkId = outputIdRanges.map(_.map(_.end).getOrElse(0)).max,
+        endSinkId = TLXbar.mapOutputIds(seq).map(_.end).max,
         managers = seq.flatMap { port =>
           require (port.beatBytes == seq(0).beatBytes,
             s"Xbar data widths don't match: ${port.managers.map(_.name)} has ${port.beatBytes}B vs ${seq(0).managers.map(_.name)} has ${seq(0).beatBytes}B")
@@ -141,13 +136,13 @@ class TLXbar(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parame
 
       io_out(i).a <> out(i).a
       out(i).d <> io_out(i).d
-      out(i).d.bits.sink := io_out(i).d.bits.sink | UInt(r.map(_.start).getOrElse(0))
+      out(i).d.bits.sink := io_out(i).d.bits.sink | UInt(r.start)
 
       if (edgesOut(i).manager.anySupportAcquireB && edgesIn.exists(_.client.anySupportProbe)) {
         io_out(i).c <> out(i).c
         io_out(i).e <> out(i).e
         out(i).b <> io_out(i).b
-        io_out(i).e.bits.sink := trim(out(i).e.bits.sink, r.map(_.size).getOrElse(0))
+        io_out(i).e.bits.sink := trim(out(i).e.bits.sink, r.size)
       } else {
         out(i).c.ready := Bool(false)
         out(i).e.ready := Bool(false)
@@ -161,20 +156,20 @@ class TLXbar(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parame
     val addressA = (in zip edgesIn) map { case (i, e) => e.address(i.a.bits) }
     val addressC = (in zip edgesIn) map { case (i, e) => e.address(i.c.bits) }
 
-    val requestAIO = Vec(addressA.map { i => Vec(outputPorts.map { o => o(i) }) })
-    val requestCIO = Vec(addressC.map { i => Vec(outputPorts.map { o => o(i) }) })
-    val requestBOI = Vec(out.map { o => Vec(inputIdRanges.map  { i => i.contains(o.b.bits.source) }) })
-    val requestDOI = Vec(out.map { o => Vec(inputIdRanges.map  { i => i.contains(o.d.bits.source) }) })
-    val requestEIO = Vec(in.map  { i => Vec(outputIdRanges.map { o => o.map(_.contains(i.e.bits.sink)).getOrElse(Bool(false)) }) })
+    val requestAIO = addressA.map { i => outputPorts.map { o => o(i) } }
+    val requestCIO = addressC.map { i => outputPorts.map { o => o(i) } }
+    val requestBOI = out.map { o => inputIdRanges.map  { i => i.contains(o.b.bits.source) } }
+    val requestDOI = out.map { o => inputIdRanges.map  { i => i.contains(o.d.bits.source) } }
+    val requestEIO = in.map  { i => outputIdRanges.map { o => o.contains(i.e.bits.sink) } }
 
-    val beatsAI = Vec((in  zip edgesIn)  map { case (i, e) => e.numBeats1(i.a.bits) })
-    val beatsBO = Vec((out zip edgesOut) map { case (o, e) => e.numBeats1(o.b.bits) })
-    val beatsCI = Vec((in  zip edgesIn)  map { case (i, e) => e.numBeats1(i.c.bits) })
-    val beatsDO = Vec((out zip edgesOut) map { case (o, e) => e.numBeats1(o.d.bits) })
-    val beatsEI = Vec((in  zip edgesIn)  map { case (i, e) => e.numBeats1(i.e.bits) })
+    val beatsAI = (in  zip edgesIn)  map { case (i, e) => e.numBeats1(i.a.bits) }
+    val beatsBO = (out zip edgesOut) map { case (o, e) => e.numBeats1(o.b.bits) }
+    val beatsCI = (in  zip edgesIn)  map { case (i, e) => e.numBeats1(i.c.bits) }
+    val beatsDO = (out zip edgesOut) map { case (o, e) => e.numBeats1(o.d.bits) }
+    val beatsEI = (in  zip edgesIn)  map { case (i, e) => e.numBeats1(i.e.bits) }
 
     // Which pairs support support transfers
-    def transpose[T](x: Seq[Seq[T]]) = Seq.tabulate(x(0).size) { i => Seq.tabulate(x.size) { j => x(j)(i) } }
+    def transpose[T](x: Seq[Seq[T]]) = if (x.isEmpty) Nil else Seq.tabulate(x(0).size) { i => Seq.tabulate(x.size) { j => x(j)(i) } }
     def filter[T](data: Seq[T], mask: Seq[Boolean]) = (data zip mask).filter(_._2).map(_._1)
 
     // Fanout the input sources to the output sinks
@@ -208,7 +203,13 @@ class TLXbar(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parame
 
 object TLXbar
 {
-  def mapInputIds (ports: Seq[TLClientPortParameters ]) = assignRanges(ports.map(_.endSourceId)).map(_.get)
+  def apply(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parameters): TLNode =
+  {
+    val xbar = LazyModule(new TLXbar(policy))
+    xbar.node
+  }
+
+  def mapInputIds (ports: Seq[TLClientPortParameters ]) = assignRanges(ports.map(_.endSourceId))
   def mapOutputIds(ports: Seq[TLManagerPortParameters]) = assignRanges(ports.map(_.endSinkId))
 
   def assignRanges(sizes: Seq[Int]) = {
@@ -216,7 +217,7 @@ object TLXbar
     val tuples = pow2Sizes.zipWithIndex.sortBy(_._1) // record old index, then sort by increasing size
     val starts = tuples.scanRight(0)(_._1 + _).tail // suffix-sum of the sizes = the start positions
     val ranges = (tuples zip starts) map { case ((sz, i), st) =>
-      (if (sz == 0) None else Some(IdRange(st, st+sz)), i)
+      (if (sz == 0) IdRange(0,0) else IdRange(st, st+sz), i)
     }
     ranges.sortBy(_._2).map(_._1) // Restore orignal order
   }
@@ -256,11 +257,10 @@ class TLRAMXbar(nManagers: Int, txns: Int)(implicit p: Parameters) extends LazyM
   val model = LazyModule(new TLRAMModel("Xbar"))
   val xbar = LazyModule(new TLXbar)
 
-  model.node := fuzz.node
-  xbar.node := TLDelayer(0.1)(model.node)
+  xbar.node := TLDelayer(0.1) := model.node := fuzz.node
   (0 until nManagers) foreach { n =>
     val ram  = LazyModule(new TLRAM(AddressSet(0x0+0x400*n, 0x3ff)))
-    ram.node := TLFragmenter(4, 256)(TLDelayer(0.1)(xbar.node))
+    ram.node := TLFragmenter(4, 256) := TLDelayer(0.1) := xbar.node
   }
 
   lazy val module = new LazyModuleImp(this) with UnitTestModule {
@@ -269,7 +269,8 @@ class TLRAMXbar(nManagers: Int, txns: Int)(implicit p: Parameters) extends LazyM
 }
 
 class TLRAMXbarTest(nManagers: Int, txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
-  io.finished := Module(LazyModule(new TLRAMXbar(nManagers,txns)).module).io.finished
+  val dut = Module(LazyModule(new TLRAMXbar(nManagers,txns)).module)
+  io.finished := dut.io.finished
 }
 
 class TLMulticlientXbar(nManagers: Int, nClients: Int, txns: Int)(implicit p: Parameters) extends LazyModule {
@@ -277,13 +278,13 @@ class TLMulticlientXbar(nManagers: Int, nClients: Int, txns: Int)(implicit p: Pa
 
   val fuzzers = (0 until nClients) map { n =>
     val fuzz = LazyModule(new TLFuzzer(txns))
-    xbar.node := TLDelayer(0.1)(fuzz.node)
+    xbar.node := TLDelayer(0.1) := fuzz.node
     fuzz
   }
 
   (0 until nManagers) foreach { n =>
-    val ram  = LazyModule(new TLRAM(AddressSet(0x0+0x400*n, 0x3ff)))
-    ram.node := TLFragmenter(4, 256)(TLDelayer(0.1)(xbar.node))
+    val ram = LazyModule(new TLRAM(AddressSet(0x0+0x400*n, 0x3ff)))
+    ram.node := TLFragmenter(4, 256) := TLDelayer(0.1) := xbar.node
   }
 
   lazy val module = new LazyModuleImp(this) with UnitTestModule {
@@ -292,5 +293,6 @@ class TLMulticlientXbar(nManagers: Int, nClients: Int, txns: Int)(implicit p: Pa
 }
 
 class TLMulticlientXbarTest(nManagers: Int, nClients: Int, txns: Int = 5000, timeout: Int = 500000)(implicit p: Parameters) extends UnitTest(timeout) {
-  io.finished := Module(LazyModule(new TLMulticlientXbar(nManagers, nClients, txns)).module).io.finished
+  val dut = Module(LazyModule(new TLMulticlientXbar(nManagers, nClients, txns)).module)
+  io.finished := dut.io.finished
 }

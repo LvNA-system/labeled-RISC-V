@@ -18,8 +18,8 @@ trait Pattern {
 
 case class WritePattern(address: BigInt, size: Int, data: BigInt) extends Pattern
 {
-  require (log2Floor(data) < (BigInt(8) << size))
-  def bits(edge: TLEdgeOut) = edge.Put(UInt(0), UInt(address), UInt(size), UInt(data))
+  require (0 <= data && data < (BigInt(1) << (8 << size)))
+  def bits(edge: TLEdgeOut) = edge.Put(UInt(0), UInt(address), UInt(size), UInt(data << (8*(address % edge.manager.beatBytes).toInt)))
 }
 
 case class ReadPattern(address: BigInt, size: Int) extends Pattern
@@ -82,5 +82,14 @@ class TLPatternPusher(name: String, pattern: Seq[Pattern])(implicit p: Parameter
     tl_out.b.ready := Bool(true)
     tl_out.c.valid := Bool(false)
     tl_out.e.valid := Bool(false)
+  }
+}
+
+object TLPatternPusher
+{
+  def apply(name: String, pattern: Seq[Pattern])(implicit p: Parameters): TLOutwardNode =
+  {
+    val pusher = LazyModule(new TLPatternPusher(name, pattern))
+    pusher.node
   }
 }

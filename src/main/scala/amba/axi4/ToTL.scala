@@ -3,7 +3,6 @@
 package freechips.rocketchip.amba.axi4
 
 import Chisel._
-import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
@@ -44,6 +43,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
   val node = AXI4ToTLNode()
 
   lazy val module = new LazyModuleImp(this) {
+    /*
     def bind_dsid(tl: TLBundleA, axi: AXI4BundleA) = {
       require(axi.dsid.isDefined, "Slave AXI4 port must transfer dsid.")
       tl.dsid := axi.dsid.get
@@ -51,6 +51,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
       require(dsid_width == user_width,
         s"Inward axi user bits width($user_width) does not match tilelink2 dsid width($dsid_width).")
     }
+    */
 
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       val numIds = edgeIn.master.endId
@@ -86,7 +87,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
       in.ar.ready := r_out.ready
       r_out.valid := in.ar.valid
       r_out.bits := edgeOut.Get(r_id, r_addr, r_size)._2
-      bind_dsid(r_out.bits, in.ar.bits)
+      //bind_dsid(r_out.bits, in.ar.bits)
 
       val r_sel = UIntToOH(in.ar.bits.id, numIds)
       (r_sel.toBools zip r_count) foreach { case (s, r) =>
@@ -107,7 +108,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
       in.w.ready  := w_out.ready && in.aw.valid
       w_out.valid := in.aw.valid && in.w.valid
       w_out.bits := edgeOut.Put(w_id, w_addr, w_size, in.w.bits.data, in.w.bits.strb)._2
-      bind_dsid(w_out.bits, in.aw.bits)
+      //bind_dsid(w_out.bits, in.aw.bits)
 
       val w_sel = UIntToOH(in.aw.bits.id, numIds)
       (w_sel.toBools zip w_count) foreach { case (s, r) =>
@@ -119,7 +120,7 @@ class AXI4ToTL()(implicit p: Parameters) extends LazyModule
       val ok_b  = Wire(in.b)
       val ok_r  = Wire(in.r)
 
-      val d_resp = Mux(out.d.bits.error, AXI4Parameters.RESP_SLVERR, AXI4Parameters.RESP_OKAY)
+      val d_resp = Mux(out.d.bits.denied || out.d.bits.corrupt, AXI4Parameters.RESP_SLVERR, AXI4Parameters.RESP_OKAY)
       val d_hasData = edgeOut.hasData(out.d.bits)
       val d_last = edgeOut.last(out.d)
 
@@ -171,9 +172,9 @@ class AXI4BundleRError(params: AXI4BundleParameters) extends AXI4BundleBase(para
 
 object AXI4ToTL
 {
-  def apply()(x: AXI4OutwardNode)(implicit p: Parameters, sourceInfo: SourceInfo): TLOutwardNode = {
-    val tl = LazyModule(new AXI4ToTL)
-    tl.node :=? x
-    tl.node
+  def apply()(implicit p: Parameters) =
+  {
+    val axi42tl = LazyModule(new AXI4ToTL)
+    axi42tl.node
   }
 }

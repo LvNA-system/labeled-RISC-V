@@ -7,7 +7,7 @@ import Chisel._
 import Chisel.ImplicitConversions._
 
 import freechips.rocketchip.config.{Field, Parameters}
-import freechips.rocketchip.coreplex.CacheBlockBytes
+import freechips.rocketchip.subsystem.CacheBlockBytes
 import freechips.rocketchip.diplomacy.RegionType
 import freechips.rocketchip.tile.{XLen, CoreModule, CoreBundle}
 import freechips.rocketchip.tilelink._
@@ -57,6 +57,7 @@ class TLB(instruction: Boolean, lgMaxSize: Int, nEntries: Int)(implicit edge: TL
     val req = Decoupled(new TLBReq(lgMaxSize)).flip
     val resp = new TLBResp().asOutput
     val ptw = new TLBPTWIO
+    val kill = Bool(INPUT) // suppress a TLB refill, one cycle after a miss
   }
 
   class Entry extends Bundle {
@@ -98,12 +99,11 @@ class TLB(instruction: Boolean, lgMaxSize: Int, nEntries: Int)(implicit edge: TL
   val vm_enabled = Bool(usingVM) && io.ptw.ptbr.mode(io.ptw.ptbr.mode.getWidth-1) && priv_uses_vm && !io.req.bits.passthrough
 
   // share a single physical memory attribute checker (unshare if critical path)
-  val vpn = io.req.bits.vaddr(vaddrBits-1, pgIdxBits)
   val refill_ppn = io.ptw.resp.bits.pte.ppn(ppnBits-1, 0)
   val do_refill = Bool(usingVM) && io.ptw.resp.valid
   val invalidate_refill = state.isOneOf(s_request /* don't care */, s_wait_invalidate)
   val mpu_ppn = Mux(do_refill, refill_ppn,
-                Mux(vm_enabled, entries.last.ppn, vpn))
+                Mux(vm_enabled, entries.last.ppn, io.req.bits.vaddr >> pgIdxBits))
   val mpu_physaddr = Cat(mpu_ppn, io.req.bits.vaddr(pgIdxBits-1, 0))
   val pmp = Module(new PMPChecker(lgMaxSize))
   pmp.io.addr := mpu_physaddr
@@ -117,11 +117,12 @@ class TLB(instruction: Boolean, lgMaxSize: Int, nEntries: Int)(implicit edge: TL
   val homogeneous = TLBPageLookup(edge.manager.managers, xLen, p(CacheBlockBytes), BigInt(1) << pgIdxBits)(mpu_physaddr).homogeneous
   val prot_r = fastCheck(_.supportsGet) && pmp.io.r
   val prot_w = fastCheck(_.supportsPutFull) && pmp.io.w
-  val prot_al = fastCheck(_.supportsLogical) || cacheable
-  val prot_aa = fastCheck(_.supportsArithmetic) || cacheable
+  val prot_al = fastCheck(_.supportsLogical) || (cacheable && usingAtomicsInCache)
+  val prot_aa = fastCheck(_.supportsArithmetic) || (cacheable && usingAtomicsInCache)
   val prot_x = fastCheck(_.executable) && pmp.io.x
   val prot_eff = fastCheck(Seq(RegionType.PUT_EFFECTS, RegionType.GET_EFFECTS) contains _.regionType)
 
+  val vpn = io.req.bits.vaddr(vaddrBits-1, pgIdxBits)
   val lookup_tag = Cat(io.ptw.ptbr.asid, vpn)
   val hitsVec = (0 until totalEntries).map { i => if (!usingVM) false.B else vm_enabled && {
     var tagMatch = valid(i)
@@ -190,7 +191,7 @@ class TLB(instruction: Boolean, lgMaxSize: Int, nEntries: Int)(implicit edge: TL
     (if (vpnBits == vpnBitsExtended) Bool(false)
      else (io.req.bits.vaddr.asSInt < 0.S) =/= (vpn.asSInt < 0.S))
 
-  val lrscAllowed = Mux(Bool(usingDataScratchpad), 0.U, c_array)
+  val lrscAllowed = Mux(Bool(usingDataScratchpad || usingAtomicsOnlyForIO), 0.U, c_array)
   val ae_array =
     Mux(misaligned, eff_array, 0.U) |
     Mux(Bool(usingAtomics) && io.req.bits.cmd.isOneOf(M_XLR, M_XSC), ~lrscAllowed, 0.U)
@@ -233,7 +234,7 @@ class TLB(instruction: Boolean, lgMaxSize: Int, nEntries: Int)(implicit edge: TL
   io.resp.miss := do_refill || tlb_miss || multipleHits
   io.resp.paddr := Cat(ppn, io.req.bits.vaddr(pgIdxBits-1, 0))
 
-  io.ptw.req.valid := state === s_request
+  io.ptw.req.valid := state === s_request && !io.kill
   io.ptw.req.bits <> io.ptw.status
   io.ptw.req.bits.addr := r_refill_tag
 
@@ -248,6 +249,7 @@ class TLB(instruction: Boolean, lgMaxSize: Int, nEntries: Int)(implicit edge: TL
     when (state === s_request) {
       when (sfence) { state := s_ready }
       when (io.ptw.req.ready) { state := Mux(sfence, s_wait_invalidate, s_wait) }
+      when (io.kill) { state := s_ready }
     }
     when (state === s_wait && sfence) {
       state := s_wait_invalidate
@@ -257,7 +259,7 @@ class TLB(instruction: Boolean, lgMaxSize: Int, nEntries: Int)(implicit edge: TL
     }
 
     when (sfence) {
-      assert((io.req.bits.sfence.bits.addr >> pgIdxBits) === vpn)
+      assert(!io.req.bits.sfence.bits.rs1 || (io.req.bits.sfence.bits.addr >> pgIdxBits) === vpn)
       valid := Mux(io.req.bits.sfence.bits.rs1, valid & ~hits(totalEntries-1, 0),
                Mux(io.req.bits.sfence.bits.rs2, valid & entries.map(_.g).asUInt, 0))
     }

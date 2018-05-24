@@ -172,7 +172,7 @@ class DebugTransportModuleJTAG(debugAddrBits: Int, c: JtagDTMConfig)
   // But there is actually no case in the current design where you SHOULD get an error,
   // as we haven't implemented Bus Masters or Serial Ports, which are the only cases errors
   // can occur.
-  nonzeroResp := stickyNonzeroRespReg | (io.dmi.resp.valid & (io.dmi.resp.bits.resp != UInt(0)))
+  nonzeroResp := stickyNonzeroRespReg | (io.dmi.resp.valid & (io.dmi.resp.bits.resp =/= UInt(0)))
   assert(!nonzeroResp, "There is no reason to get a non zero response in the current system.");
   assert(!stickyNonzeroRespReg, "There is no reason to have a sticky non zero response in the current system.");
 
@@ -243,7 +243,8 @@ class DebugTransportModuleJTAG(debugAddrBits: Int, c: JtagDTMConfig)
   idcode.mfrId      := io.jtag_mfr_id
 
   val tapIO = JtagTapGenerator(irLength = 5,
-    instructions = Map(dtmJTAGAddrs.DMI_ACCESS -> dmiAccessChain,
+    instructions = Map(
+      dtmJTAGAddrs.DMI_ACCESS -> dmiAccessChain,
       dtmJTAGAddrs.DTM_INFO   -> dtmInfoChain),
     icode = Some(dtmJTAGAddrs.IDCODE)
   )
