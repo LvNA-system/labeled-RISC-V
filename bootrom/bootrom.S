@@ -1,12 +1,9 @@
-#define DRAM_BASE 0x80000000
+#define DRAM_BASE 0x100000000
 
 .section .text.start, "ax", @progbits
 .globl _start
 _start:
   li s0, DRAM_BASE
-  lwu a0, 4(s0)
-  li a1, 0xdeadbeef
-  bne a0, a1, _hang
   csrr a0, mhartid
   la a1, _dtb
   jr s0
