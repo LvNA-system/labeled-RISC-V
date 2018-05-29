@@ -16,6 +16,10 @@ trait SimUARTConfigs {
     List(
       UARTConfig(address = 0x60000000),
       UARTConfig(address = 0x60001000))
+  else if (p(TapeOut))
+    List(
+      UARTConfig(address = 0x20000000),
+      UARTConfig(address = 0x20001000))
   else
     Nil
 }
