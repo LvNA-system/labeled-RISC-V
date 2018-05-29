@@ -13,9 +13,9 @@ generated_dir = $(build_dir)/generated-src
 SIM_CONFIG ?= LvNAConfigemu
 original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(SIM_CONFIG)
 emu = $(build_dir)/emu
-emu_bin_file = bbl
+emu_bin_file = ../build/bbl
 emu_gen_script = gen_bin.sh
-emu_bin_hex_file = $(dir $(emu))/bin.txt
+emu_bin_hex_file = $(build_dir)/bin.txt
 
 $(emu): $(original_emu)
 	ln -sf $< $@
@@ -27,9 +27,14 @@ $(original_emu):
 $(emu_bin_hex_file): $(emu_bin_file)
 	bash $(emu_gen_script) $<
 
+emu-ram-init: $(emu) $(emu_bin_hex_file)
+	./mem_init $(generated_dir)/freechips.rocketchip.system.$(SIM_CONFIG).behav_srams.v mem_ext $(emu_bin_hex_file) $(generated_dir)/freechips.rocketchip.system.$(SIM_CONFIG).json > temp_gen_ram
+	mv temp_gen_ram $(generated_dir)/freechips.rocketchip.system.$(SIM_CONFIG).behav_srams.v
+	$(MAKE) emu
+
 emu: $(emu)
 
-run-emu: $(emu) $(emu_bin_hex_file)
+run-emu: $(emu)
 	cd $(dir $(emu)) && $< +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
 
 # put functionality in a standalone script
