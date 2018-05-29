@@ -71,10 +71,7 @@ class BasePlatformConfig extends Config(
         case ExtMemSize => Dump("MEM_SIZE", 0x10000000L)
         case ExtMemBase => 0x100000000L // 4GB
         case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
-        case BuildExampleTop =>
-          (p: Parameters) => LazyModule(new PARDSimTop(p))
-        case BuildFPGATop =>
-          (p: Parameters) => LazyModule(new PARDFPGATop(p))
+        case BuildExampleTop => (p: Parameters) => LazyModule(new PARDFPGATop(p))
         case SimMemLatency => 100
         case _ => throw new CDEMatchError
       }
