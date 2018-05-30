@@ -52,10 +52,11 @@ class BasePlatformConfig extends Config(
         case AsyncMMIOChannels => false
         case ExtMMIOPorts => if (site(UseSim)) Nil else
           if (site(TapeOut)) Seq(
+            AddrMapEntry("mmio-mem", MemRange(0x30000000L, 0x10000000L, MemAttr(AddrMapProt.RWX))),
             AddrMapEntry("ahb", MemRange(0x40000000L, 0xC0000000L, MemAttr(AddrMapProt.RWX)))
           )
           else Seq(AddrMapEntry("mmio", MemRange(0x60000000, 0x20000000, MemAttr(AddrMapProt.RW))))
-        case NExtMMIOAXIChannels => if (site(UseSim) || site(TapeOut)) 0 else 1
+        case NExtMMIOAXIChannels => if (site(UseSim)) 0 else 1
         case NExtMMIOAHBChannels => if (site(TapeOut)) 1 else 0
         case NExtMMIOTLChannels  => 0
         case AsyncBusChannels => false

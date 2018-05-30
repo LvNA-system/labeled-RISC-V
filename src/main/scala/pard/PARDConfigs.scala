@@ -12,7 +12,6 @@ case object TapeOut extends Field[Boolean]
 // WithRTCPeriod should be put in front of BaseConfig
 class PARDSimConfig extends Config(
   new WithBlockingL1
-  ++ new WithDirectBoot
   ++ new WithSim
   ++ new WithJtagDTM 
   ++ new WithoutFPU
@@ -25,7 +24,6 @@ class PARDSimConfig extends Config(
 
 class PARDFPGAConfigzedboard extends Config(
   new WithBlockingL1
-  ++ new WithDirectBoot
   ++ new WithoutFPU
   ++ new WithJtagDTM
   ++ new WithNExtBusAXIChannels(1)
@@ -41,7 +39,6 @@ class PARDFPGAConfigzedboard extends Config(
 
 class PARDFPGAConfigzcu102 extends Config(
   new WithBlockingL1
-  ++ new WithJtagBoot
   ++ new WithoutFPU
   ++ new WithJtagDTM
   ++ new WithNExtBusAXIChannels(1)
@@ -55,7 +52,6 @@ class PARDFPGAConfigzcu102 extends Config(
 
 class PARDFPGAConfigsidewinder extends Config(
   new WithBlockingL1
-  ++ new WithJtagBoot
   ++ new WithoutFPU
   ++ new WithJtagDTM
   ++ new WithNExtBusAXIChannels(1)
@@ -69,7 +65,6 @@ class PARDFPGAConfigsidewinder extends Config(
 
 class PARDFPGAConfigultraZ extends Config(
   new WithBlockingL1
-  ++ new WithDirectBoot
   ++ new WithoutFPU
   ++ new WithJtagDTM
   ++ new WithNExtBusAXIChannels(1)
