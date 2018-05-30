@@ -368,6 +368,7 @@ class TileLinkIONastiIOConverter(implicit p: Parameters) extends TLModule()(p)
   put_id_mapper.io.resp.valid := io.nasti.b.fire()
 
   io.tl.acquire.bits := Mux(state === s_put, put_acquire, get_acquire)
+  io.tl.acquire.bits.dsid := UInt(0)
   io.tl.acquire.valid := get_helper.fire(io.tl.acquire.ready, state === s_idle) ||
                          (state === s_put && io.nasti.w.valid)
 
