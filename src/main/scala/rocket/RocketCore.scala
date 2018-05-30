@@ -700,8 +700,8 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   val icache_blocked = !(io.imem.resp.valid || RegNext(io.imem.resp.valid))
   csr.io.counters foreach { c => c.inc := RegNext(perfEvents.evaluate(c.eventSel)) }
 
+  val t = csr.io.trace(0)
   if (enableCommitLog) {
-    val t = csr.io.trace(0)
     val rd = wb_waddr
     val wfd = wb_ctrl.wfd
     val wxd = wb_ctrl.wxd
@@ -727,13 +727,15 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     }
   }
   else {
-    printf("C%d: %d [%d] pc=[%x] W[r%d=%x][%d] R[r%d=%x] R[r%d=%x] inst=[%x] DASM(%x)\n",
-         io.hartid, csr.io.time(31,0), csr.io.trace(0).valid && !csr.io.trace(0).exception,
-         csr.io.trace(0).iaddr(vaddrBitsExtended-1, 0),
-         Mux(rf_wen && !(wb_set_sboard && wb_wen), rf_waddr, UInt(0)), rf_wdata, rf_wen,
-         wb_reg_inst(19,15), Reg(next=Reg(next=ex_rs(0))),
-         wb_reg_inst(24,20), Reg(next=Reg(next=ex_rs(1))),
-         csr.io.trace(0).insn, csr.io.trace(0).insn)
+    when (t.valid || t.exception) {
+      printf("C%d: %d [%d] pc=[%x] W[r%d=%x][%d] R[r%d=%x] R[r%d=%x] inst=[%x] DASM(%x)\n",
+        io.hartid, csr.io.time(31,0), t.valid && !t.exception,
+        t.iaddr(vaddrBitsExtended-1, 0),
+        Mux(rf_wen && !(wb_set_sboard && wb_wen), rf_waddr, UInt(0)), rf_wdata, rf_wen,
+        wb_reg_inst(19,15), Reg(next=Reg(next=ex_rs(0))),
+        wb_reg_inst(24,20), Reg(next=Reg(next=ex_rs(1))),
+        t.insn, t.insn)
+    }
   }
 
   PlusArg.timeout(
