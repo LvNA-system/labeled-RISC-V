@@ -68,7 +68,7 @@ class PARDFPGAConfigultraZ extends Config(
   ++ new WithoutFPU
   ++ new WithJtagDTM
   ++ new WithNExtBusAXIChannels(1)
-  ++ new WithExtMemSize(0x80000000L)
+  ++ new WithExtMemSize(0x10000000000L)
   ++ new WithNCores(2)
   ++ new WithNBtbEntry(0)
   ++ new WithDefaultMulDiv
