@@ -57,6 +57,12 @@ class TrafficEnableIO(implicit val p: Parameters) extends Bundle {
   override def cloneType = (new TrafficEnableIO).asInstanceOf[this.type]
 }
 
+class TrafficCachedPortIO(implicit val p: Parameters) extends Bundle {
+  val valid = Bool(OUTPUT)
+  val ready = Bool(OUTPUT)
+  override def cloneType = (new TrafficCachedPortIO).asInstanceOf[this.type]
+}
+
 abstract class BaseCoreplex(c: CoreplexConfig)(implicit p: Parameters) extends LazyModule
 
 abstract class BaseCoreplexBundle(val c: CoreplexConfig)(implicit val p: Parameters) extends Bundle with HasCoreplexParameters {
@@ -73,6 +79,9 @@ abstract class BaseCoreplexBundle(val c: CoreplexConfig)(implicit val p: Paramet
   val leds = Vec(8, Bool()).asOutput
 
   val trafficEnable = Vec(p(NTiles), new TrafficEnableIO()).flip
+  val trafficCachedPorts = Vec(p(NTiles) , new TrafficCachedPortIO())
+  val trafficUncachedPorts = Vec(p(NTiles) , new TrafficCachedPortIO())
+
   val tokenBucketConfig = new TokenBucketConfigIO
   val memMonitor = new MemMonitorIO
   override def cloneType = this.getClass.getConstructors.head.newInstance(c, p).asInstanceOf[this.type]
@@ -106,6 +115,14 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
   case TLId => "L1toL2"
   }))) }
 
+  (io.trafficCachedPorts zip cachedPorts).foreach{ case(t,p) =>
+	  t.valid := p.acquire.valid
+	  t.ready := p.acquire.ready
+  }
+  (io.trafficUncachedPorts zip uncachedPorts).foreach{ case(t,p) =>
+	  t.valid := p.acquire.valid
+	  t.ready := p.acquire.ready
+  }
   val controlledCachedPorts = (cachedPorts zip cachedControlCrossing) map {case (p, cross) =>
     cross.io.in <> p
     cross.io.out

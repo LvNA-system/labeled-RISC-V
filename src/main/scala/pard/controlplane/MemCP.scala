@@ -7,9 +7,9 @@ import cde.{Parameters}
 
 
 class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val ren = Bool(INPUT)
+  val ren = Vec(nTiles, Bool(INPUT))
   val readDsid = UInt(INPUT, width = dsidBits)
-  val wen = Bool(INPUT)
+  val wen = Vec(nTiles, Bool(INPUT))
   val writeDsid = UInt(INPUT, width = dsidBits)
   override def cloneType = (new MemMonitorIO).asInstanceOf[this.type]
 }
@@ -53,8 +53,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
     for (i <- 0 until nTiles) {
       if (p(UseSim)) {
         sizeRegs(i) := 32.U
-        freqRegs(i) := 0.U
-        incRegs(i) := 32.U
+        freqRegs(i) := 128.U
+        incRegs(i) := 1.U
       }
       else {
         freqRegs(i) := 0.U
@@ -85,7 +85,22 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
 
   val cpReadCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(readCounterCol)
   val cpWriteCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(writeCounterCol)
-  val readCounterWen = (monitor.ren && !cpRWEn) || cpReadCounterWen
+
+  ((monitor.ren zip monitor.wen) zipWithIndex).foreach {case ((mren,mwen),idx) =>
+    val readCounterWen = (mren && !cpRWEn) || cpReadCounterWen
+    val writeCounterWen = (mwen && !cpRWEn) || cpWriteCounterWen
+    val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + UInt(1))
+    val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + UInt(1))
+
+    when (readCounterWen) {
+      readCounterRegs(Mux(cpRWEn, wrow, UInt(idx))) := readCounterWdata
+    }
+    when (writeCounterWen) {
+      writeCounterRegs(Mux(cpRWEn, wrow, UInt(idx))) := writeCounterWdata
+    }
+  }
+
+  /*val readCounterWen = (monitor.ren && !cpRWEn) || cpReadCounterWen
   val writeCounterWen = (monitor.wen && !cpRWEn) || cpWriteCounterWen
   val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + UInt(1))
   val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + UInt(1))
@@ -95,7 +110,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   }
   when (writeCounterWen) {
     writeCounterRegs(Mux(cpRWEn, wrow, monitor.writeDsid)) := writeCounterWdata
-  }
+  }*/
 
   io.rw.rready := true.B
   // ControlPlaneIO
