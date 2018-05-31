@@ -13,12 +13,14 @@ typedef uint8_t bool;
 #define true 1
 #define false 0
 
-// #define DEBUG
+#define Log(format, ...) printf("[%s,%d,%s] " format "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+
+//#define DEBUG
 
 #ifdef DEBUG
-# define Log(format, ...) printf("[%s,%d] " format "\n", __func__, __LINE__, ##__VA_ARGS__)
+# define Debug(...) Log(__VA_ARGS__)
 #else
-# define Log(format, ...)
+# define Debug(...)
 #endif
 
 #endif

@@ -9,28 +9,28 @@
 extern volatile uint32_t *jtag_base;
 
 static inline void set_tms(uint32_t val) {
-  Log("write tms = 0x%x", val);
+  Debug("write tms = 0x%x", val);
   jtag_base[TMS_IDX] = val;
 }
 
 static inline void set_len(uint32_t val) {
-  Log("write len = %d bit", val);
+  Debug("write len = %d bit", val);
   jtag_base[LEN_IDX] = val;
 }
 
 static inline void set_tdi(uint32_t val) {
-  Log("write tdi = 0x%x", val);
+  Debug("write tdi = 0x%x", val);
   jtag_base[TDI_IDX] = val;
 }
 
 static inline uint32_t get_tdo() {
   uint32_t val = jtag_base[TDO_IDX];
-  Log("read tdo = 0x%x", val);
+  Debug("read tdo = 0x%x", val);
   return val;
 }
 
 static inline void send_cmd() {
-  Log("sending cmd...");
+  Debug("sending cmd...");
   jtag_base[CTRL_IDX] = 1;
   while (jtag_base[CTRL_IDX] & 0x1);
 }
@@ -76,11 +76,11 @@ static inline uint64_t scan(uint64_t val, int len) {
     send_cmd();
     ret |= (uint64_t)get_tdo() << 32;
   }
-  Log("@@@@@@@@@@@@ ret = 0x%lx", ret);
+  Debug("@@@@@@@@@@@@ ret = 0x%lx", ret);
   return ret;
 }
 
-static inline void goto_run_test_idle_from_reset() {
+void goto_run_test_idle_from_reset() {
   seq_tms("0");
 }
 

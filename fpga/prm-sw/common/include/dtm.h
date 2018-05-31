@@ -4,7 +4,7 @@
 #include "common.h"
 
 void load_program(const char *bin_file, uint64_t hartid, uint32_t base);
-void start_program(uint64_t hartid);
+void start_program(uint64_t hartid, uint64_t entry);
 void check_loaded_program(const char *bin_file, uint64_t hartid, uint32_t base);
 
 void init_dtm();
