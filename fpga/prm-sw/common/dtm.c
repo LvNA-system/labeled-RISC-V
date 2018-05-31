@@ -46,18 +46,22 @@ static uint32_t stage_2_machine_code[] = {
 /* load bin file stage 3, set pc to entry address
  * assembly source
  *
- * #define ENTRY 0x80000000
+ * #define DCSR 0x7b0
  * #define DPC 0x7b1
  * #define RESUME 0x804
  * .text
  * .global _start
  * _start:
- * li t0, ENTRY
+ * ld t0, addr
  * csrw DPC, t0
+ * csrsi DCSR, 3  # set dcsr.prv to machine mode
  * j RESUME
+ *
+ * .align 3
+ * addr: .quad 0
  */
 static uint32_t stage_3_machine_code[] = {
-  0x0010029b, 0x01f29293, 0x7b129073, 0x3f80006f
+  0x00000297, 0x0182b283, 0x7b129073, 0x7b01e073, 0x3f40006f, 0x00000013, 0, 0
 };
 
 void load_program(const char *bin_file, uint64_t hartid, uint32_t base) {
@@ -87,7 +91,9 @@ void load_program(const char *bin_file, uint64_t hartid, uint32_t base) {
   fclose(f);
 }
 
-void start_program(uint64_t hartid) {
+void start_program(uint64_t hartid, uint64_t entry) {
+  stage_3_machine_code[6] = entry & 0xffffffff;
+  stage_3_machine_code[7] = entry >> 32;
   // bin file loading finished, write entry address to dpc
   for (unsigned i = 0; i < sizeof(stage_3_machine_code) / sizeof(uint32_t); i++)
     rw_debug_reg(OP_WRITE, DEBUG_RAM + i, stage_3_machine_code[i]);
