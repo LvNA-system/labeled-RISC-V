@@ -1,0 +1,2 @@
+rw=w,cp=cache,tab=p,col=mask,row=0,val=0xfffe
+rw=w,cp=cache,tab=p,col=mask,row=1,val=0x0001
