@@ -75,8 +75,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
 
-  val readCounterRdata = readCounterRegs(Mux(cpRWEn, rrow, monitor.readDsid))
-  val writeCounterRdata = writeCounterRegs(Mux(cpRWEn, rrow, monitor.writeDsid))
+  //val readCounterRdata = readCounterRegs(Mux(cpRWEn, rrow, monitor.readDsid))
+  //val writeCounterRdata = writeCounterRegs(Mux(cpRWEn, rrow, monitor.writeDsid))
 
   // write
   val wtab = getTabFromAddr(io.rw.waddr)
@@ -87,16 +87,20 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val cpWriteCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(writeCounterCol)
 
   ((monitor.ren zip monitor.wen) zipWithIndex).foreach {case ((mren,mwen),idx) =>
-    val readCounterWen = (mren && !cpRWEn) || cpReadCounterWen
-    val writeCounterWen = (mwen && !cpRWEn) || cpWriteCounterWen
+    val readCounterWen = (mren && !cpRWEn) || (cpReadCounterWen && wrow===UInt(idx))
+    val writeCounterWen = (mwen && !cpRWEn) || (cpWriteCounterWen && wrow===UInt(idx))
+
+    val readCounterRdata = readCounterRegs(idx)
+    val writeCounterRdata = writeCounterRegs(idx)
+
     val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + UInt(1))
     val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + UInt(1))
 
     when (readCounterWen) {
-      readCounterRegs(Mux(cpRWEn, wrow, UInt(idx))) := readCounterWdata
+      readCounterRegs(idx) := readCounterWdata
     }
     when (writeCounterWen) {
-      writeCounterRegs(Mux(cpRWEn, wrow, UInt(idx))) := writeCounterWdata
+      writeCounterRegs(idx) := writeCounterWdata
     }
   }
 
@@ -124,8 +128,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
     ))
 
     val stabData = MuxLookup(rcol, UInt(0), Array(
-      UInt(readCounterCol)   -> readCounterRdata,
-      UInt(writeCounterCol)   -> writeCounterRdata
+      UInt(readCounterCol)   -> readCounterRegs(rrow),
+      UInt(writeCounterCol)   -> writeCounterRegs(rrow)
     ))
 
     val rdata = MuxLookup(rtab, UInt(0), Array(
