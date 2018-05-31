@@ -240,9 +240,7 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
     //memMonitor.wen := axiIn.aw.fire()
     //memMonitor.writeDsid := aw.user
     memMonitor.ren(i) := cachedIn(i).valid && cachedIn(i).ready
-    //memMonitor.readDsid := ar.user
     memMonitor.wen(i) := uncachedIn(i).valid && uncachedIn(i).ready
-    //memMonitor.writeDsid := aw.user
   }
 
   (io.mem_ahb zip edgeMem) foreach { case (ahb, mem) =>
