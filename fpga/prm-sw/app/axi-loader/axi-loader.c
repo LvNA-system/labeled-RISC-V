@@ -13,117 +13,175 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define BOARD_zedboard   0
-#define BOARD_zcu102     1
-#define BOARD_sidewinder 2
-#define BOARD_ultraZ     3
+#include "platform.h"
+#include "dtm.h"
 
-#define BOARD BOARD_ultraZ
+enum { BOARD_ultraZ, BOARD_zedboard, BOARD_zcu102, BOARD_sidewinder };
+static const struct BoardConfig {
+  char *name;
+  uintptr_t ddr_size;
+  uintptr_t ddr_base;
+  uintptr_t gpio_reset_base;
+} board_config [] = {
+  [BOARD_ultraZ] = {"ultraZ", 0x40000000, 0x40000000, 0x80010000},
+  [BOARD_zedboard] = {"zedboard", 0x10000000, 0x100000000, 0x41200000},
+  [BOARD_zcu102] = {"zcu102", 0x80000000, 0x800000000, 0x80010000},
+  [BOARD_sidewinder] = {"sidewinder", 0x80000000, 0x800000000, 0x80010000}
+};
 
-#if BOARD == BOARD_zcu102
-# define DDR_TOTAL_SIZE		((uintptr_t)0x80000000)
-# define DDR_BASE_ADDR		((uintptr_t)0x800000000)
-# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x80010000)
-#elif BOARD == BOARD_ultraZ
-# define DDR_TOTAL_SIZE		((uintptr_t)0x40000000)
-# define DDR_BASE_ADDR		((uintptr_t)0x40000000)
-# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x80010000)
-#elif BOARD == BOARD_zedboard
-# define DDR_TOTAL_SIZE		((uintptr_t)0x10000000)
-# define DDR_BASE_ADDR		((uintptr_t)0x10000000)
-# define GPIO_RESET_BASE_ADDR	((uintptr_t)0x41200000)
-#elif
-# error unsupported BOARD
-#endif
+#define NR_BOARD (sizeof(board_config) / sizeof(board_config[0]))
+
+const struct BoardConfig *bc;
 
 #define GPIO_RESET_TOTAL_SIZE	0x1000
-#define LDOM_MEM_SIZE		(DDR_TOTAL_SIZE / 2)
 
 void *ddr_base;
 volatile uint32_t *gpio_reset_base;
 int	fd;
 
-void loader(char *imgfile, char *dtbfile, uint32_t offset) {
-	FILE *fp = fopen(imgfile, "rb");
-	assert(fp);
+void loader(char *imgfile, char *dtbfile, uintptr_t offset) {
+  FILE *fp = fopen(imgfile, "rb");
+  assert(fp);
 
-	fseek(fp, 0, SEEK_END);
-	long size = ftell(fp);
-	printf("image size = %ld\n", size);
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  printf("image size = %ld\n", size);
 
-	fseek(fp, 0, SEEK_SET);
+  fseek(fp, 0, SEEK_SET);
 
-	size_t ret = fread(ddr_base + offset, size, 1, fp);
+  size_t ret = fread(ddr_base + offset, size, 1, fp);
   assert(ret == 1);
 
-	fclose(fp);
+  fclose(fp);
 
-	fp = fopen(dtbfile, "rb");
-	if (fp == NULL) {
-		printf("No valid configure string file provided. Configure string in bootrom will be used.\n");
-		return ;
-	}
+  fp = fopen(dtbfile, "rb");
+  if (fp == NULL) {
+    printf("No valid configure string file provided. Configure string in bootrom will be used.\n");
+    return ;
+  }
 
-	fseek(fp, 0, SEEK_END);
-	size = ftell(fp);
-	printf("configure string size = %ld\n", size);
+  fseek(fp, 0, SEEK_END);
+  size = ftell(fp);
+  printf("configure string size = %ld\n", size);
 
-	fseek(fp, 0, SEEK_SET);
-	ret = fread(ddr_base + offset + 0x8, size, 1, fp);
+  fseek(fp, 0, SEEK_SET);
+  ret = fread(ddr_base + offset + 0x8, size, 1, fp);
   assert(ret == 1);
 
-	fclose(fp);
+  fclose(fp);
 }
 
 void* create_map(size_t size, int fd, off_t offset) {
-	void *base = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, offset);
-	
-	if (base == MAP_FAILED) {
-		perror("init_mem mmap failed:");
-		close(fd);
-		exit(1);
-	}
+  void *base = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, offset);
 
-	printf("mapping paddr 0x%lx to vaddr 0x%lx\n", offset, (uintptr_t)base);
+  if (base == MAP_FAILED) {
+    perror("init_mem mmap failed:");
+    close(fd);
+    exit(1);
+  }
 
-	return base;
+  printf("mapping paddr 0x%lx to vaddr 0x%lx\n", offset, (uintptr_t)base);
+
+  return base;
 }
 
-void init_map() {
-	fd = open("/dev/mem", O_RDWR|O_SYNC);  
-	if (fd == -1)  {  
-		perror("init_map open failed:");
-		exit(1);
-	} 
+void init_ddr_map() {
+  fd = open("/dev/mem", O_RDWR|O_SYNC);  
+  if (fd == -1)  {  
+    perror("init_map open failed:");
+    exit(1);
+  } 
 
-	gpio_reset_base = create_map(GPIO_RESET_TOTAL_SIZE, fd, GPIO_RESET_BASE_ADDR);
-	printf("DDR_TOTAL_SIZE = %lx, DDR_BASE_ADDR = %lx\n", DDR_TOTAL_SIZE, DDR_BASE_ADDR);
-	ddr_base = create_map(DDR_TOTAL_SIZE, fd, DDR_BASE_ADDR);
+  printf("board = %s, ddr_size = %lx, ddr_base = %lx\n", bc->name, bc->ddr_size, bc->ddr_base);
+  ddr_base = create_map(bc->ddr_size, fd, bc->ddr_base);
 }
 
-void resetn(int val) {
-	gpio_reset_base[0] = val;
+void finish_ddr_map() {
+  munmap((void *)ddr_base, bc->ddr_size);
+  close(fd);
 }
 
-void finish_map() {
-	munmap((void *)gpio_reset_base, GPIO_RESET_TOTAL_SIZE);
-	munmap((void *)ddr_base, DDR_TOTAL_SIZE);
-	close(fd);
+void help() {
+  printf("Usage: axi-loader reset hard\n");
+  printf("       axi-loader reset start [hardid]\n");
+  printf("       axi-loader reset end [hardid]\n");
+  printf("       axi-loader [board] [bin] [configstr] [ddr_offset]\n");
+  printf("Supported boards:\n");
+  int i;
+  for (i = 0; i < NR_BOARD; i ++) {
+    printf("%s ", board_config[i].name);
+  }
 }
 
 int main(int argc, char *argv[]) {
-	/* map some devices into the address space of this program */
-	init_map();
+  init_platform(NULL, 0);
 
-	/* reset RISC-V cores */
-	resetn(0);
+  if (argc > 1 && strcmp(argv[1], "reset") == 0) {
+    if (argc > 2) {
+      if (strcmp(argv[2], "hard") == 0) {
+        resetn(0);
+        resetn(1);
+      }
+      else if (argc > 3) {
+        char *p;
+        uint64_t addr;
+        int hartid = strtoll(argv[3], &p, 0);
+        if (!(argv[3][0] != '\0' && *p == '\0')) {
+          printf("invalid hartid = %s\n", argv[3]);
+          help();
+          exit(1);
+        }
 
-	loader(argv[1], argv[2], 0);
+        if (strcmp(argv[2], "start") == 0) {
+          addr = 0x1000;
+        }
+        else if (strcmp(argv[2], "end") == 0) {
+          addr = 0x100000000;
+        }
+        else {
+          printf("invalid reset command = %s\n", argv[2]);
+          help();
+          exit(1);
+        }
 
-	/* finish resetting RISC-V cores */
-	resetn(3);
+        start_program(hartid, addr);
+      }
+      else {
+        help();
+      }
+    }
+  }
+  else {
+    uintptr_t offset = 0;
+    if (argc > 4) {
+      char *p;
+      offset = strtoll(argv[4], &p, 0);
+      if (!(argv[4][0] != '\0' && *p == '\0')) {
+        printf("invalid offset = %s, set offset = 0\n", argv[4]);
+        offset = 0;
+      }
+    }
 
-	finish_map();
+    int j;
+    for (j = 0; j < NR_BOARD; j ++) {
+      if (strcmp(argv[1], board_config[j].name) == 0) {
+        bc = &board_config[j];
+        break;
+      }
+    }
+    if (j == NR_BOARD) {
+      printf("invalid board = %s\n", argv[1]);
+      help();
+      exit(1);
+    }
 
-	return 0; 
+    init_ddr_map();
+    Log("loading %s and %s to offset = 0x%lx", argv[2], argv[3], offset);
+    loader(argv[2], argv[3], offset);
+    finish_ddr_map();
+  }
+
+  finish_platform();
+
+  return 0; 
 } 
