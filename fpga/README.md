@@ -81,7 +81,7 @@ The project will be created under `board/zedboard/build/myproject-zedboard`.
 
 ### Prepare SD card
 
-Refer to the instructions of [boot/README.md](board/boot/README.md).
+Refer to the instructions of [boot/README.md](boot/README.md).
 
 NOTE: Remember to put the bitstream into BOOT.BIN, since the guide is going to boot everything from SD card.
 
