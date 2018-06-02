@@ -46,8 +46,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   // stab
   val readCounterCol = 0
   val writeCounterCol = 1
-  val readCounterRegs = Reg(Vec(nDsids, UInt(width = 32)))
-  val writeCounterRegs = Reg(Vec(nDsids, UInt(width = 32)))
+  val readCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
+  val writeCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
 
   when (reset) {
     for (i <- 0 until nTiles) {
