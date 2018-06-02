@@ -1,0 +1,55 @@
+plic {
+  priority 0xc000000;
+  pending 0xc001000;
+  ndevs 2;
+};
+rtc {
+  addr 0x200bff8;
+};
+ram {
+  0 {
+    addr 0x100000000;
+    size 0x4000000;
+  };
+};
+core {
+  0 {
+    0 {
+      isa rv64imas;
+      timecmp 0x2004010;
+      ipi 0x2000008;
+      plic {
+        m {
+         ie 0xc002200;
+         thresh 0xc204000;
+         claim 0xc204004;
+        };
+        s {
+         ie 0xc002280;
+         thresh 0xc205000;
+         claim 0xc205004;
+        };
+      };
+    };
+  };
+};
+bootrom {
+  addr 0x1000;
+  size 0x1000;
+};
+debug {
+  addr 0x0;
+  size 0x1000;
+};
+clint {
+  addr 0x2000000;
+  size 0x10000;
+};
+plic {
+  addr 0xc000000;
+  size 0x4000000;
+};
+uart0 {
+  addr 0x60002000;
+  size 0x1000;
+};
