@@ -7,9 +7,9 @@ import cde.{Parameters}
 
 
 class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val ren = Vec(nTiles, Bool(INPUT))
+  val ren = Vec(nTiles, Bool()).asInput
   val readDsid = UInt(INPUT, width = dsidBits)
-  val wen = Vec(nTiles, Bool(INPUT))
+  val wen = Vec(nTiles, Bool()).asInput
   val writeDsid = UInt(INPUT, width = dsidBits)
   override def cloneType = (new MemMonitorIO).asInstanceOf[this.type]
 }
@@ -46,8 +46,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   // stab
   val readCounterCol = 0
   val writeCounterCol = 1
-  val readCounterRegs = Reg(Vec(nDsids, UInt(width = 32)))
-  val writeCounterRegs = Reg(Vec(nDsids, UInt(width = 32)))
+  val readCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
+  val writeCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
 
   when (reset) {
     for (i <- 0 until nTiles) {
@@ -75,9 +75,6 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
 
-  //val readCounterRdata = readCounterRegs(Mux(cpRWEn, rrow, monitor.readDsid))
-  //val writeCounterRdata = writeCounterRegs(Mux(cpRWEn, rrow, monitor.writeDsid))
-
   // write
   val wtab = getTabFromAddr(io.rw.waddr)
   val wrow = getRowFromAddr(io.rw.waddr)
@@ -103,18 +100,6 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
       writeCounterRegs(idx) := writeCounterWdata
     }
   }
-
-  /*val readCounterWen = (monitor.ren && !cpRWEn) || cpReadCounterWen
-  val writeCounterWen = (monitor.wen && !cpRWEn) || cpWriteCounterWen
-  val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + UInt(1))
-  val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + UInt(1))
-
-  when (readCounterWen) {
-    readCounterRegs(Mux(cpRWEn, wrow, monitor.readDsid)) := readCounterWdata
-  }
-  when (writeCounterWen) {
-    writeCounterRegs(Mux(cpRWEn, wrow, monitor.writeDsid)) := writeCounterWdata
-  }*/
 
   io.rw.rready := true.B
   // ControlPlaneIO
