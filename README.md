@@ -1,9 +1,9 @@
 Labeled RISC-V
+=====================
 
 The following is the original Rocket Chip README.md.
 For a quick start flow about Labeled RISC-V, please refer to [the README.md under `fpga/` directory](fpga/README.md).
 
-=====================
 
 Rocket Chip Generator [![Build Status](https://travis-ci.org/ucb-bar/rocket-chip.svg?branch=master)](https://travis-ci.org/ucb-bar/rocket-chip)
 =====================
