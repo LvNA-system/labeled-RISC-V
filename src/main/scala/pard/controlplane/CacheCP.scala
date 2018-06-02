@@ -133,8 +133,8 @@ class CacheControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule
   // eg: when dsid a replaced dsid b, then alloc(a) increment, dealloc(b) decrement
   // so usage(a) = alloc(a) - dealloc(a)
   // be careful about overflows
-  val allocCounterRegs = SeqMem(nDsids, UInt(width = cpDataSize))
-  val deallocCounterRegs = SeqMem(nDsids, UInt(width = cpDataSize))
+  val allocCounterRegs = SeqMem(nDsids, UInt(width = 32))
+  val deallocCounterRegs = SeqMem(nDsids, UInt(width = 32))
 
   val allocValid = RegInit(Vec.fill(nDsids) {Bool(false)})
   val deallocValid = RegInit(Vec.fill(nDsids) {Bool(false)})

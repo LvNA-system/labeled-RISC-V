@@ -9,6 +9,7 @@ import junctions._
 import util._
 import rocketchip.PeripheryBusKey
 import sifive.blocks.util.{NonBlockingEnqueue, NonBlockingDequeue}
+import pard.cp.{UseSim}
 
 case class UARTConfig(
   address: BigInt,
@@ -207,7 +208,7 @@ trait UARTTopModule extends Module with MixUARTParameters with HasUARTParameters
   val rxm = Module(new UARTRx(c))
   val rxq = Module(new Queue(rxm.io.out.bits, uartNRxEntries))
 
-  val divinit = 2 // (62.5MHz / 115200)
+  val divinit = if (p(UseSim)) 2 else 434 // (62.5MHz / 115200)
   val div = Reg(init = UInt(divinit, uartDivisorBits))
 
   private val stopCountBits = log2Up(uartStopBits)
