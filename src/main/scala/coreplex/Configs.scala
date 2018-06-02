@@ -12,7 +12,7 @@ import uncore.converters._
 import rocket._
 import util._
 import util.ConfigUtils._
-import rocketchip.{GlobalAddrMap, NCoreplexExtClients}
+import rocketchip.{GlobalAddrMap, NCoreplexExtClients, TapeOut}
 import pard.cp._
 import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
 
@@ -153,7 +153,9 @@ class BaseCoreplexConfig extends Config (
           dataBits = site(CacheBlockBytes) * 8)
       }
 
-      case BootROMFile => "./bootrom/bootrom.img"
+      case BootROMFile => if (site(TapeOut)) "./bootrom/bootrom_MEMBOOT.img"
+                          else if (site(UseSim)) "./bootrom/bootrom_DIRECTBOOT.img"
+                          else "./bootrom/bootrom_JTAGBOOT.img"
       case NTiles => 1
       case NBanksPerMemoryChannel => Knob("NBANKS_PER_MEM_CHANNEL")
       case BankIdLSB => 0
@@ -177,16 +179,6 @@ class BaseCoreplexConfig extends Config (
     case _ => throw new CDEMatchError
   }
 )
-
-class WithDirectBoot extends Config(
-  (pname,site,here) => pname match {
-    case BootROMFile => "./bootrom/bootrom_DIRECTBOOT.img"
-  })
-
-class WithJtagBoot extends Config(
-  (pname,site,here) => pname match {
-    case BootROMFile => "./bootrom/bootrom_JTAGBOOT.img"
-  })
 
 class WithNCores(n: Int) extends Config(
   (pname,site,here) => pname match {

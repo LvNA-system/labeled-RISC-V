@@ -3,12 +3,26 @@
 package rocketchip
 
 import Chisel._
-import cde.{Parameters, Field}
+import cde.{Parameters}
 import junctions._
 import coreplex._
-import rocketchip._
+import pard.cp.{UseSim}
 
-import sifive.blocks.devices.uart.{UARTConfig, PeripheryUART, PeripheryUARTBundle, PeripheryUARTModule, UARTGPIOPort}
+import sifive.blocks.devices.uart._
+
+trait SimUARTConfigs {
+  implicit val p: Parameters
+  val uartConfigs = if (p(UseSim))
+    List(
+      UARTConfig(address = 0x60000000),
+      UARTConfig(address = 0x60001000))
+  else if (p(TapeOut))
+    List(
+      UARTConfig(address = 0x20000000),
+      UARTConfig(address = 0x20001000))
+  else
+    Nil
+}
 
 /** Example Top with Periphery */
 class ExampleTop(q: Parameters) extends BaseTop(q)
@@ -17,7 +31,10 @@ class ExampleTop(q: Parameters) extends BaseTop(q)
     with PeripheryExtInterrupts
     with PeripheryCoreplexLocalInterrupter
     with PeripheryMasterMem
-    with PeripherySlave {
+    with PeripheryMasterMMIO
+    with PeripherySlave
+    with SimUARTConfigs
+    with PeripheryUART {
   override lazy val module = Module(new ExampleTopModule(p, this, new ExampleTopBundle(p)))
 }
 
@@ -27,7 +44,10 @@ class ExampleTopBundle(p: Parameters) extends BaseTopBundle(p)
     with PeripheryExtInterruptsBundle
     with PeripheryCoreplexLocalInterrupterBundle
     with PeripheryMasterMemBundle
+    with PeripheryMasterMMIOBundle
     with PeripherySlaveBundle
+    with SimUARTConfigs
+    with PeripheryUARTBundle
 
 class ExampleTopModule[+L <: ExampleTop, +B <: ExampleTopBundle](p: Parameters, l: L, b: => B) extends BaseTopModule(p, l, b)
     with DirectConnection
@@ -36,7 +56,9 @@ class ExampleTopModule[+L <: ExampleTop, +B <: ExampleTopBundle](p: Parameters, 
     with PeripheryExtInterruptsModule
     with PeripheryCoreplexLocalInterrupterModule
     with PeripheryMasterMemModule
+    with PeripheryMasterMMIOModule
     with PeripherySlaveModule
+    with PeripheryUARTModule
     with HardwiredResetVector
 
 /** Example Top with TestRAM */

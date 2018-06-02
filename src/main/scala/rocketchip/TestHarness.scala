@@ -7,6 +7,7 @@ import cde.{Parameters, Field}
 import junctions._
 import junctions.NastiConstants._
 import util.LatencyPipe
+import pard.cp.{UseSim}
 
 case object BuildExampleTop extends Field[Parameters => ExampleTop]
 case object SimMemLatency extends Field[Int]
@@ -44,7 +45,7 @@ class TestHarness(q: Parameters) extends Module {
     }
   }
 
-  if (dut.io.mem_axi.nonEmpty) {
+  if (dut.io.mem_axi.nonEmpty && p(UseSim)) {
     val memSize = p(GlobalAddrMap)("mem").size
     require(memSize % dut.io.mem_axi.size == 0)
     for (axi <- dut.io.mem_axi) {
@@ -54,6 +55,21 @@ class TestHarness(q: Parameters) extends Module {
       mem.io.axi.w  <> axi.w
       axi.r <> LatencyPipe(mem.io.axi.r, p(SimMemLatency))
       axi.b <> LatencyPipe(mem.io.axi.b, p(SimMemLatency))
+    }
+  }
+
+  for (mmio_axi <- dut.io.mmio_axi) {
+    val slave = Module(new NastiErrorSlave)
+    slave.io <> mmio_axi
+  }
+
+  if (dut.io.bus_axi.nonEmpty) {
+    for (axi <- dut.io.bus_axi) {
+      axi.ar.valid := Bool(false)
+      axi.aw.valid := Bool(false)
+      axi.w.valid := Bool(false)
+      axi.b.ready := Bool(true)
+      axi.r.ready := Bool(true)
     }
   }
 
@@ -69,13 +85,6 @@ class TestHarness(q: Parameters) extends Module {
   } else {
     val jtag = Module(new JTAGDTM).connect(clock, reset, dut.io.jtag.get, io.success)
   }
-
-  /*
-  for (mmio_axi <- dut.io.mmio_axi) {
-    val slave = Module(new NastiErrorSlave)
-    slave.io <> mmio_axi
-  }
-  */
 }
 
 class SimAXIMem(size: BigInt)(implicit p: Parameters) extends NastiModule()(p) {

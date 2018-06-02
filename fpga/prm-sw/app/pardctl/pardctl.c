@@ -125,8 +125,8 @@ int main(int argc, char *argv[]) {
           row = (int)strtol(value, NULL, 16);
           // read
           if(rw == 0) {
-            uint32_t ret = read_cp_reg(get_cp_addr(cpIdx, tabIdx, col, row));
-            printf("val = 0x%08x\n", ret);
+            uint64_t ret = read_cp_reg(get_cp_addr(cpIdx, tabIdx, col, row));
+            printf("val = 0x%016lx\n", ret);
           }
         } else if(!strcmp(field, "val")) {
           // only write needs val
