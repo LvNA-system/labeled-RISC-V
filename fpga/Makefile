@@ -19,12 +19,12 @@ $(XPR_FILE):
 
 project: $(XPR_FILE)
 
-genboot:
+bootgen:
 	cd boot && hsi $(VIVADO_FLAG) -source mk.tcl -tclargs $(abspath $(PRJ_ROOT)/$(PRJ_FULL).sdk/system_top.hdf) $(PRJ_FULL)
 
 vivado: $(XPR_FILE)
 	vivado $(VIVADO_FLAG) $(XPR_FILE) &
 
-.PHONY: default project vivado
+.PHONY: default project vivado bootgen
 
 include Makefile.sw

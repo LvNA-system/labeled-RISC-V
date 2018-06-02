@@ -2,5 +2,5 @@ the_ROM_image:
 {
   [bootloader] build/zynq/fsbl.elf
   // build/zynq/system_top.bit
-  xilinx-repo/build/u-boot-zynq.elf
+  build/zynq/u-boot.elf
 }

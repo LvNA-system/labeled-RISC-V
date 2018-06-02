@@ -15,18 +15,6 @@ plic {
       };
     };
   };
-  1 {
-    0 {
-      m {
-       ie  { mem { 0xc002100 0xc00217f; }; };
-       ctl { mem { 0xc202000 0xc202007; }; };
-      };
-      s {
-       ie  { mem { 0xc002180 0xc0021ff; }; };
-       ctl { mem { 0xc203000 0xc203007; }; };
-      };
-    };
-  };
 };
 rtc {
   addr 0x200bff8;
@@ -34,7 +22,7 @@ rtc {
 ram {
   0 {
     addr 0x100000000;
-    size 0x40000000;
+    size 0x8000000;
   };
 };
 core {
@@ -57,25 +45,22 @@ core {
       };
     };
   };
-  1 {
-    0 {
-      isa rv64imas;
-      timecmp 0x2004008;
-      ipi 0x2000004;
-      plic {
-        m {
-         ie 0xc002100;
-         thresh 0xc202000;
-         claim 0xc202004;
-        };
-        s {
-         ie 0xc002180;
-         thresh 0xc203000;
-         claim 0xc203004;
-        };
-      };
-    };
-  };
+};
+bootrom {
+  addr 0x1000;
+  size 0x1000;
+};
+debug {
+  addr 0x0;
+  size 0x1000;
+};
+clint {
+  addr 0x2000000;
+  size 0x10000;
+};
+plic {
+  addr 0xc000000;
+  size 0x4000000;
 };
 eth {
   interface "xilinx-eth-rv";
@@ -85,19 +70,7 @@ eth {
   tx { irq 0; };
   rx { irq 1; };
 };
-bootrom {
-  addr 0x1000;
+uart0 {
+  addr 0x60000000;
   size 0x1000;
-}
-debug {
-  addr 0x0;
-  size 0x1000;
-}
-clint {
-  addr 0x2000000;
-  size 0x10000;
-}
-plic {
-  addr 0xc000000;
-  size 0x4000000;
 };

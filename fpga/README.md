@@ -1,41 +1,59 @@
-## Quick Start Guide
+# Quick Start Guide
 
-### Build RISC-V image
+## Sub-directories
+```
+.
+├── board              # supported FPGA boards and files to build a Vivado project
+├── boot               # PS boot flow of zynq and zynqmp
+├── doc                # some development documents (but in Chinese...)
+├── emulator           # wrapper of the original rocketchip/emulator to support fast memory initializaion
+├── lib                # HDL sources shared by different boards
+├── Makefile
+├── Makefile.check
+├── Makefile.sw
+├── pardcore           # wrapper of rocketchip in the Vivado project
+├── prm-sw             # tools to boot RISC-V subsystem on PS
+└── README.md          # this file
+```
+
+## Build RISC-V image
 
 * Initialize all submodules and build riscv-tools according to the instructions of [README.md under the root directory of this repo](../README.md).
   * Please also install the linux-gnu toolchain
-* Build riscv-pk (which contains bootloader) and riscv-linux with the following commands
+* Build riscv-pk (which contains the bootloader) and riscv-linux with the following commands
 ```
 mkdir build
-make -j16 sw  # change 16 according to your host
+make -j16 sw  # change 16 to the number of cores according to your host
 ```
 If it is the first time you run this command, note that
 1. You will be asked to pull the pk and linux repo under `../../sw`
 1. A configuration menu will be popped up during initialization of linux repo. Choose `Exit`.
-1. You will receive an error while creating ramdisk during building linux kernel. This is because we can not know your setting of `RISCV` environment variable in advance. You should modify library paths in `initramfs.txt` according to `RISCV`. After that, re-run the `make` command above.
+1. You will receive an error while creating ramdisk during building linux kernel.
+This is because we can not know your setting of `RISCV` environment variable in advance.
+You should modify library paths in `initramfs.txt` according to `RISCV`.
+After that, re-run the `make` command above.
 ```
-cd path-to-riscv-linux/arch/riscv/rootfs
+cd path-to-labeled-RISC-V/../sw/riscv-linux/arch/riscv/rootfs
 vim initramfs.txt # modify library paths to match your RISCV environment variable
 ```
 
 After that, `linux.bin` will be generated under `build/`.
 
-### Run with emulator
+## Run with emulator
 
-#### Build a minimal rootfs
+### Build a minimal rootfs
 
 ```
-cd path-to-riscv-linux
+cd path-to-labeled-RISC-V/../sw/riscv-linux
 make ARCH=riscv menuconfig
 # change `General setup` -> `Initramfs source file(s)` to `arch/riscv/rootfs/initramfs-emu.txt`
-cd path-to-fpga
+cd path-to-labeled-RISC-V/fpga
 make -j16 sw
 ```
 This will build a minimal rootfs only containing a `stream` program.
 
-NOTE: To build a rootfs for FPGA, remember to change the initramfs source file back to `arch/riscv/rootfs/initramfs.txt`.
 
-#### Build and run emulator
+### Build and run emulator
 
 ```
 cd emulator    # NOTE: this is `fpga/emulator`, not the `emulator/` one
@@ -48,9 +66,9 @@ The following files will be generated
 
 It may cost about one hour (it depends on the performance of your host) to boot linux in emulator. After `stream` exits, it can be considered as running emulator successfully.
 
-### Run with FPGA
+## Run with FPGA
 
-#### Build a Vivado project
+### Build a Vivado project
 
 * Install Vivado 2017.4, and source the setting of Vivado and SDK
 * Run the following command to build a Vivado project
@@ -58,51 +76,137 @@ It may cost about one hour (it depends on the performance of your host) to boot 
 make project PRJ=myproject BOARD=zedboard
 ```
 Change `zedboard` to the target board you want. Supported boards are listed under `board/`.
-The project will be created under `build/myproject-zedboard`.
+The project will be created under `board/zedboard/build/myproject-zedboard`.
 * Open the project with Vivado and generate bitstream.
 
-#### Prepare SD card
+### Prepare SD card
 
-Refer to the instructions of `board/your-target-board/boot/README.md` [(take zedboard as an example)](board/zedboard/boot/README.md).
+Refer to the instructions of [boot/README.md](boot/README.md).
 
 NOTE: Remember to put the bitstream into BOOT.BIN, since the guide is going to boot everything from SD card.
 
-#### Set your board to SD boot mode
+### Set your board to SD boot mode
 
 Please refer to the user guide of your board.
 * [zedboard](http://www.zedboard.org/sites/default/files/ZedBoard_HW_UG_v1_1.pdf)
 * [zcu102](https://www.xilinx.com/support/documentation/boards_and_kits/zcu102/ug1182-zcu102-eval-bd.pdf)
+* [sidewinder](http://sidewinder.fidus.com)
+* ultraZ (currently not avaliable to the public)
 
-#### Boot linux in PRM
+### Boot linux in PRM
 
 NOTE: PRM is short for Platform Resource Manager, which is acted by PS part of the board.
 
-* Insert the SD card into the board, open a serial terminal and powerup the board.
-* Press any key to interrupt the default action in u-boot, and run the following commands to boot linux
+To boot linux in PRM, just insert the SD card into the board, open a serial terminal and powerup the board.
+
+### Boot RISC-V subsystem
+
+Due to different resources in different FPGA devices,
+the configures of RISC-V subsystem are different among boards.
+
+| Board | # RISC-V cores | Frequency | # BTB entries | L2 cache size | Memory size |
+| --- | --- | --- | --- | --- | --- |
+| zedboard | 3 | 40 MHz | 0 | 256 KB | 128 MB |
+| zcu102 | 4 | 100 MHz | 40 | 2 MB | 2 GB |
+| sidewinder | 4 | 100 MHz | 40 | 2 MB | 2 GB |
+| ultraZ | 2 | 100 MHz | 0 | 256 KB | 1 GB |
+
+For details, see [PARDConfigs.scala](../src/main/scala/pard/PARDConfigs.scala).
+
+To boot the RISC-V subsystem
+* Send the `prm-sw` directory to PRM.
+This can be achieved by either copying the file to SD card,
+or by sending the file with `scp` if you have your board connected to your host by network.
+`prm-sw` contains tools to boot and control the RISC-V subsystem.
+For details, please refer to the [README.md under the prm-sw directory](prm-sw/README.md).
+* If the target board is zynq, change the following macro definition in `path-to-prm-sw/platform/platform-fpga/src/map.h`
 ```
-load mmc 0:auto 0x3000000 Image
-load mmc 0:auto 0x2a00000 system.dtb
-booti 0x3000000 - 0x2a00000
+#define GPIO_RESET_BASE_ADDR 0x41200000
+#define JTAG_BASE_ADDR 0x43C00000
+```
+* Compile the tools on PRM.
+```
+cd path-to-prm-sw/app/axi-loader && make PLATFORM=fpga
+cd path-to-prm-sw/app/pardctl && make PLATFORM=fpga
+cd path-to-prm-sw/app/stab && make PLATFORM=fpga
 ```
 
-#### Boot RISC-V subsystem
+#### SMP Boot
 
-* Send the following files to PRM. This can be achieved by either copying the file to SD card, or by sending the file with `scp` if you have your board connected to your host by network.
-  * `board/your-target-board/prm-loader/loader.c` [(take zedboard as an example)](board/zedboard/prm-loader/loader.c)
-  * `board/your-target-board/prm-loader/configstr` [(take zedboard as an example)](board/zedboard/prm-loader/configstr)
-  * `build/linux.bin`
-* Compile the loader on PRM.
+SMP boot allows running one OS on multiple cores.
+This is the traditional way to use a multi-core system.
+To perform SMP boot
+* In the `menuconfig` of `riscv-linux`,
+  * General setup -> change the initramfs source file back to `arch/riscv/rootfs/initramfs.txt`
+* Regenerate `linux.bin`
 ```
-gcc -o loader loader.c
+cd path-to-labeled-RISC-V/fpga
+make -j16 sw
 ```
-* Open minicom on PRM to connect to the UART of RISC-V subsystem. Note that you can connect to PRM via `ssh` and use `tmux` to get multiple terminals.
+* Put `linux.bin` as `path-to-prm-sw/app/axi-loader/linux-smp.bin` on PRM.
+* Open minicom on PRM to connect to the UART of RISC-V subsystem.
+Note that you can connect to PRM via `ssh` and use `tmux` to get multiple terminals.
 ```
 minicom -D /dev/ttyUL1
 ```
-* Run loader to boot RISC-V subsystem.
+* Run the script to boot RISC-V subsystem in SMP mode.
 ```
-./loader linux.bin configstr
+cd path-to-prm-sw/app/axi-loader
+bash runme-smp.sh [board]
 ```
 It may cost about 100s for zedboard to boot the RISC-V subsystem. Most of the time is spent in unpacking ramdisk image.
 
-### To Be Continued
+NOTE: Currently the process-level label machenism in the SMP OS does not work well.
+To use label, please use NoHype mode below.
+
+#### NoHype Boot
+
+NoHype boot allows running multiple OSes on multiple cores.
+This is a new virtualization method provided by LvNA.
+To perform NoHype boot
+* In the `menuconfig` of `riscv-linux`,
+  * General setup -> change the initramfs source file back to `arch/riscv/rootfs/initramfs.txt`
+  * Platform type -> unselect `Symmetric Multi-Processing`
+* Regenerate `linux.bin`
+```
+cd path-to-labeled-RISC-V/fpga
+make -j16 sw
+```
+* Put `linux.bin` as `path-to-prm-sw/app/axi-loader/linux-nohype.bin` on PRM.
+* Open 4 minicoms in different terminals on PRM to connect to the UARTs of RISC-V subsystem.
+Note that you can connect to PRM via `ssh` and use `tmux` to get multiple terminals.
+```
+minicom -D /dev/ttyUL1
+minicom -D /dev/ttyUL2
+minicom -D /dev/ttyUL3
+minicom -D /dev/ttyUL4
+```
+* Run the script to boot every cores of the RISC-V subsystem in NoHype mode.
+```
+cd path-to-prm-sw/app/axi-loader
+bash runme-nohype.sh [board] 0
+bash runme-nohype.sh [board] 1
+bash runme-nohype.sh [board] 2
+...
+```
+NOTE: Do not call `runme-nohype.sh` with a `hartid` larger than the number of RISC-V cores on the board.
+Else the behavior is undefined.
+
+#### Label-Based Performance Counters
+
+Open a new terminal on PRM. Then run
+```
+cd path-to-prm-sw/app/stab/build
+./stab-fpga [board]
+```
+This will show all statistic counters every second.
+
+#### Label-Based Performance Control
+
+Open a new terminal on PRM. Then run
+```
+cd path-to-prm-sw/app/pardctl
+ls cp-config/?core/
+...
+./build/pardctl-fpga < cp-config/?core/
+```
