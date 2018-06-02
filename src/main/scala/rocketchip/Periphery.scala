@@ -17,7 +17,6 @@ import util._
 import rocket.XLen
 import scala.math.max
 import coreplex._
-import pard.cp.{TokenBucket, TokenBucketConfigIO, MemMonitorIO}
 
 /** Options for memory bus interface */
 object BusType {
@@ -182,10 +181,6 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
   val io: PeripheryMasterMemBundle
   val coreplexIO: BaseCoreplexBundle
 
-  val coreplexTrafficEnable: Vec[TrafficEnableIO]
-  val tokenBucketConfig: TokenBucketConfigIO
-  val memMonitor: MemMonitorIO
-
   val edgeMem = coreplexIO.master.mem.map(TileLinkWidthAdapter(_, edgeMemParams))
 
   // Abuse the fact that zip takes the shorter of the two lists
@@ -198,37 +193,7 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
       else AsyncNastiTo(io.mem_clk.get(idx), io.mem_rst.get(idx), axi_sync)
     )
   }
-/*
-  // one dsid one bucket
-  val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
 
-  val cachedIn = coreplexIO.trafficCachedPorts
-  val uncachedIn = coreplexIO.trafficUncachedPorts
-  buckets.zipWithIndex.foreach { case (bucket, i) =>
-    val bucketIO = bucket.io
-    // for now, we do not match dsid bits
-    
-      bucketIO.read.valid := cachedIn(i).valid
-      bucketIO.read.ready := cachedIn(i).ready
-      bucketIO.write.valid := uncachedIn(i).valid
-      bucketIO.write.ready := uncachedIn(i).ready
-      bucketIO.read.bits :=  1.U
-      bucketIO.write.bits :=  1.U
-	
-    bucketIO.rmatch := Bool(true)
-    bucketIO.wmatch := Bool(true)
-
-    coreplexTrafficEnable(i).dsid := UInt(i)
-    coreplexTrafficEnable(i).enable := bucketIO.enable
-
-    bucketIO.bucket.size := tokenBucketConfig.sizes(i)
-    bucketIO.bucket.freq := tokenBucketConfig.freqs(i)
-    bucketIO.bucket.inc := tokenBucketConfig.incs(i)
-
-    memMonitor.ren(i) := cachedIn(i).valid && cachedIn(i).ready
-    memMonitor.wen(i) := uncachedIn(i).valid && uncachedIn(i).ready
-  }
-*/
   (io.mem_ahb zip edgeMem) foreach { case (ahb, mem) =>
     ahb <> PeripheryUtils.convertTLtoAHB(mem, atomics = false)
   }

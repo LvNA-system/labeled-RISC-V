@@ -11,13 +11,6 @@ class CacheMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
   val ucen = Vec(nTiles, Bool()).asInput
   override def cloneType = (new CacheMonitorIO).asInstanceOf[this.type]
 }
-class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val ren = Vec(nTiles, Bool()).asInput
-  val readDsid = UInt(INPUT, width = dsidBits)
-  val wen = Vec(nTiles, Bool()).asInput
-  val writeDsid = UInt(INPUT, width = dsidBits)
-  override def cloneType = (new MemMonitorIO).asInstanceOf[this.type]
-}
 class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val sizes = Vec(nTiles, UInt(OUTPUT, width = 16))
   val freqs = Vec(nTiles, UInt(OUTPUT, width = 16))
@@ -30,7 +23,6 @@ class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
 class MemControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val tokenBucketConfig = new TokenBucketConfigIO
-  val memMonitor = new MemMonitorIO
   val cacheMonitor = new CacheMonitorIO
 }
 

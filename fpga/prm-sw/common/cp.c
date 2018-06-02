@@ -44,7 +44,7 @@ static const char *tab_tables[3][3] = {
 
 static const char *col_tables[3][3][4] = {
   {{"dsid", "base", "size", "hartid"}},
-  {{"size", "freq", "inc"}, {"read", "write"}},
+  {{"size", "freq", "inc"}, {"cached", "uncached"}},
   {{"mask"}, {"access", "miss", "usage"}}
 };
 

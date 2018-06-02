@@ -51,18 +51,6 @@ case class CoreplexConfig(
   val plicKey = PLICConfig(nTiles, hasSupervisor, nExtInterrupts, nInterruptPriorities)
 }
 
-class TrafficEnableIO(implicit val p: Parameters) extends Bundle {
-  val dsid = UInt(OUTPUT, p(DsidBits))
-  val enable = Bool(OUTPUT)
-  override def cloneType = (new TrafficEnableIO).asInstanceOf[this.type]
-}
-
-class TrafficCachedPortIO(implicit val p: Parameters) extends Bundle {
-  val valid = Bool(OUTPUT)
-  val ready = Bool(OUTPUT)
-  override def cloneType = (new TrafficCachedPortIO).asInstanceOf[this.type]
-}
-
 abstract class BaseCoreplex(c: CoreplexConfig)(implicit p: Parameters) extends LazyModule
 
 abstract class BaseCoreplexBundle(val c: CoreplexConfig)(implicit val p: Parameters) extends Bundle with HasCoreplexParameters {
@@ -78,12 +66,6 @@ abstract class BaseCoreplexBundle(val c: CoreplexConfig)(implicit val p: Paramet
   val success = Bool(OUTPUT) // used for testing
   val leds = Vec(8, Bool()).asOutput
 
-  val trafficEnable = Vec(p(NTiles), new TrafficEnableIO()).flip
-  val trafficCachedPorts = Vec(p(NTiles) , new TrafficCachedPortIO())
-  val trafficUncachedPorts = Vec(p(NTiles) , new TrafficCachedPortIO())
-
-  val tokenBucketConfig = new TokenBucketConfigIO
-  val memMonitor = new MemMonitorIO
   override def cloneType = this.getClass.getConstructors.head.newInstance(c, p).asInstanceOf[this.type]
 }
 
@@ -222,8 +204,6 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
     val debugModule = Module(new DebugModule)
     debugModule.io.tl <> cBus.port("cbus:debug")
     debugModule.io.db <> io.debug
-    io.tokenBucketConfig <> cp.io.tokenBucketConfig
-    io.memMonitor <> cp.io.memMonitor
     cp.io.rw <> debugModule.io.cpio
 
     // connect coreplex-internal interrupts to tiles
