@@ -201,18 +201,12 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
 
   // one dsid one bucket
   val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
-  val axiIn = io.mem_axi(0)
 
   val cachedIn = coreplexIO.trafficCachedPorts
   val uncachedIn = coreplexIO.trafficUncachedPorts
   buckets.zipWithIndex.foreach { case (bucket, i) =>
     val bucketIO = bucket.io
     // for now, we do not match dsid bits
-    /*List((bucketIO.read, axiIn.ar), (bucketIO.write, axiIn.aw)).foreach { case (bktCh, axiCh) =>
-      bktCh.valid := axiCh.valid
-      bktCh.ready := axiCh.ready
-      bktCh.bits := (axiCh.bits.len + 1.U) << axiCh.bits.size
-    }*/
     
       bucketIO.read.valid := cachedIn(i).valid
       bucketIO.read.ready := cachedIn(i).ready
@@ -221,8 +215,6 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
       bucketIO.read.bits :=  1.U
       bucketIO.write.bits :=  1.U
 	
-    //bucketIO.rmatch := axiIn.ar.bits.user === tokenBucketConfig.dsid(i)
-    //bucketIO.wmatch := axiIn.aw.bits.user === tokenBucketConfig.dsid(i)
     bucketIO.rmatch := Bool(true)
     bucketIO.wmatch := Bool(true)
 
@@ -233,12 +225,6 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
     bucketIO.bucket.freq := tokenBucketConfig.freqs(i)
     bucketIO.bucket.inc := tokenBucketConfig.incs(i)
 
-    //val ar = axiIn.ar.bits
-    //val aw = axiIn.aw.bits
-    //memMonitor.ren := axiIn.ar.fire()
-    //memMonitor.readDsid := ar.user
-    //memMonitor.wen := axiIn.aw.fire()
-    //memMonitor.writeDsid := aw.user
     memMonitor.ren(i) := cachedIn(i).valid && cachedIn(i).ready
     memMonitor.wen(i) := uncachedIn(i).valid && uncachedIn(i).ready
   }

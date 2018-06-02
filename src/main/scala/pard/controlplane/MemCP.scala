@@ -75,9 +75,6 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
 
-  //val readCounterRdata = readCounterRegs(Mux(cpRWEn, rrow, monitor.readDsid))
-  //val writeCounterRdata = writeCounterRegs(Mux(cpRWEn, rrow, monitor.writeDsid))
-
   // write
   val wtab = getTabFromAddr(io.rw.waddr)
   val wrow = getRowFromAddr(io.rw.waddr)
@@ -103,18 +100,6 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
       writeCounterRegs(idx) := writeCounterWdata
     }
   }
-
-  /*val readCounterWen = (monitor.ren && !cpRWEn) || cpReadCounterWen
-  val writeCounterWen = (monitor.wen && !cpRWEn) || cpWriteCounterWen
-  val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + UInt(1))
-  val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + UInt(1))
-
-  when (readCounterWen) {
-    readCounterRegs(Mux(cpRWEn, wrow, monitor.readDsid)) := readCounterWdata
-  }
-  when (writeCounterWen) {
-    writeCounterRegs(Mux(cpRWEn, wrow, monitor.writeDsid)) := writeCounterWdata
-  }*/
 
   io.rw.rready := true.B
   // ControlPlaneIO
