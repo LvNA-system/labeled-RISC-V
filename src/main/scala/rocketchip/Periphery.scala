@@ -198,7 +198,7 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
       else AsyncNastiTo(io.mem_clk.get(idx), io.mem_rst.get(idx), axi_sync)
     )
   }
-
+/*
   // one dsid one bucket
   val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
 
@@ -228,7 +228,7 @@ trait PeripheryMasterMemModule extends HasPeripheryParameters {
     memMonitor.ren(i) := cachedIn(i).valid && cachedIn(i).ready
     memMonitor.wen(i) := uncachedIn(i).valid && uncachedIn(i).ready
   }
-
+*/
   (io.mem_ahb zip edgeMem) foreach { case (ahb, mem) =>
     ahb <> PeripheryUtils.convertTLtoAHB(mem, atomics = false)
   }

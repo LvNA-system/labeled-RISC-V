@@ -6,6 +6,11 @@ import Chisel._
 import cde.{Parameters}
 
 
+class CacheMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
+  val cen = Vec(nTiles, Bool()).asInput
+  val ucen = Vec(nTiles, Bool()).asInput
+  override def cloneType = (new CacheMonitorIO).asInstanceOf[this.type]
+}
 class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
   val ren = Vec(nTiles, Bool()).asInput
   val readDsid = UInt(INPUT, width = dsidBits)
@@ -13,7 +18,6 @@ class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
   val writeDsid = UInt(INPUT, width = dsidBits)
   override def cloneType = (new MemMonitorIO).asInstanceOf[this.type]
 }
-
 class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val sizes = Vec(nTiles, UInt(OUTPUT, width = 16))
   val freqs = Vec(nTiles, UInt(OUTPUT, width = 16))
@@ -27,6 +31,7 @@ class MemControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val tokenBucketConfig = new TokenBucketConfigIO
   val memMonitor = new MemMonitorIO
+  val cacheMonitor = new CacheMonitorIO
 }
 
 class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
@@ -44,10 +49,10 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val dsidRegs = Reg(Vec(nTiles, UInt(width = dsidBits)))
 
   // stab
-  val readCounterCol = 0
-  val writeCounterCol = 1
-  val readCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
-  val writeCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
+  val cachedTLCounterCol = 0
+  val uncachedTLCounterCol = 1
+  val cachedTLCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
+  val uncachedTLCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
 
   when (reset) {
     for (i <- 0 until nTiles) {
@@ -59,8 +64,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
       else {
         freqRegs(i) := 0.U
       }
-      readCounterRegs(i) := 0.U
-      writeCounterRegs(i) := 0.U
+      cachedTLCounterRegs(i) := 0.U
+      uncachedTLCounterRegs(i) := 0.U
     }
   }
 
@@ -68,7 +73,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val cpWen = io.rw.wen
   val cpRWEn = cpRen || cpWen
 
-  val monitor = io.memMonitor
+  val monitor = io.cacheMonitor
 
   // read
   val rtab = getTabFromAddr(io.rw.raddr)
@@ -80,24 +85,24 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val wrow = getRowFromAddr(io.rw.waddr)
   val wcol = getColFromAddr(io.rw.waddr)
 
-  val cpReadCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(readCounterCol)
-  val cpWriteCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(writeCounterCol)
+  val cpCachedTLCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(cachedTLCounterCol)
+  val cpWriteCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(uncachedTLCounterCol)
 
-  ((monitor.ren zip monitor.wen) zipWithIndex).foreach {case ((mren,mwen),idx) =>
-    val readCounterWen = (mren && !cpRWEn) || (cpReadCounterWen && wrow===UInt(idx))
-    val writeCounterWen = (mwen && !cpRWEn) || (cpWriteCounterWen && wrow===UInt(idx))
+  ((monitor.cen zip monitor.ucen) zipWithIndex).foreach {case ((mcen,mucen),idx) =>
+    val cachedTLCounterWen = (mcen && !cpRWEn) || (cpCachedTLCounterWen && wrow===UInt(idx))
+    val uncachedTLCounterWen = (mucen && !cpRWEn) || (cpWriteCounterWen && wrow===UInt(idx))
 
-    val readCounterRdata = readCounterRegs(idx)
-    val writeCounterRdata = writeCounterRegs(idx)
+    val cachedTLCounterRdata = cachedTLCounterRegs(idx)
+    val uncachedTLCounterRdata = uncachedTLCounterRegs(idx)
 
-    val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + UInt(1))
-    val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + UInt(1))
+    val cachedTLCounterWdata = Mux(cpRWEn, io.rw.wdata, cachedTLCounterRdata + UInt(1))
+    val uncachedTLCounterWdata = Mux(cpRWEn, io.rw.wdata, uncachedTLCounterRdata + UInt(1))
 
-    when (readCounterWen) {
-      readCounterRegs(idx) := readCounterWdata
+    when (cachedTLCounterWen) {
+      cachedTLCounterRegs(idx) := cachedTLCounterWdata
     }
-    when (writeCounterWen) {
-      writeCounterRegs(idx) := writeCounterWdata
+    when (uncachedTLCounterWen) {
+      uncachedTLCounterRegs(idx) := uncachedTLCounterWdata
     }
   }
 
@@ -113,8 +118,8 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
     ))
 
     val stabData = MuxLookup(rcol, UInt(0), Array(
-      UInt(readCounterCol)   -> readCounterRegs(rrow),
-      UInt(writeCounterCol)   -> writeCounterRegs(rrow)
+      UInt(cachedTLCounterCol)   -> cachedTLCounterRegs(rrow),
+      UInt(uncachedTLCounterCol)   -> uncachedTLCounterRegs(rrow)
     ))
 
     val rdata = MuxLookup(rtab, UInt(0), Array(

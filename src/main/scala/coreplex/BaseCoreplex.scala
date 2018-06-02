@@ -115,20 +115,36 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
   case TLId => "L1toL2"
   }))) }
 
-  (io.trafficCachedPorts zip cachedPorts).foreach{ case(t,p) =>
-	  t.valid := p.acquire.valid
-	  t.ready := p.acquire.ready
+  val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
+  val tokenBucketConfig = cp.io.tokenBucketConfig
+	val cacheMonitor = cp.io.cacheMonitor
+  buckets.zipWithIndex.foreach{ case (bucket, i) =>
+	  val bucketIO = bucket.io
+	  bucketIO.read.valid := cachedPorts(i).acquire.valid
+	  bucketIO.read.ready := cachedPorts(i).acquire.ready
+	  bucketIO.write.valid := uncachedPorts(i).acquire.valid
+	  bucketIO.write.ready := uncachedPorts(i).acquire.ready
+	  bucketIO.read.bits := 1.U
+	  bucketIO.write.bits := 1.U
+
+	  bucketIO.rmatch := Bool(true)
+	  bucketIO.wmatch := Bool(true)
+
+	  bucketIO.bucket.size := tokenBucketConfig.sizes(i)
+	  bucketIO.bucket.freq := tokenBucketConfig.freqs(i)
+	  bucketIO.bucket.inc := tokenBucketConfig.incs(i)
+
+		cacheMonitor.cen(i) := cachedPorts(i).acquire.valid && cachedPorts(i).acquire.ready
+    cacheMonitor.ucen(i) := uncachedPorts(i).acquire.valid && uncachedPorts(i).acquire.ready
+
   }
-  (io.trafficUncachedPorts zip uncachedPorts).foreach{ case(t,p) =>
-	  t.valid := p.acquire.valid
-	  t.ready := p.acquire.ready
-  }
+
   val controlledCachedPorts = (cachedPorts zip cachedControlCrossing) map {case (p, cross) =>
     cross.io.in <> p
     cross.io.out
   }
   cachedControlCrossing.zipWithIndex.foreach{case (cross,i) =>
-	  cross.io.enable := io.trafficEnable(i).enable
+    cross.io.enable := buckets(i).io.enable
   }
 
   val controlledUncachedPorts = (uncachedPorts zip uncachedControlCrossing) map {case (p, cross) =>
@@ -136,7 +152,7 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
     cross.io.out
   }
   uncachedControlCrossing.zipWithIndex.foreach{case (cross,i) =>
-    cross.io.enable := io.trafficEnable(i).enable
+    cross.io.enable := buckets(i).io.enable
   }
 
   // Build an uncore backing the Tiles
