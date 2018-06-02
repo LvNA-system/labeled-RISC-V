@@ -45,6 +45,7 @@ cp u-boot-xlnx/u-boot.elf path-to-labeled-RISC-V/fpga/boot/build/zynq/
 * (Optional) If you want to download the bitstream in fsbl,
 also put the bitstream under `path-to-labeled-RISC-V/fpga/boot/build/{zynqmp,zynq}`,
 and uncomment the description about bitstream in `bootgen-{zynqmp,zynq}.bif`.
+
 ```
 # for zynqmp
 path-to-labeled-RISC-V/fpga/boot $ ls build/zynqmp
@@ -137,8 +138,8 @@ path-to-labeled-RISC-V/fpga/boot/build/myproject-your-target-board/dts $ cat top
     // ultraZ only has 2GB memory for PS, change the setting above accordingly
 	};
 };
-
-
+```
+```
 # for zynq
 path-to-labeled-RISC-V/fpga/boot/build/myproject-your-target-board/dts $ cat top.dts
 /include/ "system-top.dts"
@@ -166,6 +167,7 @@ dtc -I dts -O dtb -o system.dtb top.dts
 
 * New an `ext4` partition `mmcblk0p2` in SD card. Refer to the step of [here](https://wiki.debian.org/InstallingDebianOn/Xilinx/ZC702/wheezy#SD_Card_root) before executing `debootstrap`.
 * download the debian base system to `mmcblk0p2` with `qemu-debootstrap`.
+
 ```
 sudo qemu-debootstrap --arch arm64 stable /mnt http://ftp.debian.org/debian
 # or for zynq
