@@ -7,9 +7,9 @@ import cde.{Parameters}
 
 
 class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val ren = Vec(nTiles, Bool(INPUT))
+  val ren = Vec(nTiles, Bool()).asInput
   val readDsid = UInt(INPUT, width = dsidBits)
-  val wen = Vec(nTiles, Bool(INPUT))
+  val wen = Vec(nTiles, Bool()).asInput
   val writeDsid = UInt(INPUT, width = dsidBits)
   override def cloneType = (new MemMonitorIO).asInstanceOf[this.type]
 }
