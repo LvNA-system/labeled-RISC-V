@@ -82,7 +82,7 @@ class ControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val hartidConfig = new HartidConfigIO
   val addressMapperConfig = new AddressMapperConfigIO
   val tokenBucketConfig = new TokenBucketConfigIO
-	val cacheMonitor = new CacheMonitorIO
+  val l1tol2Monitor = new L1toL2MonitorIO
   val cachePartitionConfig = new CachePartitionConfigIO
 }
 
@@ -97,7 +97,7 @@ class ControlPlaneTopModule(implicit p: Parameters) extends ControlPlaneModule {
   io.hartidConfig <> coreCP.io.hartidConfig
   io.addressMapperConfig <> coreCP.io.addressMapperConfig
   io.tokenBucketConfig <> memCP.io.tokenBucketConfig
-	io.cacheMonitor <> memCP.io.cacheMonitor
+  io.l1tol2Monitor <> memCP.io.l1tol2Monitor
 
   val rcpIdx = getCpFromAddr(io.rw.raddr)
   val wcpIdx = getCpFromAddr(io.rw.waddr)

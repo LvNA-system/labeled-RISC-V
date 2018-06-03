@@ -99,26 +99,25 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
 
   val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
   val tokenBucketConfig = cp.io.tokenBucketConfig
-	val cacheMonitor = cp.io.cacheMonitor
+  val l1tol2Monitor = cp.io.l1tol2Monitor
   buckets.zipWithIndex.foreach{ case (bucket, i) =>
-	  val bucketIO = bucket.io
-	  bucketIO.read.valid := cachedPorts(i).acquire.valid
-	  bucketIO.read.ready := cachedPorts(i).acquire.ready
-	  bucketIO.write.valid := uncachedPorts(i).acquire.valid
-	  bucketIO.write.ready := uncachedPorts(i).acquire.ready
-	  bucketIO.read.bits := 1.U
-	  bucketIO.write.bits := 1.U
+    val bucketIO = bucket.io
+    bucketIO.read.valid := cachedPorts(i).acquire.valid
+    bucketIO.read.ready := cachedPorts(i).acquire.ready
+    bucketIO.write.valid := uncachedPorts(i).acquire.valid
+    bucketIO.write.ready := uncachedPorts(i).acquire.ready
+    bucketIO.read.bits := 1.U
+    bucketIO.write.bits := 1.U
 
-	  bucketIO.rmatch := Bool(true)
-	  bucketIO.wmatch := Bool(true)
+    bucketIO.rmatch := Bool(true)
+    bucketIO.wmatch := Bool(true)
 
-	  bucketIO.bucket.size := tokenBucketConfig.sizes(i)
-	  bucketIO.bucket.freq := tokenBucketConfig.freqs(i)
-	  bucketIO.bucket.inc := tokenBucketConfig.incs(i)
+    bucketIO.bucket.size := tokenBucketConfig.sizes(i)
+    bucketIO.bucket.freq := tokenBucketConfig.freqs(i)
+    bucketIO.bucket.inc := tokenBucketConfig.incs(i)
 
-		cacheMonitor.cen(i) := cachedPorts(i).acquire.valid && cachedPorts(i).acquire.ready
-    cacheMonitor.ucen(i) := uncachedPorts(i).acquire.valid && uncachedPorts(i).acquire.ready
-
+    l1tol2Monitor.cen(i) := cachedPorts(i).acquire.valid && cachedPorts(i).acquire.ready
+    l1tol2Monitor.ucen(i) := uncachedPorts(i).acquire.valid && uncachedPorts(i).acquire.ready
   }
 
   val controlledCachedPorts = (cachedPorts zip cachedControlCrossing) map {case (p, cross) =>

@@ -6,10 +6,10 @@ import Chisel._
 import cde.{Parameters}
 
 
-class CacheMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
+class L1toL2MonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
   val cen = Vec(nTiles, Bool()).asInput
   val ucen = Vec(nTiles, Bool()).asInput
-  override def cloneType = (new CacheMonitorIO).asInstanceOf[this.type]
+  override def cloneType = (new L1toL2MonitorIO).asInstanceOf[this.type]
 }
 class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val sizes = Vec(nTiles, UInt(OUTPUT, width = 16))
@@ -23,7 +23,7 @@ class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
 class MemControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val tokenBucketConfig = new TokenBucketConfigIO
-  val cacheMonitor = new CacheMonitorIO
+  val l1tol2Monitor = new L1toL2MonitorIO
 }
 
 class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
@@ -65,7 +65,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val cpWen = io.rw.wen
   val cpRWEn = cpRen || cpWen
 
-  val monitor = io.cacheMonitor
+  val monitor = io.l1tol2Monitor
 
   // read
   val rtab = getTabFromAddr(io.rw.raddr)
