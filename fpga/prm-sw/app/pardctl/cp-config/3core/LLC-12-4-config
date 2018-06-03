@@ -1,3 +1,0 @@
-rw=w,cp=cache,tab=p,col=mask,row=0,val=0xfff0
-rw=w,cp=cache,tab=p,col=mask,row=1,val=0x000f
-rw=w,cp=cache,tab=p,col=mask,row=2,val=0x000f

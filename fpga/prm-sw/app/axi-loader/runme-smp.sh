@@ -9,7 +9,7 @@ axi_loader=./build/axi-loader-fpga
 
 case $board in
   zedboard)
-    nr_core=3
+    nr_core=2
     ;;
   zcu102)
     nr_core=4
