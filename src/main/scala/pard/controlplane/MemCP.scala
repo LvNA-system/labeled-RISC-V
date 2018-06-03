@@ -15,7 +15,6 @@ class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val sizes = Vec(nTiles, UInt(OUTPUT, width = 16))
   val freqs = Vec(nTiles, UInt(OUTPUT, width = 16))
   val incs  = Vec(nTiles, UInt(OUTPUT, width = 16))
-  val dsid = Vec(nTiles, UInt(OUTPUT, width = dsidBits))
 
   override def cloneType = (new TokenBucketConfigIO).asInstanceOf[this.type]
 }
@@ -37,8 +36,6 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val freqRegs = Reg(Vec(nTiles, UInt(width = 16)))
   val incCol = 2
   val incRegs = Reg(Vec(nTiles, UInt(width = 16)))
-  val dsidCol = 3
-  val dsidRegs = Reg(Vec(nTiles, UInt(width = dsidBits)))
 
   // stab
   val cachedTLCounterCol = 0
@@ -103,10 +100,9 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   // read decoding
   when (cpRen) {
     val ptabData = MuxLookup(rcol, UInt(0), Array(
-      UInt(sizeCol)   -> sizeRegs(rrow),
-      UInt(freqCol)   -> freqRegs(rrow),
-      UInt(incCol)   -> incRegs(rrow),
-      UInt(dsidCol)  -> dsidRegs(rrow)
+      UInt(sizeCol)  -> sizeRegs(rrow),
+      UInt(freqCol)  -> freqRegs(rrow),
+      UInt(incCol)   -> incRegs(rrow)
     ))
 
     val stabData = MuxLookup(rcol, UInt(0), Array(
@@ -136,9 +132,6 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
           is (UInt(incCol)) {
             incRegs(wrow) := io.rw.wdata
           }
-          is (UInt(dsidCol)) {
-            dsidRegs(wrow) := io.rw.wdata
-          }
         }
       }
     }
@@ -147,6 +140,5 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   // wire out cpRegs
   (io.tokenBucketConfig.sizes zip sizeRegs) ++
     (io.tokenBucketConfig.freqs zip freqRegs) ++
-    (io.tokenBucketConfig.incs zip incRegs) ++
-	(io.tokenBucketConfig.dsid zip dsidRegs) map { case (o, i) => o := i }
+    (io.tokenBucketConfig.incs zip incRegs) map { case (o, i) => o := i }
 }
