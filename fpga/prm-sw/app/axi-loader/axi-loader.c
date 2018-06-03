@@ -39,36 +39,30 @@ void *ddr_base;
 volatile uint32_t *gpio_reset_base;
 int	fd;
 
-void loader(char *imgfile, char *dtbfile, uintptr_t offset) {
-  FILE *fp = fopen(imgfile, "rb");
+static inline void my_fread(char *filename, uint64_t *addr) {
+  FILE *fp = fopen(filename, "rb");
   assert(fp);
 
   fseek(fp, 0, SEEK_END);
   long size = ftell(fp);
-  printf("image size = %ld\n", size);
+  printf("sizeof(%s) = %ld\n", filename, size);
 
   fseek(fp, 0, SEEK_SET);
 
-  size_t ret = fread(ddr_base + offset, size, 1, fp);
-  assert(ret == 1);
-
-  fclose(fp);
-
-  fp = fopen(dtbfile, "rb");
-  if (fp == NULL) {
-    printf("No valid configure string file provided. Configure string in bootrom will be used.\n");
-    return ;
+  uint64_t v;
+  long i;
+  size = (size + 7) / 8;
+  for (i = 0; i < size; i ++) {
+    fread(&v, 8, 1, fp);
+    addr[i] = v;
   }
 
-  fseek(fp, 0, SEEK_END);
-  size = ftell(fp);
-  printf("configure string size = %ld\n", size);
-
-  fseek(fp, 0, SEEK_SET);
-  ret = fread(ddr_base + offset + 0x8, size, 1, fp);
-  assert(ret == 1);
-
   fclose(fp);
+}
+
+void loader(char *imgfile, char *dtbfile, uintptr_t offset) {
+  my_fread(imgfile, ddr_base + offset);
+  my_fread(dtbfile, ddr_base + offset + 0x8);
 }
 
 void* create_map(size_t size, int fd, off_t offset) {
