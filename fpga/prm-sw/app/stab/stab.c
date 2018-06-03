@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     for (row = 0; row < bc->nr_core; row ++) {
       uint32_t tl_bw = cached_tl_bw[row] + uncached_tl_bw[row];
       printf("[dsid = %d] # L1toL2 TL acquire transaction: cachedTL = %d, uncachedTL = %d, total = %d (%lf%%)\n"
-          "\t cache: access = %d, miss = %d (%lf%%), usage = %lfKB (%lf%%)\n"
+          "\t cache: access = %d, miss = %d (%lf%%), usage = %lfKB (%lf%%)\n",
           row, cached_tl_bw[row], uncached_tl_bw[row], tl_bw, tl_bw / (double)bc->uncore_freq * 100,
           cache_access[row], cache_miss[row],
           (double)cache_miss[row] / (double)cache_access[row] * 100,
