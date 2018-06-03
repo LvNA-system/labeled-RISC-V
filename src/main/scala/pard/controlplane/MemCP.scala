@@ -6,19 +6,15 @@ import Chisel._
 import cde.{Parameters}
 
 
-class MemMonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
-  val ren = Bool(INPUT)
-  val readDsid = UInt(INPUT, width = dsidBits)
-  val wen = Bool(INPUT)
-  val writeDsid = UInt(INPUT, width = dsidBits)
-  override def cloneType = (new MemMonitorIO).asInstanceOf[this.type]
+class L1toL2MonitorIO(implicit p: Parameters) extends ControlPlaneBundle {
+  val cen = Vec(nTiles, Bool()).asInput
+  val ucen = Vec(nTiles, Bool()).asInput
+  override def cloneType = (new L1toL2MonitorIO).asInstanceOf[this.type]
 }
-
 class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val sizes = Vec(nTiles, UInt(OUTPUT, width = 16))
   val freqs = Vec(nTiles, UInt(OUTPUT, width = 16))
   val incs  = Vec(nTiles, UInt(OUTPUT, width = 16))
-  val dsid = Vec(nTiles, UInt(OUTPUT, width = dsidBits))
 
   override def cloneType = (new TokenBucketConfigIO).asInstanceOf[this.type]
 }
@@ -26,7 +22,7 @@ class TokenBucketConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
 class MemControlPlaneIO(implicit p: Parameters) extends ControlPlaneBundle {
   val rw = (new ControlPlaneRWIO).flip
   val tokenBucketConfig = new TokenBucketConfigIO
-  val memMonitor = new MemMonitorIO
+  val l1tol2Monitor = new L1toL2MonitorIO
 }
 
 class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
@@ -40,27 +36,25 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val freqRegs = Reg(Vec(nTiles, UInt(width = 16)))
   val incCol = 2
   val incRegs = Reg(Vec(nTiles, UInt(width = 16)))
-  val dsidCol = 3
-  val dsidRegs = Reg(Vec(nTiles, UInt(width = dsidBits)))
 
   // stab
-  val readCounterCol = 0
-  val writeCounterCol = 1
-  val readCounterRegs = Reg(Vec(nDsids, UInt(width = 32)))
-  val writeCounterRegs = Reg(Vec(nDsids, UInt(width = 32)))
+  val cachedTLCounterCol = 0
+  val uncachedTLCounterCol = 1
+  val cachedTLCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
+  val uncachedTLCounterRegs = Reg(Vec(nTiles, UInt(width = 32)))
 
   when (reset) {
     for (i <- 0 until nTiles) {
       if (p(UseSim)) {
         sizeRegs(i) := 32.U
         freqRegs(i) := 0.U
-        incRegs(i) := 32.U
+        incRegs(i) := 1.U
       }
       else {
         freqRegs(i) := 0.U
       }
-      readCounterRegs(i) := 0.U
-      writeCounterRegs(i) := 0.U
+      cachedTLCounterRegs(i) := 0.U
+      uncachedTLCounterRegs(i) := 0.U
     }
   }
 
@@ -68,33 +62,37 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   val cpWen = io.rw.wen
   val cpRWEn = cpRen || cpWen
 
-  val monitor = io.memMonitor
+  val monitor = io.l1tol2Monitor
 
   // read
   val rtab = getTabFromAddr(io.rw.raddr)
   val rrow = getRowFromAddr(io.rw.raddr)
   val rcol = getColFromAddr(io.rw.raddr)
 
-  val readCounterRdata = readCounterRegs(Mux(cpRWEn, rrow, monitor.readDsid))
-  val writeCounterRdata = writeCounterRegs(Mux(cpRWEn, rrow, monitor.writeDsid))
-
   // write
   val wtab = getTabFromAddr(io.rw.waddr)
   val wrow = getRowFromAddr(io.rw.waddr)
   val wcol = getColFromAddr(io.rw.waddr)
 
-  val cpReadCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(readCounterCol)
-  val cpWriteCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(writeCounterCol)
-  val readCounterWen = (monitor.ren && !cpRWEn) || cpReadCounterWen
-  val writeCounterWen = (monitor.wen && !cpRWEn) || cpWriteCounterWen
-  val readCounterWdata = Mux(cpRWEn, io.rw.wdata, readCounterRdata + UInt(1))
-  val writeCounterWdata = Mux(cpRWEn, io.rw.wdata, writeCounterRdata + UInt(1))
+  val cpCachedTLCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(cachedTLCounterCol)
+  val cpWriteCounterWen = cpWen && wtab === UInt(stabIdx) && wcol === UInt(uncachedTLCounterCol)
 
-  when (readCounterWen) {
-    readCounterRegs(Mux(cpRWEn, wrow, monitor.readDsid)) := readCounterWdata
-  }
-  when (writeCounterWen) {
-    writeCounterRegs(Mux(cpRWEn, wrow, monitor.writeDsid)) := writeCounterWdata
+  ((monitor.cen zip monitor.ucen) zipWithIndex).foreach {case ((mcen,mucen),idx) =>
+    val cachedTLCounterWen = (mcen && !cpRWEn) || (cpCachedTLCounterWen && wrow===UInt(idx))
+    val uncachedTLCounterWen = (mucen && !cpRWEn) || (cpWriteCounterWen && wrow===UInt(idx))
+
+    val cachedTLCounterRdata = cachedTLCounterRegs(idx)
+    val uncachedTLCounterRdata = uncachedTLCounterRegs(idx)
+
+    val cachedTLCounterWdata = Mux(cpRWEn, io.rw.wdata, cachedTLCounterRdata + UInt(1))
+    val uncachedTLCounterWdata = Mux(cpRWEn, io.rw.wdata, uncachedTLCounterRdata + UInt(1))
+
+    when (cachedTLCounterWen) {
+      cachedTLCounterRegs(idx) := cachedTLCounterWdata
+    }
+    when (uncachedTLCounterWen) {
+      uncachedTLCounterRegs(idx) := uncachedTLCounterWdata
+    }
   }
 
   io.rw.rready := true.B
@@ -102,15 +100,14 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   // read decoding
   when (cpRen) {
     val ptabData = MuxLookup(rcol, UInt(0), Array(
-      UInt(sizeCol)   -> sizeRegs(rrow),
-      UInt(freqCol)   -> freqRegs(rrow),
-      UInt(incCol)   -> incRegs(rrow),
-      UInt(dsidCol)  -> dsidRegs(rrow)
+      UInt(sizeCol)  -> sizeRegs(rrow),
+      UInt(freqCol)  -> freqRegs(rrow),
+      UInt(incCol)   -> incRegs(rrow)
     ))
 
     val stabData = MuxLookup(rcol, UInt(0), Array(
-      UInt(readCounterCol)   -> readCounterRdata,
-      UInt(writeCounterCol)   -> writeCounterRdata
+      UInt(cachedTLCounterCol)   -> cachedTLCounterRegs(rrow),
+      UInt(uncachedTLCounterCol)   -> uncachedTLCounterRegs(rrow)
     ))
 
     val rdata = MuxLookup(rtab, UInt(0), Array(
@@ -135,9 +132,6 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
           is (UInt(incCol)) {
             incRegs(wrow) := io.rw.wdata
           }
-          is (UInt(dsidCol)) {
-            dsidRegs(wrow) := io.rw.wdata
-          }
         }
       }
     }
@@ -146,6 +140,5 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
   // wire out cpRegs
   (io.tokenBucketConfig.sizes zip sizeRegs) ++
     (io.tokenBucketConfig.freqs zip freqRegs) ++
-    (io.tokenBucketConfig.incs zip incRegs) ++
-	(io.tokenBucketConfig.dsid zip dsidRegs) map { case (o, i) => o := i }
+    (io.tokenBucketConfig.incs zip incRegs) map { case (o, i) => o := i }
 }

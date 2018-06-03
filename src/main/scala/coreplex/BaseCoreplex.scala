@@ -51,12 +51,6 @@ case class CoreplexConfig(
   val plicKey = PLICConfig(nTiles, hasSupervisor, nExtInterrupts, nInterruptPriorities)
 }
 
-class TrafficEnableIO(implicit val p: Parameters) extends Bundle {
-  val dsid = UInt(OUTPUT, p(DsidBits))
-  val enable = Bool(OUTPUT)
-  override def cloneType = (new TrafficEnableIO).asInstanceOf[this.type]
-}
-
 abstract class BaseCoreplex(c: CoreplexConfig)(implicit p: Parameters) extends LazyModule
 
 abstract class BaseCoreplexBundle(val c: CoreplexConfig)(implicit val p: Parameters) extends Bundle with HasCoreplexParameters {
@@ -72,9 +66,6 @@ abstract class BaseCoreplexBundle(val c: CoreplexConfig)(implicit val p: Paramet
   val success = Bool(OUTPUT) // used for testing
   val leds = Vec(8, Bool()).asOutput
 
-  val trafficEnable = Vec(p(NTiles), new TrafficEnableIO()).flip
-  val tokenBucketConfig = new TokenBucketConfigIO
-  val memMonitor = new MemMonitorIO
   override def cloneType = this.getClass.getConstructors.head.newInstance(c, p).asInstanceOf[this.type]
 }
 
@@ -106,12 +97,35 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
   case TLId => "L1toL2"
   }))) }
 
+  val buckets = Seq.fill(p(NTiles)){ Module(new TokenBucket) }
+  val tokenBucketConfig = cp.io.tokenBucketConfig
+  val l1tol2Monitor = cp.io.l1tol2Monitor
+  buckets.zipWithIndex.foreach{ case (bucket, i) =>
+    val bucketIO = bucket.io
+    bucketIO.read.valid := cachedPorts(i).acquire.valid
+    bucketIO.read.ready := cachedPorts(i).acquire.ready
+    bucketIO.write.valid := uncachedPorts(i).acquire.valid
+    bucketIO.write.ready := uncachedPorts(i).acquire.ready
+    bucketIO.read.bits := 1.U
+    bucketIO.write.bits := 1.U
+
+    bucketIO.rmatch := Bool(true)
+    bucketIO.wmatch := Bool(true)
+
+    bucketIO.bucket.size := tokenBucketConfig.sizes(i)
+    bucketIO.bucket.freq := tokenBucketConfig.freqs(i)
+    bucketIO.bucket.inc := tokenBucketConfig.incs(i)
+
+    l1tol2Monitor.cen(i) := cachedPorts(i).acquire.valid && cachedPorts(i).acquire.ready
+    l1tol2Monitor.ucen(i) := uncachedPorts(i).acquire.valid && uncachedPorts(i).acquire.ready
+  }
+
   val controlledCachedPorts = (cachedPorts zip cachedControlCrossing) map {case (p, cross) =>
     cross.io.in <> p
     cross.io.out
   }
   cachedControlCrossing.zipWithIndex.foreach{case (cross,i) =>
-	  cross.io.enable := io.trafficEnable(i).enable
+    cross.io.enable := buckets(i).io.enable
   }
 
   val controlledUncachedPorts = (uncachedPorts zip uncachedControlCrossing) map {case (p, cross) =>
@@ -119,7 +133,7 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
     cross.io.out
   }
   uncachedControlCrossing.zipWithIndex.foreach{case (cross,i) =>
-    cross.io.enable := io.trafficEnable(i).enable
+    cross.io.enable := buckets(i).io.enable
   }
 
   // Build an uncore backing the Tiles
@@ -189,8 +203,6 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
     val debugModule = Module(new DebugModule)
     debugModule.io.tl <> cBus.port("cbus:debug")
     debugModule.io.db <> io.debug
-    io.tokenBucketConfig <> cp.io.tokenBucketConfig
-    io.memMonitor <> cp.io.memMonitor
     cp.io.rw <> debugModule.io.cpio
 
     // connect coreplex-internal interrupts to tiles
