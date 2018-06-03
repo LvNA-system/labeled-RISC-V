@@ -116,6 +116,11 @@ void help() {
 int main(int argc, char *argv[]) {
   init_platform(NULL, 0);
 
+  if (argc > 1 && strcmp(argv[1], "-h") == 0) {
+    help();
+    return 0;
+  }
+
   if (argc > 1 && strcmp(argv[1], "reset") == 0) {
     if (argc > 2) {
       if (strcmp(argv[2], "hard") == 0) {
