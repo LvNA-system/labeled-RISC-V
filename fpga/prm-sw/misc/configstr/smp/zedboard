@@ -27,18 +27,6 @@ plic {
       };
     };
   };
-  2 {
-    0 {
-      m {
-       ie  { mem { 0xc002200 0xc00227f; }; };
-       ctl { mem { 0xc204000 0xc204007; }; };
-      };
-      s {
-       ie  { mem { 0xc002280 0xc0022ff; }; };
-       ctl { mem { 0xc205000 0xc205007; }; };
-      };
-    };
-  };
 };
 rtc {
   addr 0x200bff8;
@@ -84,25 +72,6 @@ core {
          ie 0xc002180;
          thresh 0xc203000;
          claim 0xc203004;
-        };
-      };
-    };
-  };
-  2 {
-    0 {
-      isa rv64imas;
-      timecmp 0x2004010;
-      ipi 0x2000008;
-      plic {
-        m {
-         ie 0xc002200;
-         thresh 0xc204000;
-         claim 0xc204004;
-        };
-        s {
-         ie 0xc002280;
-         thresh 0xc205000;
-         claim 0xc205004;
         };
       };
     };

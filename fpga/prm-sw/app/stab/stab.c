@@ -15,7 +15,7 @@ static const struct BoardConfig {
   uint32_t uncore_freq;// Hz
 } board_config [] = {
   [BOARD_ultraZ] = {"ultraZ", 2, 256, 100000000},
-  [BOARD_zedboard] = {"zedboard", 3, 256, 40000000},
+  [BOARD_zedboard] = {"zedboard", 2, 256, 30000000},
   [BOARD_zcu102] = {"zcu102", 4, 2048, 100000000},
   [BOARD_sidewinder] = {"sidewinder", 4, 2048, 100000000}
 };
