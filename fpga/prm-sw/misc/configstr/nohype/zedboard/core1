@@ -9,7 +9,7 @@ rtc {
 ram {
   0 {
     addr 0x100000000;
-    size 0x4000000;
+    size 0x8000000;
   };
 };
 core {
