@@ -106,12 +106,12 @@ the configures of RISC-V subsystem are different among boards.
 
 | Board | # RISC-V cores | Frequency | # BTB entries | L2 cache size | Memory size |
 | --- | --- | --- | --- | --- | --- |
-| zedboard | 3 | 40 MHz | 0 | 256 KB | 128 MB |
+| zedboard | 2 | 30 MHz | 40 | 256 KB | 128 MB |
 | zcu102 | 4 | 100 MHz | 40 | 2 MB | 2 GB |
 | sidewinder | 4 | 100 MHz | 40 | 2 MB | 2 GB |
 | ultraZ | 2 | 100 MHz | 0 | 256 KB | 1 GB |
 
-For details, see [PARDConfigs.scala](../src/main/scala/pard/PARDConfigs.scala).
+For details, please read [PARDConfigs.scala](../src/main/scala/pard/PARDConfigs.scala).
 
 To boot the RISC-V subsystem
 * Send the `prm-sw` directory to PRM.
@@ -184,9 +184,9 @@ minicom -D /dev/ttyUL4
 * Run the script to boot every cores of the RISC-V subsystem in NoHype mode.
 ```
 cd path-to-prm-sw/app/axi-loader
+bash hard-reset.sh
 bash runme-nohype.sh [board] 0
 bash runme-nohype.sh [board] 1
-bash runme-nohype.sh [board] 2
 ...
 ```
 NOTE: Do not call `runme-nohype.sh` with a `hartid` larger than the number of RISC-V cores on the board.
@@ -207,6 +207,15 @@ Open a new terminal on PRM. Then run
 ```
 cd path-to-prm-sw/app/pardctl
 ls cp-config/?core/
-...
-./build/pardctl-fpga < cp-config/?core/
+
+# pick one of the configure file
+./build/pardctl-fpga < cp-config/2core/LLC-12-4-config
 ```
+
+Currently we provide the configure files to adjust the LLC way partition
+and the memory bandwidth allocation before LLC.
+For details, please refer to the [README.md about pardctl](prm-sw/app/pardctl/README.md).
+
+## TODO
+
+add dummy eth for PS
