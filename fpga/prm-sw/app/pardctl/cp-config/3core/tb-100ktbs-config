@@ -1,0 +1,6 @@
+rw=w,cp=mem,tab=p,col=size,row=1,val=0x800
+rw=w,cp=mem,tab=p,col=size,row=2,val=0x800
+rw=w,cp=mem,tab=p,col=inc,row=1,val=0x1
+rw=w,cp=mem,tab=p,col=inc,row=2,val=0x1
+rw=w,cp=mem,tab=p,col=freq,row=1,val=0x400
+rw=w,cp=mem,tab=p,col=freq,row=2,val=0x400
