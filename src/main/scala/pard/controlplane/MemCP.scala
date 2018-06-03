@@ -49,12 +49,12 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
         sizeRegs(i) := 32.U
         freqRegs(i) := 0.U
         incRegs(i) := 1.U
+        cachedTLCounterRegs(i) := 0.U
+        uncachedTLCounterRegs(i) := 0.U
       }
       else {
         freqRegs(i) := 0.U
       }
-      cachedTLCounterRegs(i) := 0.U
-      uncachedTLCounterRegs(i) := 0.U
     }
   }
 
