@@ -47,7 +47,7 @@ class MemControlPlaneModule(implicit p: Parameters) extends ControlPlaneModule {
     for (i <- 0 until nTiles) {
       if (p(UseSim)) {
         sizeRegs(i) := 32.U
-        freqRegs(i) := 128.U
+        freqRegs(i) := 0.U
         incRegs(i) := 1.U
       }
       else {
