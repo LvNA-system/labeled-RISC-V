@@ -44,8 +44,8 @@ Address Mapper寄存器是用来控制每个tile所能访问到的物理内存�
 
 | 列号| 寄存器名 | 长度(bit) | 读写 | reset后初值 | 用途 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | | base  | `p(PAddrBits)` | R/W | 0 | 物理地址空间基地址 |
-| 2 | | size  | `p(PAddrBits)` | R/W | p(ExtMemSize) | 物理地址空间大小 |
+| 1 | base  | `p(PAddrBits)` | R/W | 0 | 物理地址空间基地址 |
+| 2 | size  | `p(PAddrBits)` | R/W | p(ExtMemSize) | 物理地址空间大小 |
 
 
 Address Mapper Registers are used to control the physical address space of each tile.
@@ -72,9 +72,9 @@ Currently Core Control Plane does not have a statistic table.
 
 | 列号| 寄存器名 | 长度(bit) | 读写 | reset后初值 | 用途 |
 | --- | --- | --- | --- | --- | --- |
-| 0 | | size  | 16 | R/W | Undefined | 令牌桶的大小, 单位为TileLink请求 |
-| 1 | | freq  | 16 | R/W | 0 | 添加令牌的速率, 单位为uncore时钟周期|
-| 2 | | inc  | 16 | R/W | Undefined | 每次添加的令牌数目 |
+| 0 | size  | 16 | R/W | Undefined | 令牌桶的大小, 单位为TileLink请求 |
+| 1 | freq  | 16 | R/W | 0 | 添加令牌的速率, 单位为uncore时钟周期|
+| 2 | inc  | 16 | R/W | Undefined | 每次添加的令牌数目 |
 
 说明:
 * 令牌桶模块位于L1toL2 Network前, 每个tile单独分配一个令牌桶, 其UncachedTL通道和CachedTL通道共享一个令牌桶
@@ -87,9 +87,9 @@ There are three registers to configure a token bucket.
 
 | column NO.| register name | length (bit) | read/write | reset value | description |
 | --- | --- | --- | --- | --- | --- |
-| 0 | | size  | 16 | R/W | Undefined | the size of the token bucket, one TileLink request per unit |
-| 1 | | freq  | 16 | R/W | 0 | the uncore clock cycle to add tokens into the bucket |
-| 2 | | inc  | 16 | R/W | Undefined | the number of tokens added each time |
+| 0 | size  | 16 | R/W | Undefined | the size of the token bucket, one TileLink request per unit |
+| 1 | freq  | 16 | R/W | 0 | the uncore clock cycle to add tokens into the bucket |
+| 2 | inc  | 16 | R/W | Undefined | the number of tokens added each time |
 
 NOTE:
 * The token bucket module is located before L1toL2 Network.
@@ -107,8 +107,8 @@ MemCP中的统计表会统计各个tile的访问L2的请求个数.
 
 | 列号| 寄存器名 | 长度(bit) | 读写 | reset后初值 | 用途 |
 | --- | --- | --- | --- | --- | --- |
-| 0 | | cached  | 32 | R/W | Undefined | CachedTL中经过的acquire请求数目 |
-| 1 | | uncached  | 32 | R/W | Undefined | UncachedTL中经过的acquire请求数目 |
+| 0 | cached  | 32 | R/W | Undefined | CachedTL中经过的acquire请求数目 |
+| 1 | uncached  | 32 | R/W | Undefined | UncachedTL中经过的acquire请求数目 |
 
 说明: 在TileLink协议中, acquire请求是一次主动读写事务的开始, 类似于AXI中的AR和AW请求.
 具体细节请查阅TileLink文档.
@@ -118,8 +118,8 @@ Statistic table in Memory Control Plane will count the number of requests sent t
 
 | column NO.| register name | length (bit) | read/write | reset value | description |
 | --- | --- | --- | --- | --- | --- |
-| 0 | | cached  | 32 | R/W | Undefined | the number of acquire request passes the CachedTL channel|
-| 1 | | uncached  | 32 | R/W | Undefined | the number of acquire request passes the UncachedTL channel |
+| 0 | cached  | 32 | R/W | Undefined | the number of acquire request passes the CachedTL channel|
+| 1 | uncached  | 32 | R/W | Undefined | the number of acquire request passes the UncachedTL channel |
 
 NOTE: In the TileLink Protocol, acquire request is the start of a active read/write transcation.
 It is similar with the AR/AW request in AXI Protocol.
@@ -136,7 +136,7 @@ Cache Partition Register主要用来进行控制某个DSID能够替换的L2 Cach
 
 | 列号| 寄存器名 | 长度(bit) | 读写 | reset后初值 | 用途 |
 | --- | --- | --- | --- | --- | --- |
-| 0 | | mask | 16 | R/W | 0 | 使用掩码来指示对应DSID的请求能替换的L2 cache路 |
+| 0 | mask | 16 | R/W | 0 | 使用掩码来指示对应DSID的请求能替换的L2 cache路 |
 
 说明: `mask`为`0`表示能进入所有的路.
 
@@ -146,7 +146,7 @@ Every DSID has the following registers.
 
 | column NO.| register name | length (bit) | read/write | reset value | description |
 | --- | --- | --- | --- | --- | --- |
-| 0 | | mask | 16 | R/W | 0 | indicate which ways can be replaced by the corresponding DSID |
+| 0 | mask | 16 | R/W | 0 | indicate which ways can be replaced by the corresponding DSID |
 
 NOTE: When `mask` is `0`, all ways can be replaced.
 
@@ -158,15 +158,15 @@ CacheCP中的统计表会统计各个DSID对L2的访问情况.
 
 | 列号| 寄存器名 | 长度(bit) | 读写 | reset后初值 | 用途 |
 | --- | --- | --- | --- | --- | --- |
-| 0 | | access  | 32 | R/W | Undefined | L2 cache的访问次数 |
-| 1 | | miss  | 32 | R/W | Undefined | L2 cache的缺失次数 |
-| 2 | | usage  | 32 | R | 0 | 占用L2 cache的容量, 单位为cache block数目 |
+| 0 | access  | 32 | R/W | Undefined | L2 cache的访问次数 |
+| 1 | miss  | 32 | R/W | Undefined | L2 cache的缺失次数 |
+| 2 | usage  | 32 | R | 0 | 占用L2 cache的容量, 单位为cache block数目 |
 
 
 Statistic table in Cache Control Plane will record the access situation of L2 cache for each DSID.
 
 | column NO.| register name | length (bit) | read/write | reset value | description |
 | --- | --- | --- | --- | --- | --- |
-| 0 | | access  | 32 | R/W | Undefined | the number of L2 cache access |
-| 1 | | miss  | 32 | R/W | Undefined | the number of L2 cache miss |
-| 2 | | usage  | 32 | R | 0 | the occupied capacity of L2 cache, a cache block per unit |
+| 0 | access  | 32 | R/W | Undefined | the number of L2 cache access |
+| 1 | miss  | 32 | R/W | Undefined | the number of L2 cache miss |
+| 2 | usage  | 32 | R | 0 | the occupied capacity of L2 cache, a cache block per unit |
