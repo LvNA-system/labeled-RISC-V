@@ -34,7 +34,7 @@ emu-ram-init: $(emu) $(emu_bin_hex_file)
 
 emu: $(emu)
 
-run-emu: $(emu)
+run-emu: $(emu) $(emu_bin_hex_file)
 	cd $(dir $(emu)) && $< +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
 
 # put functionality in a standalone script
