@@ -9,6 +9,7 @@ import uncore.util._
 import util._
 import cde.{Field, Parameters}
 import scala.math.max
+import pard.{DsidBits}
 
 case object EnableL2Logging extends Field[Boolean]
 

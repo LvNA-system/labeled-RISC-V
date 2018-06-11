@@ -6,7 +6,7 @@ import Chisel._
 import cde.{Parameters}
 import junctions._
 import coreplex._
-import pard.cp.{UseSim}
+import pard.{UseSim}
 
 import sifive.blocks.devices.uart._
 

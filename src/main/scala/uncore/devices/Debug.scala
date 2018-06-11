@@ -8,8 +8,7 @@ import uncore.tilelink._
 import util._
 import regmapper._
 import cde.{Parameters, Config, Field}
-import pard.cp._
-import rocket.ProcDsidBits
+import pard._
 
 
 // *****************************************

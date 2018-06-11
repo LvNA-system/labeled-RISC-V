@@ -1,14 +1,16 @@
 // See LICENSE for license details.
 
-package pard.cp
+package pard
 
 import Chisel._
 import cde.{Parameters, Field}
-import rocketchip.ExtMemSize
 import uncore.agents.{NWays}
 import uncore.devices.{NTiles}
-import uncore.tilelink.{DsidBits}
 
+case object ProcDsidBits extends Field[Int]
+case object LDomDsidBits extends Field[Int]
+case object DsidBits extends Field[Int]
+case object UseNoHype extends Field[Boolean]
 case object UseSim extends Field[Boolean]
 
 trait HasControlPlaneParameters {

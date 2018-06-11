@@ -8,10 +8,10 @@ import uncore.constants._
 import util._
 import scala.math.max
 import cde.{Parameters, Field}
+import pard.DsidBits
 
 case object CacheBlockOffsetBits extends Field[Int]
 case object AmoAluOperandBits extends Field[Int]
-case object DsidBits extends Field[Int]
 
 case object TLId extends Field[String]
 case class TLKey(id: String) extends Field[TileLinkParameters]

@@ -1,4 +1,4 @@
-package uncore.pard
+package pard
 
 import Chisel._
 import uncore.tilelink.{ClientUncachedTileLinkIO, ClientTileLinkIO}

@@ -13,7 +13,7 @@ import rocket._
 import util._
 import util.ConfigUtils._
 import rocketchip.{GlobalAddrMap, NCoreplexExtClients, TapeOut}
-import pard.cp._
+import pard._
 import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
 
 class BaseCoreplexConfig extends Config (

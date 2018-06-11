@@ -10,6 +10,7 @@ import junctions.HasAddrMapParameters
 import util._
 import Chisel.ImplicitConversions._
 import cde.{Parameters, Field}
+import pard.ProcDsidBits
 
 case object XLen extends Field[Int]
 case object FetchWidth extends Field[Int]

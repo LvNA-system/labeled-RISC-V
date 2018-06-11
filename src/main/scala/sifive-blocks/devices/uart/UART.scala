@@ -9,7 +9,7 @@ import junctions._
 import util._
 import rocketchip.PeripheryBusKey
 import sifive.blocks.util.{NonBlockingEnqueue, NonBlockingDequeue}
-import pard.cp.{UseSim}
+import pard.{UseSim}
 
 case class UARTConfig(
   address: BigInt,
