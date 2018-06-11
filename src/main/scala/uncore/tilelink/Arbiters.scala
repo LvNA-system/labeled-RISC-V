@@ -103,6 +103,12 @@ trait TileLinkArbiterLike extends HasTileLinkParameters {
     arb.io.in <> clts
     mngr <> arb.io.out
   }
+
+  def hookupFinish2[M <: FinishToDst]( clts: Seq[DecoupledIO[M]], mngr: DecoupledIO[M]) {
+    val arb = Module(new RRArbiter(mngr.bits, arbN))
+    arb.io.in <> clts
+    mngr <> arb.io.out
+  }
 }
 
 /** Abstract base case for any Arbiters that have UncachedTileLinkIOs */
@@ -192,5 +198,6 @@ class ClientTileLinkIOArbiter(val arbN: Int)(implicit val p: Parameters) extends
     hookupClientSourceHeaderless(io.in.map(_.release), io.out.release)
     hookupManagerSourceBroadcast(io.in.map(_.probe), io.out.probe)
     hookupManagerSourceHeaderlessWithId(io.in.map(_.grant), io.out.grant)
+    hookupFinish2(io.in.map(_.finish), io.out.finish)
   } else { io.out <> io.in.head }
 }
