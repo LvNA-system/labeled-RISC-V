@@ -307,10 +307,8 @@ proc create_root_design { parentCell } {
    }
   
   set_property -dict [ list \
-   CONFIG.SUPPORTS_NARROW_BURST {1} \
    CONFIG.NUM_READ_OUTSTANDING {2} \
    CONFIG.NUM_WRITE_OUTSTANDING {2} \
-   CONFIG.MAX_BURST_LENGTH {256} \
  ] [get_bd_intf_pins /PARDFPGATop_0/io_bus_axi_0]
 
   set_property -dict [ list \
@@ -374,6 +372,7 @@ proc create_root_design { parentCell } {
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
   connect_bd_net -net uncore_rstn_1 [get_bd_ports uncore_rstn] [get_bd_pins proc_sys_reset_0/ext_reset_in]
   connect_bd_net -net xlslice_0_Dout [get_bd_pins PARDFPGATop_0/reset] [get_bd_pins xlslice_0/Dout]
+  connect_bd_net -net xlslice_1_Dout [get_bd_pins PARDFPGATop_0/io_traffic_enable] [get_bd_pins xlslice_1/Dout]
 
   # Create address segments
   create_bd_addr_seg -range 0x20000000 -offset 0x60000000 [get_bd_addr_spaces PARDFPGATop_0/io_mmio_axi_0] [get_bd_addr_segs M_AXILITE_MMIO/Reg] SEG_M_AXILITE_MMIO_Reg
