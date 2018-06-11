@@ -11,10 +11,9 @@ import uncore.agents._
 import uncore.devices._
 import uncore.util._
 import uncore.converters._
-import uncore.pard.{ClientUncachedTileLinkControlCrossing, ClientTileLinkControlCrossing}
 import rocket._
 import util._
-import pard.cp._
+import pard._
 
 /** Number of memory channels */
 case object NMemoryChannels extends Field[Int]

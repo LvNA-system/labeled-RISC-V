@@ -9,7 +9,7 @@ import uncore.converters._
 import uncore.devices._
 import util._
 import cde.{Parameters, Field}
-import pard.cp.LDomDsidBits
+import pard.LDomDsidBits
 
 case object BuildRoCC extends Field[Seq[RoccParameters]]
 case object NCachedTileLinkPorts extends Field[Int]

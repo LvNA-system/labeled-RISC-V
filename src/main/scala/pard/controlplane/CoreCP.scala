@@ -1,14 +1,11 @@
 // See LICENSE for license details.
 
-package pard.cp
+package pard
 
 import Chisel._
 import cde.{Parameters, Field}
 import rocketchip.{ExtMemSize, ExtMemBase}
 import junctions.{PAddrBits}
-
-case object LDomDsidBits extends Field[Int]
-case object UseNoHype extends Field[Boolean]
 
 class DsidConfigIO(implicit p: Parameters) extends ControlPlaneBundle {
   val dsids = Vec(nTiles, UInt(OUTPUT, width = p(LDomDsidBits)))

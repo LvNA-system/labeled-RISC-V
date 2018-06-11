@@ -6,7 +6,7 @@ import scala.math.max
 import scala.collection.mutable.ArraySeq
 import util._
 import cde.{Parameters, Field}
-import uncore.tilelink.{DsidBits}
+import pard.{DsidBits}
 
 case object NastiKey extends Field[NastiParameters]
 

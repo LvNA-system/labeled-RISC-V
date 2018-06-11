@@ -12,7 +12,7 @@ import uncore.tilelink._
 import uncore.constants._
 import uncore.util._
 import util._
-import pard.cp._
+import pard._
 import cde.{Parameters, Field}
 
 case object CacheName extends Field[String]

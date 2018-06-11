@@ -17,7 +17,7 @@ import scala.collection.mutable.{LinkedHashSet, ListBuffer}
 import scala.collection.immutable.HashMap
 import DefaultTestSuites._
 import cde.{Parameters, Config, Dump, Knob, CDEMatchError}
-import pard.cp._
+import pard.UseSim
 
 class BasePlatformConfig extends Config(
   topDefinitions = {

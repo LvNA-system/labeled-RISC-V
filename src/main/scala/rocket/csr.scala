@@ -8,9 +8,7 @@ import cde.{Parameters, Field}
 import uncore.devices._
 import util._
 import Chisel.ImplicitConversions._
-import junctions.AddrMap
-
-case object ProcDsidBits extends Field[Int]
+import pard.ProcDsidBits
 
 class MStatus extends Bundle {
   // not truly part of mstatus, but convenient

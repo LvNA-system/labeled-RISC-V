@@ -7,7 +7,7 @@ import cde.{Parameters, Field}
 import junctions._
 import junctions.NastiConstants._
 import util.LatencyPipe
-import pard.cp.{UseSim}
+import pard.{UseSim}
 
 case object BuildExampleTop extends Field[Parameters => ExampleTop]
 case object SimMemLatency extends Field[Int]

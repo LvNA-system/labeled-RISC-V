@@ -1,4 +1,4 @@
-package pard.cp
+package pard
 
 import Chisel._
 import cde.{Parameters}

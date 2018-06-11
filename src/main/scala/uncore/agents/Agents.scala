@@ -10,7 +10,7 @@ import uncore.converters._
 import uncore.coherence._
 import uncore.util._
 import util._
-import pard.cp._
+import pard.CachePartitionConfigIO
 
 case object NReleaseTransactors extends Field[Int]
 case object NProbeTransactors extends Field[Int]

@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package pard.cp
+package pard
 
 import Chisel._
 import cde.{Parameters}
