@@ -16,6 +16,7 @@ class PARDSimConfig extends Config(
   ++ new WithJtagDTM 
   ++ new WithoutFPU
 //  ++ new WithNoHype
+  ++ new WithTrafficGenerator
   ++ new WithNCores(2)
   ++ new WithExtMemSize(0x2000000L) // 32MB
   ++ new WithL2Capacity(128)
@@ -41,6 +42,7 @@ class PARDFPGAConfigzcu102 extends Config(
   ++ new WithJtagDTM
   ++ new WithNExtBusAXIChannels(1)
   ++ new WithExtMemSize(0x10000000000L)
+  ++ new WithTrafficGenerator
   ++ new WithNCores(4)
   ++ new WithRTCPeriod(10) // gives 10 MHz RTC assuming 100 MHz uncore clock
   ++ new WithL2Capacity(2048)
@@ -54,6 +56,7 @@ class PARDFPGAConfigsidewinder extends Config(
   ++ new WithJtagDTM
   ++ new WithNExtBusAXIChannels(1)
   ++ new WithExtMemSize(0x10000000000L)
+  ++ new WithTrafficGenerator
   ++ new WithNCores(4)
   ++ new WithRTCPeriod(10) // gives 10 MHz RTC assuming 100 MHz uncore clock
   ++ new WithL2Capacity(2048)

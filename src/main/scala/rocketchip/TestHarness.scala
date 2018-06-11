@@ -7,7 +7,7 @@ import cde.{Parameters, Field}
 import junctions._
 import junctions.NastiConstants._
 import util.LatencyPipe
-import pard.{UseSim}
+import pard.{UseSim, HasTrafficGenerator}
 
 case object BuildExampleTop extends Field[Parameters => ExampleTop]
 case object SimMemLatency extends Field[Int]
@@ -34,6 +34,8 @@ class TestHarness(q: Parameters) extends Module {
 
   for (int <- dut.io.interrupts)
     int := Bool(false)
+
+  dut.io.traffic_enable := Bool(p(HasTrafficGenerator))
 
   if (dut.io.bus_axi.nonEmpty) {
     for (bus <- dut.io.bus_axi) {

@@ -70,6 +70,7 @@ abstract class BaseTop(q: Parameters) extends LazyModule {
 
 abstract class BaseTopBundle(val p: Parameters) extends Bundle {
   val success = Bool(OUTPUT)
+  val traffic_enable = Bool(INPUT)
 }
 
 abstract class BaseTopModule[+L <: BaseTop, +B <: BaseTopBundle](
@@ -107,6 +108,7 @@ abstract class BaseTopModule[+L <: BaseTop, +B <: BaseTopBundle](
   ConfigStringOutput.contents = Some(p(ConfigString))
 
   io.success := coreplexIO.success
+  coreplexIO.traffic_enable := io.traffic_enable
 }
 
 trait DirectConnection {

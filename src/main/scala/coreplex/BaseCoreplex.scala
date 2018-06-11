@@ -63,7 +63,7 @@ abstract class BaseCoreplexBundle(val c: CoreplexConfig)(implicit val p: Paramet
   val clint = Vec(c.nTiles, new CoreplexLocalInterrupts).asInput
   val resetVector = UInt(INPUT, p(XLen))
   val success = Bool(OUTPUT) // used for testing
-  val leds = Vec(8, Bool()).asOutput
+  val traffic_enable = Bool().asInput
 
   override def cloneType = this.getClass.getConstructors.head.newInstance(c, p).asInstanceOf[this.type]
 }
@@ -83,8 +83,39 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
   val nUncachedPorts = tiles.map(tile => tile.io.uncached.size).reduce(_ + _)
   val nBanks = c.nMemChannels * nBanksPerMemChannel
 
-  val cachedPorts = uncoreTileIOs.map(_.cached).flatten
-  val uncachedPorts = uncoreTileIOs.map(_.uncached).flatten
+  val cachedPortsBeforeGenerator = uncoreTileIOs.map(_.cached).flatten
+
+  val p_alter = p.alterPartial({ case TLId => "L1toL2" })
+  val cachedPorts = if (p(HasTrafficGenerator)) {
+    cachedPortsBeforeGenerator.take(1) ++ cachedPortsBeforeGenerator.drop(1).map { case p => {
+      val trafficGenerator = Module(new TileLinkTrafficGenerator()(p_alter))
+      trafficGenerator.io.traffic_enable := io.traffic_enable
+      val trafficGeneratorArb = Module(new ClientTileLinkIOArbiter(2)(p_alter))
+      trafficGeneratorArb.io.in(0) <> p
+      trafficGeneratorArb.io.in(1) <> trafficGenerator.io.out
+
+      trafficGeneratorArb.io.out
+    } }
+  }
+  else {
+    cachedPortsBeforeGenerator
+  }
+
+  val uncachedPortsBeforeGenerator = uncoreTileIOs.map(_.uncached).flatten
+  val uncachedPorts = if (p(HasTrafficGenerator)) {
+    uncachedPortsBeforeGenerator.take(1) ++ uncachedPortsBeforeGenerator.drop(1).map { case p => {
+      val trafficGenerator = Module(new UncachedTileLinkTrafficGenerator()(p_alter))
+      trafficGenerator.io.traffic_enable := io.traffic_enable
+      val trafficGeneratorArb = Module(new ClientUncachedTileLinkIOArbiter(2)(p_alter))
+      trafficGeneratorArb.io.in(0) <> p
+      trafficGeneratorArb.io.in(1) <> trafficGenerator.io.out
+
+      trafficGeneratorArb.io.out
+    }}
+  }
+  else {
+    uncachedPortsBeforeGenerator
+  }
 
   val cachedControlCrossing = Seq.fill(nCachedPorts){
     Module(new ClientTileLinkControlCrossing()(
