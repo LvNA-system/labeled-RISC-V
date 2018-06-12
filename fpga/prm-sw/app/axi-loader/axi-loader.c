@@ -107,6 +107,9 @@ void help() {
   }
 }
 
+#define RUN 0x1
+#define TRAFFIC_DISABLE 0x2
+
 int main(int argc, char *argv[]) {
   init_platform(NULL, 0);
 
@@ -118,8 +121,8 @@ int main(int argc, char *argv[]) {
   if (argc > 1 && strcmp(argv[1], "reset") == 0) {
     if (argc > 2) {
       if (strcmp(argv[2], "hard") == 0) {
-        resetn(0);
-        resetn(1);
+        resetn(0 | TRAFFIC_DISABLE);
+        resetn(RUN | TRAFFIC_DISABLE);
       }
       else if (argc > 3) {
         char *p;
