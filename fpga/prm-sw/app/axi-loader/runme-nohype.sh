@@ -11,8 +11,8 @@ pardctl=../pardctl/build/pardctl-fpga
 
 if [ $board = "zedboard" ];
 then
-  base=(0x00000000 0x08000000
-  size=(0x08000000 0x08000000;
+  base=(0x00000000 0x08000000)
+  size=(0x08000000 0x08000000);
 else
   base=(0x00000000 0x20000000 0x40000000 0x60000000)
   size=(0x20000000 0x20000000 0x20000000 0x20000000);
