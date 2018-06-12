@@ -11,8 +11,8 @@ pardctl=../pardctl/build/pardctl-fpga
 
 if [ $board = "zedboard" ];
 then
-  base=(0x00000000 0x08000000
-  size=(0x08000000 0x08000000;
+  base=(0x00000000 0x08000000)
+  size=(0x08000000 0x08000000);
 else
   base=(0x00000000 0x20000000 0x40000000 0x60000000)
   size=(0x20000000 0x20000000 0x20000000 0x20000000);
@@ -24,5 +24,5 @@ $axi_loader reset start $hartid
 echo "rw=w,cp=core,tab=p,col=dsid,row=$hartid,val=$dsid" | $pardctl
 echo "rw=w,cp=core,tab=p,col=base,row=$hartid,val=${base[$hartid]}" | $pardctl
 echo "rw=w,cp=core,tab=p,col=size,row=$hartid,val=${size[$hartid]}" | $pardctl
-$axi_loader $board linux-nohype.bin ../../misc/configstr/nohype/$board/core$hartid ${base[$hartid]}
+$axi_loader $board linux.bin ../../misc/configstr/nohype/$board/core$hartid ${base[$hartid]}
 $axi_loader reset end $hartid

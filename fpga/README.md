@@ -119,7 +119,7 @@ This can be achieved by either copying the file to SD card,
 or by sending the file with `scp` if you have your board connected to your host by network.
 `prm-sw` contains tools to boot and control the RISC-V subsystem.
 For details, please refer to the [README.md under the prm-sw directory](prm-sw/README.md).
-* If the target board is zynq, change the following macro definition in `path-to-prm-sw/platform/platform-fpga/src/map.h`
+* If the target board is zynq, change the macro definition in `path-to-prm-sw/platform/platform-fpga/src/map.h` as following
 ```
 #define GPIO_RESET_BASE_ADDR 0x41200000
 #define JTAG_BASE_ADDR 0x43C00000
@@ -143,7 +143,7 @@ To perform SMP boot
 cd path-to-labeled-RISC-V/fpga
 make -j16 sw
 ```
-* Put `linux.bin` as `path-to-prm-sw/app/axi-loader/linux-smp.bin` on PRM.
+* Put `linux.bin` under `path-to-prm-sw/app/axi-loader/` on PRM.
 * Open minicom on PRM to connect to the UART of RISC-V subsystem.
 Note that you can connect to PRM via `ssh` and use `tmux` to get multiple terminals.
 ```
@@ -166,13 +166,12 @@ This is a new virtualization method provided by LvNA.
 To perform NoHype boot
 * In the `menuconfig` of `riscv-linux`,
   * General setup -> change the initramfs source file back to `arch/riscv/rootfs/initramfs.txt`
-  * Platform type -> unselect `Symmetric Multi-Processing`
 * Regenerate `linux.bin`
 ```
 cd path-to-labeled-RISC-V/fpga
 make -j16 sw
 ```
-* Put `linux.bin` as `path-to-prm-sw/app/axi-loader/linux-nohype.bin` on PRM.
+* Put `linux.bin` under `path-to-prm-sw/app/axi-loader/` on PRM.
 * Open 4 minicoms in different terminals on PRM to connect to the UARTs of RISC-V subsystem.
 Note that you can connect to PRM via `ssh` and use `tmux` to get multiple terminals.
 ```

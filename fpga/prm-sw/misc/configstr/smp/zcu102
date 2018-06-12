@@ -1,7 +1,20 @@
 plic {
+  interface "plic";
   priority 0xc000000;
   pending 0xc001000;
   ndevs 2;
+  0 {
+    0 {
+      m {
+       ie  { mem { 0xc002000 0xc00207f; }; };
+       ctl { mem { 0xc200000 0xc200007; }; };
+      };
+      s {
+       ie  { mem { 0xc002080 0xc0020ff; }; };
+       ctl { mem { 0xc201000 0xc201007; }; };
+      };
+    };
+  };
 };
 rtc {
   addr 0x200bff8;
