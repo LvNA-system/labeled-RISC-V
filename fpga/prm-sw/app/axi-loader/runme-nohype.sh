@@ -24,5 +24,5 @@ $axi_loader reset start $hartid
 echo "rw=w,cp=core,tab=p,col=dsid,row=$hartid,val=$dsid" | $pardctl
 echo "rw=w,cp=core,tab=p,col=base,row=$hartid,val=${base[$hartid]}" | $pardctl
 echo "rw=w,cp=core,tab=p,col=size,row=$hartid,val=${size[$hartid]}" | $pardctl
-$axi_loader $board linux-nohype.bin ../../misc/configstr/nohype/$board/core$hartid ${base[$hartid]}
+$axi_loader $board linux.bin ../../misc/configstr/nohype/$board/core$hartid ${base[$hartid]}
 $axi_loader reset end $hartid

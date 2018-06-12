@@ -40,7 +40,7 @@ do
   echo "rw=w,cp=core,tab=p,col=size,row=$i,val=$mem_size" | $pardctl
 done
 
-$axi_loader $board linux-smp.bin ../../misc/configstr/smp/$board 0
+$axi_loader $board linux.bin ../../misc/configstr/smp/$board 0
 
 for (( i=0 ; i < $nr_core ; i=i+1 )) ;
 do 
