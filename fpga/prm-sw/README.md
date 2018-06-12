@@ -8,7 +8,8 @@
 │   ├── pardctl          # control plane access tools
 │   ├── pardweb          # unused
 │   ├── server           # unused
-│   └── stab             # control plane statistic table dumper
+│   ├── stab             # control plane statistic table dumper
+│   └── tgctl            # hardware traffic generator controller
 ├── common               # platform-independent codes shared by `app`
 ├── Makefile.app
 ├── Makefile.check
