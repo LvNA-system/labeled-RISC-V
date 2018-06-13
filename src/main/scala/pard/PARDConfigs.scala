@@ -16,9 +16,9 @@ class PARDSimConfig extends Config(
   ++ new WithJtagDTM 
   ++ new WithoutFPU
 //  ++ new WithNoHype
-  ++ new WithTrafficGenerator
+//  ++ new WithTrafficGenerator
   ++ new WithNCores(2)
-  ++ new WithExtMemSize(0x2000000L) // 32MB
+  ++ new WithExtMemSize(0x1000000L) // 16MB
   ++ new WithL2Capacity(128)
   ++ new WithNL2Ways(16)
   ++ new DefaultL2Config)
