@@ -25,35 +25,12 @@
 mkdir build
 make -j16 sw  # change 16 to the number of cores according to your host
 ```
-If it is the first time you run this command, note that
-1. You will be asked to pull the pk and linux repo under `../../sw`
-1. A configuration menu will be popped up during initialization of linux repo. Choose `Exit`.
-1. You will receive an error while creating ramdisk during building linux kernel.
-This is because we can not know your setting of `RISCV` environment variable in advance.
-You should modify library paths in `initramfs.txt` according to `RISCV`.
-After that, re-run the `make` command above.
-```
-cd path-to-labeled-RISC-V/../sw/riscv-linux/arch/riscv/rootfs
-vim initramfs.txt # modify library paths to match your RISCV environment variable
-```
+If it is the first time you run this command, note that you will be asked to pull the pk and linux repo under `../../sw`.
 
 After that, `linux.bin` will be generated under `build/`.
+This is a minimal rootfs only containing a `stream` program.
 
 ## Run with emulator
-
-### Build a minimal rootfs
-
-```
-cd path-to-labeled-RISC-V/../sw/riscv-linux
-make ARCH=riscv menuconfig
-# change `General setup` -> `Initramfs source file(s)` to `arch/riscv/rootfs/initramfs-emu.txt`
-cd path-to-labeled-RISC-V/fpga
-make -j16 sw
-```
-This will build a minimal rootfs only containing a `stream` program.
-
-
-### Build and run emulator
 
 ```
 cd emulator    # NOTE: this is `fpga/emulator`, not the `emulator/` one
@@ -131,19 +108,25 @@ cd path-to-prm-sw/app/pardctl && make PLATFORM=fpga
 cd path-to-prm-sw/app/stab && make PLATFORM=fpga
 ```
 
+#### Build RISC-V image for FPGA
+
+```
+cd path-to-labeled-RISC-V/../sw/riscv-linux
+make ARCH=riscv fpga_defconfig
+vim arch/riscv/rootfs/initramfs.txt # modify library paths to match your RISCV environment variable
+cd path-to-labeled-RISC-V/fpga
+make -j16 sw
+```
+
+This will generator `linux.bin` under `build/`.
+This is a rootfs containing busybox to use in FPGA.
+Then put `linux.bin` under `path-to-prm-sw/app/axi-loader/` on PRM.
+
 #### SMP Boot
 
 SMP boot allows running one OS on multiple cores.
 This is the traditional way to use a multi-core system.
-To perform SMP boot
-* In the `menuconfig` of `riscv-linux`,
-  * General setup -> change the initramfs source file back to `arch/riscv/rootfs/initramfs.txt`
-* Regenerate `linux.bin`
-```
-cd path-to-labeled-RISC-V/fpga
-make -j16 sw
-```
-* Put `linux.bin` under `path-to-prm-sw/app/axi-loader/` on PRM.
+
 * Open minicom on PRM to connect to the UART of RISC-V subsystem.
 Note that you can connect to PRM via `ssh` and use `tmux` to get multiple terminals.
 ```
@@ -163,15 +146,7 @@ To use label, please use NoHype mode below.
 
 NoHype boot allows running multiple OSes on multiple cores.
 This is a new virtualization method provided by LvNA.
-To perform NoHype boot
-* In the `menuconfig` of `riscv-linux`,
-  * General setup -> change the initramfs source file back to `arch/riscv/rootfs/initramfs.txt`
-* Regenerate `linux.bin`
-```
-cd path-to-labeled-RISC-V/fpga
-make -j16 sw
-```
-* Put `linux.bin` under `path-to-prm-sw/app/axi-loader/` on PRM.
+
 * Open 4 minicoms in different terminals on PRM to connect to the UARTs of RISC-V subsystem.
 Note that you can connect to PRM via `ssh` and use `tmux` to get multiple terminals.
 ```
