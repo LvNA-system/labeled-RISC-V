@@ -43,7 +43,7 @@ BBL_BIN = $(build_dir)/linux.bin
 #--------------------------------------------------------------------
 
 LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
-LINUX_BUILD_COMMIT = 9d62064a6be28a56332ff5649da041729de0c1e7
+LINUX_BUILD_COMMIT = 260bcfd98b8f0054a1d8de922c6111e133a32d29
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
@@ -93,7 +93,7 @@ bbl-clean:
 $(LINUX_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
 	git clone https://github.com/LvNA-system/riscv-linux.git $@
-	cd $@ && (curl -L https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.2.tar.xz | tar -xJ --strip-components=1) && git checkout . && cp arch/riscv/configs/riscv64_pard .config && make ARCH=riscv menuconfig
+	cd $@ && (curl -L https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.2.tar.xz | tar -xJ --strip-components=1) && git checkout . && make ARCH=riscv emu_defconfig
 
 linux: $(LINUX_ELF)
 
