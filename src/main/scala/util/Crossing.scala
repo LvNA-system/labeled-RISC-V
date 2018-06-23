@@ -132,3 +132,51 @@ object LevelSyncFrom {
     LevelSyncCrossing(from_clock, scope.clock, in, sync)
   }
 }
+
+
+/**
+ * This helper object synchronizes a level-sensitive UInt from one
+ * clock domain to another.
+ */
+object LevelSyncUIntCrossing {
+  class SynchronizerBackend(sync: Int, _clock: Clock) extends Module(Some(_clock)) {
+    val io = new Bundle {
+      val in = UInt(INPUT)
+      val out = UInt(OUTPUT)
+    }
+
+    io.out := ShiftRegister(io.in, sync)
+  }
+
+  class SynchronizerFrontend(_clock: Clock) extends Module(Some(_clock)) {
+    val io = new Bundle {
+      val in = UInt(INPUT)
+      val out = UInt(OUTPUT)
+    }
+
+    io.out := RegNext(io.in)
+  }
+
+  def apply(from_clock: Clock, to_clock: Clock, in: UInt, sync: Int = 2): UInt = {
+    val front = Module(new SynchronizerFrontend(from_clock))
+    val back = Module(new SynchronizerBackend(sync, to_clock))
+
+    front.io.in := in
+    back.io.in := front.io.out
+    back.io.out
+  }
+}
+
+object LevelSyncUIntTo {
+  def apply(to_clock: Clock, in: UInt, sync: Int = 2): UInt = {
+    val scope = AsyncScope()
+    LevelSyncUIntCrossing(scope.clock, to_clock, in, sync)
+  }
+}
+
+object LevelSyncUIntFrom {
+  def apply(from_clock: Clock, in: UInt, sync: Int = 2): UInt = {
+    val scope = AsyncScope()
+    LevelSyncUIntCrossing(from_clock, scope.clock, in, sync)
+  }
+}
