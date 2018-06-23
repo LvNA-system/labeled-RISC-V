@@ -92,8 +92,7 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
       val trafficGenerator = Module(new TileLinkTrafficGenerator()(p_alter))
       trafficGenerator.io.traffic_enable := io.traffic_enable
       val trafficGeneratorArb = Module(new ClientTileLinkIOArbiter(2)(p_alter))
-      trafficGeneratorArb.io.in(0) <> p
-      trafficGeneratorArb.io.in(1) <> trafficGenerator.io.out
+      trafficGeneratorArb.io.in <> List(p, trafficGenerator.io.out) // arb.in(0) -> p, arb.in(1) -> traffic
 
       trafficGeneratorArb.io.out
     } }
@@ -108,8 +107,7 @@ abstract class BaseCoreplexModule[+L <: BaseCoreplex, +B <: BaseCoreplexBundle](
       val trafficGenerator = Module(new UncachedTileLinkTrafficGenerator()(p_alter))
       trafficGenerator.io.traffic_enable := io.traffic_enable
       val trafficGeneratorArb = Module(new ClientUncachedTileLinkIOArbiter(2)(p_alter))
-      trafficGeneratorArb.io.in(0) <> p
-      trafficGeneratorArb.io.in(1) <> trafficGenerator.io.out
+      trafficGeneratorArb.io.in <> List(p, trafficGenerator.io.out) // arb.in(0) -> p, arb.in(1) -> traffic
 
       trafficGeneratorArb.io.out
     }}
