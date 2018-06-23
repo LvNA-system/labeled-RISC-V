@@ -48,6 +48,7 @@ class ExampleTopBundle(p: Parameters) extends BaseTopBundle(p)
     with PeripherySlaveBundle
     with SimUARTConfigs
     with PeripheryUARTBundle
+    with AsyncConnectionBundle
 
 class ExampleTopModule[+L <: ExampleTop, +B <: ExampleTopBundle](p: Parameters, l: L, b: => B) extends BaseTopModule(p, l, b)
     with DirectConnection
@@ -59,6 +60,7 @@ class ExampleTopModule[+L <: ExampleTop, +B <: ExampleTopBundle](p: Parameters, 
     with PeripheryMasterMMIOModule
     with PeripherySlaveModule
     with PeripheryUARTModule
+    with AsyncConnection
     with HardwiredResetVector
 
 /** Example Top with TestRAM */

@@ -19,6 +19,9 @@ class TestHarness(q: Parameters) extends Module {
   val dut = q(BuildExampleTop)(q).module
   implicit val p = dut.p
 
+  dut.io.coreclk := clock
+  dut.io.corerst := reset
+
   // This test harness isn't especially flexible yet
   require(dut.io.mem_clk.isEmpty)
   require(dut.io.mem_rst.isEmpty)

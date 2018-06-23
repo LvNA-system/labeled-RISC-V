@@ -118,3 +118,19 @@ trait DirectConnection {
 
   coreplexIO <> coreplex.io
 }
+
+trait AsyncConnectionBundle {
+  val coreclk = Clock(INPUT)
+  val corerst = Bool(INPUT)
+}
+
+trait AsyncConnection {
+  val io: AsyncConnectionBundle
+  val coreplexIO: BaseCoreplexBundle
+
+  val multiClockCoreplexIO = coreplexIO.asInstanceOf[MultiClockCoreplexBundle]
+  multiClockCoreplexIO.tcrs.foreach { tcr =>
+    tcr.clock := io.coreclk
+    tcr.reset := io.corerst
+  }
+}
