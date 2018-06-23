@@ -133,6 +133,7 @@ if { $bCheckIPs == 1 } {
    set list_check_ips "\ 
 xilinx.com:ip:axi_dwidth_converter:2.1\
 xilinx.com:ip:axi_protocol_converter:2.1\
+xilinx.com:ip:c_shift_ram:12.0\
 xilinx.com:ip:proc_sys_reset:5.0\
 xilinx.com:ip:xlslice:1.0\
 "
@@ -331,6 +332,28 @@ proc create_root_design { parentCell } {
   # Create instance: axi_protocol_converter_0, and set properties
   set axi_protocol_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_protocol_converter:2.1 axi_protocol_converter_0 ]
 
+  # Create instance: c_shift_ram_0, and set properties
+  set c_shift_ram_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:c_shift_ram:12.0 c_shift_ram_0 ]
+  set_property -dict [ list \
+   CONFIG.AsyncInitVal {0} \
+   CONFIG.CE {false} \
+   CONFIG.DefaultData {0} \
+   CONFIG.Depth {1} \
+   CONFIG.SyncInitVal {0} \
+   CONFIG.Width {1} \
+ ] $c_shift_ram_0
+
+  # Create instance: c_shift_ram_1, and set properties
+  set c_shift_ram_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:c_shift_ram:12.0 c_shift_ram_1 ]
+  set_property -dict [ list \
+   CONFIG.AsyncInitVal {0} \
+   CONFIG.CE {false} \
+   CONFIG.DefaultData {0} \
+   CONFIG.Depth {1} \
+   CONFIG.SyncInitVal {0} \
+   CONFIG.Width {1} \
+ ] $c_shift_ram_1
+
   # Create instance: proc_sys_reset_0, and set properties
   set proc_sys_reset_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_0 ]
 
@@ -361,7 +384,10 @@ proc create_root_design { parentCell } {
   # Create port connections
   connect_bd_net -net PARDFPGATop_0_io_jtag_TDO [get_bd_ports jtag_TDO] [get_bd_pins PARDFPGATop_0/io_jtag_TDO]
   connect_bd_net -net PARDFPGATop_0_io_nasti_error [get_bd_ports led] [get_bd_pins PARDFPGATop_0/io_nasti_error]
+  connect_bd_net -net c_shift_ram_0_Q [get_bd_pins c_shift_ram_0/Q] [get_bd_pins c_shift_ram_1/D]
+  connect_bd_net -net c_shift_ram_1_Q [get_bd_pins PARDFPGATop_0/io_corerst] [get_bd_pins c_shift_ram_1/Q]
   connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins PARDFPGATop_0/clock] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
+  connect_bd_net -net coreclk_1 [get_bd_ports coreclk] [get_bd_pins PARDFPGATop_0/io_coreclk] [get_bd_pins c_shift_ram_0/CLK] [get_bd_pins c_shift_ram_1/CLK]
   connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
   connect_bd_net -net intr0_1 [get_bd_ports intr0] [get_bd_pins PARDFPGATop_0/io_interrupts_0]
   connect_bd_net -net intr1_1 [get_bd_ports intr1] [get_bd_pins PARDFPGATop_0/io_interrupts_1]
@@ -371,7 +397,7 @@ proc create_root_design { parentCell } {
   connect_bd_net -net jtag_TMS_1 [get_bd_ports jtag_TMS] [get_bd_pins PARDFPGATop_0/io_jtag_TMS]
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
   connect_bd_net -net uncore_rstn_1 [get_bd_ports uncore_rstn] [get_bd_pins proc_sys_reset_0/ext_reset_in]
-  connect_bd_net -net xlslice_0_Dout [get_bd_pins PARDFPGATop_0/reset] [get_bd_pins xlslice_0/Dout]
+  connect_bd_net -net xlslice_0_Dout [get_bd_pins PARDFPGATop_0/reset] [get_bd_pins c_shift_ram_0/D] [get_bd_pins xlslice_0/Dout]
   connect_bd_net -net xlslice_1_Dout [get_bd_pins PARDFPGATop_0/io_traffic_enable] [get_bd_pins xlslice_1/Dout]
 
   # Create address segments
