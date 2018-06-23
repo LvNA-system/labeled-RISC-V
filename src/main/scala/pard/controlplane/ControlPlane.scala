@@ -12,6 +12,7 @@ case object LDomDsidBits extends Field[Int]
 case object DsidBits extends Field[Int]
 case object UseNoHype extends Field[Boolean]
 case object UseSim extends Field[Boolean]
+case object UseLabel extends Field[Boolean]
 
 trait HasControlPlaneParameters {
   implicit val p: Parameters
@@ -109,16 +110,29 @@ class ControlPlaneTopModule(implicit p: Parameters) extends ControlPlaneModule {
 
   io.rw.rready := coreCP.io.rw.rready && cacheCP.io.rw.rready && memCP.io.rw.rready
 
-  coreCP.io.rw.ren := io.rw.ren && (coreCP.cpIdx === rcpIdx)
-  coreCP.io.rw.wen := io.rw.wen && (coreCP.cpIdx === wcpIdx)
-  cacheCP.io.rw.ren := io.rw.ren && (cacheCP.cpIdx === rcpIdx)
-  cacheCP.io.rw.wen := io.rw.wen && (cacheCP.cpIdx === wcpIdx)
-  memCP.io.rw.ren := io.rw.ren && (memCP.cpIdx === rcpIdx)
-  memCP.io.rw.wen := io.rw.wen && (memCP.cpIdx === wcpIdx)
+  if (p(UseLabel)) {
+    coreCP.io.rw.ren := io.rw.ren && (coreCP.cpIdx === rcpIdx)
+    coreCP.io.rw.wen := io.rw.wen && (coreCP.cpIdx === wcpIdx)
+    cacheCP.io.rw.ren := io.rw.ren && (cacheCP.cpIdx === rcpIdx)
+    cacheCP.io.rw.wen := io.rw.wen && (cacheCP.cpIdx === wcpIdx)
+    memCP.io.rw.ren := io.rw.ren && (memCP.cpIdx === rcpIdx)
+    memCP.io.rw.wen := io.rw.wen && (memCP.cpIdx === wcpIdx)
 
-  io.rw.rdata := MuxLookup(rcpIdx, UInt(0), Array(
-    coreCP.cpIdx -> coreCP.io.rw.rdata,
-    cacheCP.cpIdx -> cacheCP.io.rw.rdata,
-    memCP.cpIdx -> memCP.io.rw.rdata
-  ))
+    io.rw.rdata := MuxLookup(rcpIdx, UInt(0), Array(
+      coreCP.cpIdx -> coreCP.io.rw.rdata,
+      cacheCP.cpIdx -> cacheCP.io.rw.rdata,
+      memCP.cpIdx -> memCP.io.rw.rdata
+    ))
+  }
+  else {
+    coreCP.io.rw.ren := Bool(false)
+    coreCP.io.rw.wen := Bool(false)
+    cacheCP.io.rw.ren := Bool(false)
+    cacheCP.io.rw.wen := Bool(false)
+    memCP.io.rw.ren := Bool(false)
+    memCP.io.rw.wen := Bool(false)
+
+    io.rw.rdata := UInt(0)
+  }
+
 }
