@@ -136,7 +136,7 @@
 	`axi_wire_field(1, prefix, rlast); \
 	`axi_wire_field(id_width, prefix, rid)
 
-`define axi_connect_if(io_prefix, wire_prefix) \
+`define axi_connect_if_no_id(io_prefix, wire_prefix) \
 	`axilite_connect_if(io_prefix, wire_prefix), \
 	`axi_connect_field(io_prefix, wire_prefix, awlen), \
 	`axi_connect_field(io_prefix, wire_prefix, awsize), \
@@ -144,17 +144,20 @@
 	`axi_connect_field(io_prefix, wire_prefix, awlock), \
 	`axi_connect_field(io_prefix, wire_prefix, awcache), \
 	`axi_connect_field(io_prefix, wire_prefix, awqos), \
-	`axi_connect_field(io_prefix, wire_prefix, awid), \
 	/* `axi_connect_field(io_prefix, wire_prefix, awuser), */ \
 	`axi_connect_field(io_prefix, wire_prefix, wlast), \
-	`axi_connect_field(io_prefix, wire_prefix, bid), \
 	`axi_connect_field(io_prefix, wire_prefix, arlen), \
 	`axi_connect_field(io_prefix, wire_prefix, arsize), \
 	`axi_connect_field(io_prefix, wire_prefix, arburst), \
 	`axi_connect_field(io_prefix, wire_prefix, arlock), \
 	`axi_connect_field(io_prefix, wire_prefix, arcache), \
 	`axi_connect_field(io_prefix, wire_prefix, arqos), \
-	`axi_connect_field(io_prefix, wire_prefix, arid), \
 	/* `axi_connect_field(io_prefix, wire_prefix, aruser), */ \
-	`axi_connect_field(io_prefix, wire_prefix, rlast), \
+	`axi_connect_field(io_prefix, wire_prefix, rlast)
+
+`define axi_connect_if(io_prefix, wire_prefix) \
+	`axi_connect_if_no_id(io_prefix, wire_prefix), \
+	`axi_connect_field(io_prefix, wire_prefix, awid), \
+	`axi_connect_field(io_prefix, wire_prefix, bid), \
+	`axi_connect_field(io_prefix, wire_prefix, arid), \
 	`axi_connect_field(io_prefix, wire_prefix, rid)
