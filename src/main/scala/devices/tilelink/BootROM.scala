@@ -79,5 +79,5 @@ trait HasPeripheryBootROM { this: BaseSubsystem =>
 trait HasPeripheryBootROMModuleImp extends LazyModuleImp
     with HasResetVectorWire {
   val outer: HasPeripheryBootROM
-  global_reset_vector := (if (p(UseEmu)) p(ExtMem).get.base else outer.resetVector).U
+  global_reset_vector := outer.resetVector.U
 }
