@@ -2822,6 +2822,7 @@ proc create_root_design { parentCell } {
   # Create instance: axi_dwidth_converter_0, and set properties
   set axi_dwidth_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0 ]
   set_property -dict [ list \
+   CONFIG.SI_DATA_WIDTH {128} \
    CONFIG.MI_DATA_WIDTH {32} \
  ] $axi_dwidth_converter_0
 
