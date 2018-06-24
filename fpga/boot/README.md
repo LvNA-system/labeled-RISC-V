@@ -25,7 +25,7 @@ make PLAT=zynqmp RESET_TO_BL31=1 clean
 ```
 git clone https://github.com/xilinx/u-boot-xlnx
 cd u-boot-xlnx
-git checkout ?????????????????  # this is the release version of 2017.04
+git checkout 5fa7d2ed066166571e969d036c1871c1759a921d  # this is the release version of 2017.04
 
 # for zynqmp
 make xilinx_zynqmp_zcu102_rev1_0_defconfig  # can be found under u-boot-xlnx/configs/
@@ -94,7 +94,7 @@ Find `BOOT.BIN` and `dts` under `path-to-labeled-RISC-V/fpga/boot/build/myprojec
 ```
 git clone https://github.com/xilinx/linux-xlnx
 cd linux-xlnx
-git checkout ???????  # this is the release version of 2017.04
+git checkout b450e900fdb473a53613ad014f31eedbc80b1c90  # this is the release version of 2017.04
 
 # for zynqmp
 make ARCH=arm64 xilinx_zynqmp_defconfig # can be found under linux-xlnx/arch/arm64/configs/
