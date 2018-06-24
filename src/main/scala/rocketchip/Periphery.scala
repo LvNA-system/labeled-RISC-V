@@ -60,6 +60,8 @@ case object SOCBusKey extends Field[SOCBusConfig]
 case object EdgeDataBits extends Field[Int]
 case object EdgeIDBits extends Field[Int]
 
+case object ResetVector extends Field[Long]
+
 object PeripheryUtils {
   def addQueueAXI(source: NastiIO) = {
     val sink = Wire(source)
@@ -392,6 +394,7 @@ trait PeripheryTestBusMasterModule {
 /////
 
 trait HardwiredResetVector {
+  implicit val p: Parameters
   val coreplexIO: BaseCoreplexBundle
-  coreplexIO.resetVector := UInt(0x1000) // boot ROM
+  coreplexIO.resetVector := UInt(p(ResetVector))
 }

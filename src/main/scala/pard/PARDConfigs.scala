@@ -18,7 +18,6 @@ class PARDSimConfig extends Config(
 //  ++ new WithNoHype
 //  ++ new WithTrafficGenerator
   ++ new WithNCores(2)
-  ++ new WithExtMemSize(0x1000000L) // 16MB
   ++ new WithL2Capacity(128)
   ++ new WithNL2Ways(16)
   ++ new DefaultL2Config)
@@ -79,14 +78,24 @@ class PARDFPGAConfigultraZ extends Config(
   ++ new DefaultL2FPGAConfig
 )
 
-class PARDFPGAConfigtapeout extends Config(
+class PARDFPGAConfigtapeout1 extends Config(
   new WithBlockingL1
+  ++ new WithTapeOut1
   ++ new WithoutFPU
-  ++ new WithTapeOut
   ++ new WithJtagDTM
-  ++ new WithExtMemSize(0x10000000L)
   ++ new WithNCores(1)
-  ++ new WithL2Capacity(256)
+  ++ new WithL2Capacity(1024)
+  ++ new WithNL2Ways(16)
+  ++ new DefaultL2FPGAConfig
+)
+
+class PARDFPGAConfigtapeout2 extends Config(
+  new WithBlockingL1
+  ++ new WithTapeOut1
+  ++ new WithoutFPU
+  ++ new WithJtagDTM
+  ++ new WithNCores(1)
+  ++ new WithL2Capacity(4096)
   ++ new WithNL2Ways(16)
   ++ new DefaultL2FPGAConfig
 )

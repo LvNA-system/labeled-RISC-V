@@ -50,14 +50,9 @@ class BasePlatformConfig extends Config(
         case AsyncDebugBus => false
         case IncludeJtagDTM => false
         case AsyncMMIOChannels => false
-        case ExtMMIOPorts => if (site(UseSim)) Nil else
-          if (site(TapeOut)) Seq(
-            AddrMapEntry("mmio-mem", MemRange(0x30000000L, 0x10000000L, MemAttr(AddrMapProt.RWX))),
-            AddrMapEntry("ahb", MemRange(0x40000000L, 0xC0000000L, MemAttr(AddrMapProt.RWX)))
-          )
-          else Seq(AddrMapEntry("mmio", MemRange(0x60000000, 0x20000000, MemAttr(AddrMapProt.RW))))
-        case NExtMMIOAXIChannels => if (site(UseSim)) 0 else 1
-        case NExtMMIOAHBChannels => if (site(TapeOut)) 1 else 0
+        case ExtMMIOPorts => Seq(AddrMapEntry("mmio", MemRange(0x60000000, 0x20000000, MemAttr(AddrMapProt.RW))))
+        case NExtMMIOAXIChannels => 1
+        case NExtMMIOAHBChannels => 0
         case NExtMMIOTLChannels  => 0
         case AsyncBusChannels => false
         case NExtBusAXIChannels => 0
@@ -76,6 +71,9 @@ class BasePlatformConfig extends Config(
         case ExtMemSize => Dump("MEM_SIZE", 0x10000000L)
         case ExtMemBase => 0x100000000L // 4GB
         case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
+        case ResetVector => 0x1000L
+        case UseSim => false
+        case UseNoHype => false
         case UseLabel => true
         case TapeOut => false
         case BuildExampleTop => (p: Parameters) => LazyModule(new PARDFPGATop(p))
@@ -254,9 +252,49 @@ class WithNExtBusAXIChannels(n: Int) extends Config(
   }
 )
 
-class WithTapeOut extends Config(
+class WithNoHype extends Config(
+  (pname, site, here) => pname match {
+    case UseNoHype => true
+    case _ => throw new CDEMatchError
+  }
+)
+
+class WithSim extends Config(
+  (pname, site, here) => pname match {
+    case UseSim => true
+    case ExtMMIOPorts => Nil
+    case NExtMMIOAXIChannels => 0
+    case ExtMemSize => Dump("MEM_SIZE", 0x10000000L)  // 16MB
+    case _ => throw new CDEMatchError
+  }
+)
+
+class WithTapeOut0 extends Config(
   (pname, site, here) => pname match {
     case TapeOut => true
+    case ExtMMIOPorts => Seq(
+            AddrMapEntry("mmio-mem", MemRange(0x30000000L, 0x10000000L, MemAttr(AddrMapProt.RWX))),
+            AddrMapEntry("ahb", MemRange(0x40000000L, 0xC0000000L, MemAttr(AddrMapProt.RWX)))
+          )
+    case NExtMMIOAXIChannels => 1
+    case NExtMMIOAHBChannels => 1
+    case _ => throw new CDEMatchError
+  }
+)
+
+class WithTapeOut1 extends Config(
+  (pname, site, here) => pname match {
+    case TapeOut => true
+    case ExtMMIOPorts => Seq(
+            AddrMapEntry("ahb", MemRange(0x40000000L, 0x40000000L, MemAttr(AddrMapProt.RWX)))
+          )
+    case NExtMMIOAXIChannels => 0
+    case NExtMMIOAHBChannels => 1
+    case UseLabel => false
+    case TMemoryChannels => BusType.AHB
+    case ExtMemSize => Dump("MEM_SIZE", 0x80000000L)
+    case ExtMemBase => 0x80000000L
+    case ResetVector => 0x80000000L
     case _ => throw new CDEMatchError
   }
 )

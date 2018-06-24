@@ -164,8 +164,6 @@ class BaseCoreplexConfig extends Config (
       case LDomDsidBits => 2
       case ProcDsidBits => 3
       case DsidBits => site(LDomDsidBits) + site(ProcDsidBits)
-      case UseSim => false
-      case UseNoHype => false
       case HasTrafficGenerator => false
       case EnableL2Logging => false
       case _ => throw new CDEMatchError
@@ -427,18 +425,6 @@ class WithFPUWithoutDivSqrt extends Config (
     case _ => throw new CDEMatchError
   }
 )
-
-class WithNoHype extends Config(
-  (pname, site, here) => pname match {
-    case UseNoHype => true
-    case _ => throw new CDEMatchError
-  })
-
-class WithSim extends Config(
-  (pname, site, here) => pname match {
-    case UseSim => true
-    case _ => throw new CDEMatchError
-  })
 
 class WithTrafficGenerator extends Config(
   (pname, site, here) => pname match {

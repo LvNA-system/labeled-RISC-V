@@ -25,7 +25,7 @@ class TestHarness(q: Parameters) extends Module {
   // This test harness isn't especially flexible yet
   require(dut.io.mem_clk.isEmpty)
   require(dut.io.mem_rst.isEmpty)
-  require(dut.io.mem_ahb.isEmpty)
+  //require(dut.io.mem_ahb.isEmpty)
   require(dut.io.mem_tl.isEmpty)
   require(dut.io.bus_clk.isEmpty)
   require(dut.io.bus_rst.isEmpty)
