@@ -72,8 +72,13 @@ trait AsyncConnection {
     ti.meip := LevelSyncTo(tcr.clock, ui.meip)
     ti.seip.foreach { _ := LevelSyncTo(tcr.clock, ui.seip.get) }
 
-    tile.io.hartid := uncore.hartid
     tile.io.resetVector := uncore.resetVector
+
+    tile.io.tileid := LevelSyncUIntTo(tcr.clock, uncore.tileid)
+    tile.io.hartid := LevelSyncUIntTo(tcr.clock, uncore.hartid)
+    tile.io.dsid := LevelSyncUIntTo(tcr.clock, uncore.dsid)
+    tile.io.base := LevelSyncUIntTo(tcr.clock, uncore.base)
+    tile.io.size := LevelSyncUIntTo(tcr.clock, uncore.size)
   }
 }
 

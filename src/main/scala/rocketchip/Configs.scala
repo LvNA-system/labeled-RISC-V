@@ -42,7 +42,7 @@ class BasePlatformConfig extends Config(
         case TLKey("MMIOtoEdge") =>
           site(TLKey("L2toMMIO")).copy(dataBeats = edgeDataBeats)
         case BuildCoreplex =>
-          (c: CoreplexConfig, p: Parameters) => LazyModule(new DefaultCoreplex(c)(p)).module
+          (c: CoreplexConfig, p: Parameters) => LazyModule(new MultiClockCoreplex(c)(p)).module
         case NExtTopInterrupts => 2
         case SOCBusKey => SOCBusConfig(beatBytes = site(TLKey("L2toMMIO")).dataBitsPerBeat/8)
         case PeripheryBusKey => PeripheryBusConfig(arithAMO = true, beatBytes = 4)
