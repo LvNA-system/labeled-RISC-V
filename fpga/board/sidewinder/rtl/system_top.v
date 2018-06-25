@@ -1,13 +1,13 @@
 `include "axi.vh"
 
 module system_top (
-  output [7:0] led
+//  output [7:0] led
 );
 
-  `axi_wire(AXI_MEM_MAPPED, 64, 4);
-  `axi_wire(AXI_MEM, 64, 4);
+  `axi_wire(AXI_MEM_MAPPED, 64, 1);
+  `axi_wire(AXI_MEM, 64, 1);
   `axilite_wire(AXILITE_MMIO);
-  `axi_wire(AXI_DMA, 64, 4);
+  `axi_wire(AXI_DMA, 64, 1);
 
   wire jtag_TCK;
   wire jtag_TMS;
@@ -33,7 +33,7 @@ module system_top (
     .jtag_TDI(jtag_TDI),
     .jtag_TDO(jtag_TDO),
 
-    .led(led[6:0]),
+//    .led(led[6:0]),
 
     .mm2s_introut(mm2s_introut),
     .s2mm_introut(s2mm_introut),
@@ -60,10 +60,10 @@ module system_top (
     .jtag_TDO(jtag_TDO),
     .jtag_TRST(~pardcore_corerstn),
 
-//    .intr0(mm2s_introut),
-//    .intr1(s2mm_introut),
+    .intr0(mm2s_introut),
+    .intr1(s2mm_introut),
 
-    .led(led[7]),
+//    .led(led[7]),
 
     .coreclk(pardcore_coreclk),
     .corersts(~pardcore_corerstn),

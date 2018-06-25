@@ -7,25 +7,24 @@ PRJ ?= myproject
 PRJ_FULL = $(PRJ)-$(BOARD)
 VIVADO_FLAG = -nolog -nojournal -notrace
 
-build_dir = $(realpath ./build)
-
 #--------------------------------------------------------------------
 # Project building and implementation
 #--------------------------------------------------------------------
 
-PRJ_ROOT = $(build_dir)/$(PRJ_FULL)
+PRJ_ROOT = board/$(BOARD)/build/$(PRJ_FULL)
 XPR_FILE = $(PRJ_ROOT)/$(PRJ_FULL).xpr
 $(XPR_FILE):
+	make -C pardcore BOARD=$(BOARD)
 	vivado $(VIVADO_FLAG) -mode batch -source board/$(BOARD)/mk.tcl -tclargs $(PRJ_FULL)
 
 project: $(XPR_FILE)
 
+bootgen:
+	cd boot && hsi $(VIVADO_FLAG) -source mk.tcl -tclargs $(abspath $(PRJ_ROOT)/$(PRJ_FULL).sdk/system_top.hdf) $(PRJ_FULL)
+
 vivado: $(XPR_FILE)
 	vivado $(VIVADO_FLAG) $(XPR_FILE) &
 
-clean:
-	#-rm -rf $(build_dir)
-
-.PHONY: default project vivado clean
+.PHONY: default project vivado bootgen
 
 include Makefile.sw
