@@ -238,7 +238,7 @@ trait HasUARTTopModuleContents extends HasUARTParameters with HasRegMap {
 
   ip.txwm := (txq.io.count < txwm)
   ip.rxwm := (rxq.io.count > rxwm)
-  //  interrupts(0) := Bool(false) //(ip.txwm && ie.txwm) || (ip.rxwm && ie.rxwm)
+  interrupts(0) := Bool(false) //(ip.txwm && ie.txwm) || (ip.rxwm && ie.rxwm)
 
   regmap(
     UARTCtrlRegs.txfifo -> NonBlockingEnqueue(txq.io.enq),
