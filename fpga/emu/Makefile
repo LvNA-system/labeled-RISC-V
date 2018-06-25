@@ -4,14 +4,15 @@ fpga_script_dir = $(fpga_dir)/scripts
 build_dir = $(fpga_dir)/build
 generated_dir = $(build_dir)/generated-src
 
+CONFIG ?= LvNAConfigemu
+
 -include $(base_dir)/Makefrag
 
 #--------------------------------------------------------------------
 # Emulator generation
 #--------------------------------------------------------------------
 
-SIM_CONFIG ?= LvNAConfigemu
-original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(SIM_CONFIG)
+original_emu = $(base_dir)/emulator/emulator-$(PROJECT)-$(CONFIG)
 emu = $(build_dir)/emu
 emu_bin_file = $(build_dir)/mem.bin
 emu_gen_script = gen_bin.sh
@@ -21,8 +22,8 @@ $(emu): $(original_emu)
 	ln -sf $< $@
 
 $(original_emu):
-	$(MAKE) all -C $(base_dir)/emulator CONFIG=$(SIM_CONFIG) \
-		generated_dir=$(generated_dir) generated_dir_debug=$(generated_dir)
+	$(MAKE) all -C $(base_dir)/emulator CONFIG=$(CONFIG) \
+		generated_dir=$(generated_dir)
 
 $(emu_bin_hex_file): $(emu_bin_file)
 	mkdir -p $(@D)
