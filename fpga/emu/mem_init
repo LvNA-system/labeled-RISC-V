@@ -39,7 +39,7 @@ class MemInitGen:
                 print('initial begin')
                 for i in range(self.n_tiles):
                     print('$readmemh("{0}", ram, \'h{1});'
-                            .format(self.bin_file, hex(self.mem_size / 8 * i)[2:]));
+                            .format(self.bin_file, hex(self.mem_size / self.n_tiles / 8 * i)[2:]));
                 print('end')
             elif line.startswith(self.MODULE_END):
                 self.state = MemInitGen.NORMAL
