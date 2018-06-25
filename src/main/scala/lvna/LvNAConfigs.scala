@@ -32,10 +32,10 @@ class LvNAFPGAConfigzedboard extends Config(
   ++ new BaseFPGAConfig)
 
 class LvNAFPGAConfigzcu102 extends Config(
-  new WithNBigCores(4)
+  new WithNBigCores(1)
   ++ new WithoutFPU
 //  ++ new WithAsynchronousRocketTiles(8, 3)
-  ++ new WithExtMemSize(0x10000000L) // 256MB
+  ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
   ++ new BaseFPGAConfig)
