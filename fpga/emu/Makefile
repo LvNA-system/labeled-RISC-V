@@ -34,14 +34,6 @@ emu: $(emu)
 run-emu: $(emu) $(emu_bin_hex_file)
 	cd $(dir $(emu)) && $< +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
 
-# put functionality in a standalone script
-# so that we can use it manually when debugging
-run-emu-fast: $(emu) $(emu_bin_hex_file)
-	bash run_on_124.sh $(emu) $(emu_bin_hex_file)
-
-run-emu-fast-verbose: $(emu) $(emu_bin_hex_file)
-	bash run_on_124.sh $(emu) $(emu_bin_hex_file) v
-
 emu-clean:
 	-rm $(emu)
 	-$(MAKE) clean -C $(base_dir)/emulator
