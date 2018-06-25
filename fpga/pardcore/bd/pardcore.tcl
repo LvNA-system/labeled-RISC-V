@@ -240,7 +240,7 @@ proc create_root_design { parentCell } {
    ] $M_AXILITE_MMIO
   set M_AXI_MEM [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_MEM ]
   set_property -dict [ list \
-   CONFIG.ADDR_WIDTH {32} \
+   CONFIG.ADDR_WIDTH {33} \
    CONFIG.DATA_WIDTH {64} \
    CONFIG.FREQ_HZ {50000000} \
    CONFIG.NUM_READ_OUTSTANDING {2} \
@@ -282,8 +282,7 @@ proc create_root_design { parentCell } {
   # Create ports
   set coreclk [ create_bd_port -dir I coreclk ]
   set corersts [ create_bd_port -dir I -from 1 -to 0 corersts ]
-  set intr0 [ create_bd_port -dir I intr0 ]
-  set intr1 [ create_bd_port -dir I intr1 ]
+  set intrs [ create_bd_port -dir I -from 1 -to 0 intrs ]
   set jtag_TCK [ create_bd_port -dir I jtag_TCK ]
   set jtag_TDI [ create_bd_port -dir I jtag_TDI ]
   set jtag_TDO [ create_bd_port -dir O jtag_TDO ]
@@ -382,27 +381,26 @@ proc create_root_design { parentCell } {
   connect_bd_intf_net -intf_net axi_protocol_converter_0_M_AXI [get_bd_intf_ports M_AXILITE_MMIO] [get_bd_intf_pins axi_protocol_converter_0/M_AXI]
 
   # Create port connections
-  connect_bd_net -net LvNAFPGATop_0_io_jtag_TDO [get_bd_ports jtag_TDO] [get_bd_pins LvNAFPGATop_0/io_jtag_TDO]
-  connect_bd_net -net LvNAFPGATop_0_io_nasti_error [get_bd_ports led] [get_bd_pins LvNAFPGATop_0/io_nasti_error]
+  connect_bd_net -net LvNAFPGATop_0_io_jtag_TDO [get_bd_ports jtag_TDO] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TDO_data]
+  connect_bd_net -net LvNAFPGATop_0_io_nasti_error [get_bd_ports led] [get_bd_pins LvNAFPGATop_0/debug_dmactive]
   connect_bd_net -net c_shift_ram_0_Q [get_bd_pins c_shift_ram_0/Q] [get_bd_pins c_shift_ram_1/D]
-  connect_bd_net -net c_shift_ram_1_Q [get_bd_pins LvNAFPGATop_0/io_corerst] [get_bd_pins c_shift_ram_1/Q]
+  connect_bd_net -net c_shift_ram_1_Q [get_bd_pins c_shift_ram_1/Q]
   connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins LvNAFPGATop_0/clock] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
-  connect_bd_net -net coreclk_1 [get_bd_ports coreclk] [get_bd_pins LvNAFPGATop_0/io_coreclk] [get_bd_pins c_shift_ram_0/CLK] [get_bd_pins c_shift_ram_1/CLK]
+  connect_bd_net -net coreclk_1 [get_bd_ports coreclk] [get_bd_pins c_shift_ram_0/CLK] [get_bd_pins c_shift_ram_1/CLK]
   connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
-  connect_bd_net -net intr0_1 [get_bd_ports intr0] [get_bd_pins LvNAFPGATop_0/io_interrupts_0]
-  connect_bd_net -net intr1_1 [get_bd_ports intr1] [get_bd_pins LvNAFPGATop_0/io_interrupts_1]
-  connect_bd_net -net io_jtag_TDI_1 [get_bd_ports jtag_TDI] [get_bd_pins LvNAFPGATop_0/io_jtag_TDI]
-  connect_bd_net -net io_jtag_TRST_1 [get_bd_ports jtag_TRST] [get_bd_pins LvNAFPGATop_0/io_jtag_TRST]
-  connect_bd_net -net jtag_TCK_1 [get_bd_ports jtag_TCK] [get_bd_pins LvNAFPGATop_0/io_jtag_TCK]
-  connect_bd_net -net jtag_TMS_1 [get_bd_ports jtag_TMS] [get_bd_pins LvNAFPGATop_0/io_jtag_TMS]
+  connect_bd_net -net intrs_1 [get_bd_ports intrs] [get_bd_pins LvNAFPGATop_0/interrupts]
+  connect_bd_net -net io_jtag_TDI_1 [get_bd_ports jtag_TDI] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TDI]
+  connect_bd_net -net io_jtag_TRST_1 [get_bd_ports jtag_TRST] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_reset]
+  connect_bd_net -net jtag_TCK_1 [get_bd_ports jtag_TCK] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TCK]
+  connect_bd_net -net jtag_TMS_1 [get_bd_ports jtag_TMS] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TMS]
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
   connect_bd_net -net uncore_rstn_1 [get_bd_ports uncore_rstn] [get_bd_pins proc_sys_reset_0/ext_reset_in]
   connect_bd_net -net xlslice_0_Dout [get_bd_pins LvNAFPGATop_0/reset] [get_bd_pins c_shift_ram_0/D] [get_bd_pins xlslice_0/Dout]
-  connect_bd_net -net xlslice_1_Dout [get_bd_pins LvNAFPGATop_0/io_traffic_enable] [get_bd_pins xlslice_1/Dout]
+  connect_bd_net -net xlslice_1_Dout [get_bd_pins xlslice_1/Dout]
 
   # Create address segments
   create_bd_addr_seg -range 0x20000000 -offset 0x60000000 [get_bd_addr_spaces LvNAFPGATop_0/mmio_axi4_0] [get_bd_addr_segs M_AXILITE_MMIO/Reg] SEG_M_AXILITE_MMIO_Reg
-  create_bd_addr_seg -range 0x0200000000 -offset 0x00000000 [get_bd_addr_spaces LvNAFPGATop_0/mem_axi4_0] [get_bd_addr_segs M_AXI_MEM/Reg] SEG_M_AXI_MEM_Reg
+  create_bd_addr_seg -range 0x000200000000 -offset 0x00000000 [get_bd_addr_spaces LvNAFPGATop_0/mem_axi4_0] [get_bd_addr_segs M_AXI_MEM/Reg] SEG_M_AXI_MEM_Reg
   create_bd_addr_seg -range 0x010000000000 -offset 0x00000000 [get_bd_addr_spaces S_AXI_DMA] [get_bd_addr_segs LvNAFPGATop_0/l2_frontend_bus_axi4_0/reg0] SEG_LvNAFPGATop_0_reg0
 
 
