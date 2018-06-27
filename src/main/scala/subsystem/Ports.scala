@@ -219,7 +219,7 @@ class SimAXIMem(edge: AXI4EdgeParameters, size: BigInt)(implicit p: Parameters) 
   val node = AXI4MasterNode(List(edge.master))
 
   val sram = LazyModule(new AXI4RAM(AddressSet(0, size-1), beatBytes = edge.bundle.dataBits/8))
-  sram.node := AXI4Buffer() := AXI4Fragmenter() := node
+  sram.node := AXI4Buffer() := AXI4Fragmenter() := AXI4Delayer(0, 150) := node
 
   lazy val module = new LazyModuleImp(this) {
     val io = IO(new Bundle { val axi4 = HeterogeneousBag.fromNode(node.out).flip })

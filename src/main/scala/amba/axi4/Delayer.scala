@@ -7,9 +7,10 @@ import chisel3.util.IrrevocableIO
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink.LFSRNoiseMaker
+import freechips.rocketchip.util.LatencyPipeIrrevocable
 
 // q is the probability to delay a request
-class AXI4Delayer(q: Double)(implicit p: Parameters) extends LazyModule
+class AXI4Delayer(q: Double, latency: Int = 0)(implicit p: Parameters) extends LazyModule
 {
   val node = AXI4AdapterNode()
   require (0.0 <= q && q < 1)
@@ -68,8 +69,8 @@ class AXI4Delayer(q: Double)(implicit p: Parameters) extends LazyModule
       if (bnoise.params.userBits > 0)
         bnoise.user.get := LFSRNoiseMaker(bnoise.params.userBits)
 
-      feed(out.ar, in.ar, arnoise)
-      feed(out.aw, in.aw, awnoise)
+      feed(out.ar, LatencyPipeIrrevocable(in.ar, latency), arnoise)
+      feed(out.aw, LatencyPipeIrrevocable(in.aw, latency), awnoise)
       feed(out.w,  in.w,   wnoise)
       feed(in.b,   out.b,  bnoise)
       feed(in.r,   out.r,  rnoise)
@@ -79,9 +80,9 @@ class AXI4Delayer(q: Double)(implicit p: Parameters) extends LazyModule
 
 object AXI4Delayer
 {
-  def apply(q: Double)(implicit p: Parameters): AXI4Node =
+  def apply(q: Double, latency: Int = 0)(implicit p: Parameters): AXI4Node =
   {
-    val axi4delay = LazyModule(new AXI4Delayer(q))
+    val axi4delay = LazyModule(new AXI4Delayer(q, latency))
     axi4delay.node
   }
 }
