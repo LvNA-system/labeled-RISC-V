@@ -150,7 +150,7 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
   }
 
   val dcachePrefetcher = Module(new Prefetcher)
-  dcachePrefetcher.io.enablePrefetch := Bool(true)
+  dcachePrefetcher.io.enablePrefetch := core.io.prefetch_enable
   dcachePrefetcher.io.in.bits :=  core.io.dmem.req.bits
   dcachePrefetcher.io.in.fire :=  core.io.dmem.req.fire()
   dcachePorts += dcachePrefetcher.io.out

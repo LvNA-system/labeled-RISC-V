@@ -105,6 +105,7 @@ trait HasCoreIO extends HasTileParameters {
     val rocc = new RoCCCoreIO().flip
 
     val ila = new ILABundle()
+    val prefetch_enable = Bool(OUTPUT)
     val trace = Vec(coreParams.retireWidth, new TracedInstruction).asOutput
   }
 }
