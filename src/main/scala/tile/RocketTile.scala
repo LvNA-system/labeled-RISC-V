@@ -75,7 +75,7 @@ class RocketTile(
     finalNode.get.address(0)
   }
 
-  nDCachePorts += 1 /*core */ + (dtim_adapter.isDefined).toInt
+  nDCachePorts += 1 /*core */ + (dtim_adapter.isDefined).toInt + 1 /* prefetch */
 
   val dtimProperty = dtim_adapter.map(d => Map(
     "sifive,dtim" -> d.device.asProperty)).getOrElse(Nil)
@@ -148,6 +148,12 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
       x.c.bits.dsid := dsid
     }
   }
+
+  val dcachePrefetcher = Module(new Prefetcher)
+  dcachePrefetcher.io.enablePrefetch := core.io.prefetch_enable
+  dcachePrefetcher.io.in.bits :=  core.io.dmem.req.bits
+  dcachePrefetcher.io.in.fire :=  core.io.dmem.req.fire()
+  dcachePorts += dcachePrefetcher.io.out
 
   // Rocket has higher priority to DTIM than other TileLink clients
   outer.dtim_adapter.foreach { lm => dcachePorts += lm.module.io.dmem }

@@ -209,6 +209,8 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle
   val counters = Vec(nPerfCounters, new PerfCounterIO)
   val inst = Vec(retireWidth, UInt(width = iLen)).asInput
   val trace = Vec(retireWidth, new TracedInstruction).asOutput
+
+  val prefetch_enable = Bool(OUTPUT)
 }
 
 class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Parameters) extends CoreModule()(p)
@@ -307,6 +309,9 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   (io.counters zip reg_hpmevent) foreach { case (c, e) => c.eventSel := e }
   val reg_hpmcounter = io.counters.map(c => WideCounter(CSR.hpmWidth, c.inc, reset = false))
   val hpm_mask = reg_mcounteren & Mux((!usingVM).B || reg_mstatus.prv === PRV.S, delegable_counters.U, reg_scounteren)
+
+  val reg_pfctl = Reg(init=UInt(1, width=32))
+  io.prefetch_enable := reg_pfctl(0)
 
   val mip = Wire(init=reg_mip)
   mip.lip := (io.interrupts.lip: Seq[Bool])
@@ -449,6 +454,8 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
     for ((pmp, i) <- read_pmp zipWithIndex)
       read_mapping += (CSRs.pmpaddr0 + i) -> pmp.readAddr
   }
+
+  read_mapping += CSRs.pfctl -> reg_pfctl
 
   val decoded_addr = read_mapping map { case (k, v) => k -> (io.rw.addr === k) }
   val wdata = readModifyWriteCSR(io.rw.cmd, io.rw.rdata, io.rw.wdata)
@@ -775,6 +782,8 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
         pmp.addr := wdata
       }
     }
+
+    when (decoded_addr(CSRs.pfctl)) { reg_pfctl := wdata }
   }
 
   if (!usingVM) {

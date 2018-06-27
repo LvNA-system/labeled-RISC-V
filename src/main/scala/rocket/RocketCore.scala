@@ -568,6 +568,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   csr.io.rw.cmd := Mux(wb_reg_valid, wb_ctrl.csr, CSR.N)
   csr.io.rw.wdata := wb_reg_wdata
   io.trace := csr.io.trace
+  io.prefetch_enable := csr.io.prefetch_enable
 
   val hazard_targets = Seq((id_ctrl.rxs1 && id_raddr1 =/= UInt(0), id_raddr1),
                            (id_ctrl.rxs2 && id_raddr2 =/= UInt(0), id_raddr2),
