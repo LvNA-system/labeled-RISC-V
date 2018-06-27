@@ -179,7 +179,7 @@ class WithRV32 extends Config((site, here, up) => {
 
 class WithNonblockingL1(nMSHRs: Int) extends Config((site, here, up) => {
   case RocketTilesKey => up(RocketTilesKey, site) map { r =>
-    r.copy(dcache = r.dcache.map(_.copy(nMSHRs = nMSHRs)))
+    r.copy(dcache = r.dcache.map(_.copy(dataECC = None, dataECCBytes = 1, nMSHRs = nMSHRs)))
   }
 })
 
