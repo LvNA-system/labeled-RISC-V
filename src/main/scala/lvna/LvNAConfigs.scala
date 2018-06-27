@@ -12,9 +12,10 @@ class WithEmu extends Config ((site, here, up) => {
 })
 
 class LvNAConfigemu extends Config(
-  new WithNBigCores(2)
+  new WithoutFPU
+  ++ new WithNonblockingL1(8)
+  ++ new WithNBigCores(1)
   ++ new WithEmu
-  ++ new WithoutFPU
 //  ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x800000L) // 8MB
   ++ new WithNoMMIOPort
@@ -32,8 +33,9 @@ class LvNAFPGAConfigzedboard extends Config(
   ++ new BaseFPGAConfig)
 
 class LvNAFPGAConfigzcu102 extends Config(
-  new WithNBigCores(1)
-  ++ new WithoutFPU
+  new WithoutFPU
+  ++ new WithNonblockingL1(8)
+  ++ new WithNBigCores(1)
 //  ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
