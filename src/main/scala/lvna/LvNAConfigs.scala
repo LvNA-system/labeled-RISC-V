@@ -41,3 +41,13 @@ class LvNAFPGAConfigzcu102 extends Config(
   ++ new WithJtagDTM
   ++ new WithDebugSBA
   ++ new BaseFPGAConfig)
+
+class LvNAFPGAConfigsidewinder extends Config(
+  new WithoutFPU
+  ++ new WithNonblockingL1(8)
+  ++ new WithNBigCores(1)
+  ++ new WithAsynchronousRocketTiles(8, 3)
+  ++ new WithExtMemSize(0x100000000L)
+  ++ new WithJtagDTM
+  ++ new WithDebugSBA
+  ++ new BaseFPGAConfig)
