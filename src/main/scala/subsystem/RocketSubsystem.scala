@@ -68,9 +68,12 @@ class RocketSubsystem(implicit p: Parameters) extends BaseSubsystem
 
 class RocketSubsystemModuleImp[+L <: RocketSubsystem](_outer: L) extends BaseSubsystemModuleImp(_outer)
     with HasRocketTilesModuleImp {
+  val coreclk = IO(Clock(INPUT))
+  val corerst = IO(Bool(INPUT))
+
   tile_inputs.zip(outer.hartIdList).foreach { case(wire, i) =>
-    wire.clock := clock
-    wire.reset := reset
+    wire.clock := coreclk
+    wire.reset := corerst
     wire.hartid := UInt(i)
     wire.reset_vector := global_reset_vector
   }

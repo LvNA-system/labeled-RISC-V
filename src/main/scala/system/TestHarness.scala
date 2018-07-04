@@ -13,6 +13,8 @@ class TestHarness()(implicit p: Parameters) extends Module {
 
   val dut = Module(LazyModule(if (p(UseEmu)) new LvNAEmuTop else new LvNAFPGATop).module)
   dut.reset := reset | dut.debug.ndreset
+  dut.corerst := dut.reset
+  dut.coreclk := dut.clock
 
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
