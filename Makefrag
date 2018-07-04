@@ -14,7 +14,7 @@ VLSI_MEM_GEN ?= $(base_dir)/scripts/vlsi_mem_gen
 
 CXX ?= g++
 CXXFLAGS := -O1
-JVM_MEMORY ?= 2G
+JVM_MEMORY ?= 4G
 
 SBT ?= java -Xmx$(JVM_MEMORY) -Xss8M -XX:MaxPermSize=256M -jar $(base_dir)/sbt-launch.jar
 SHELL := /bin/bash
