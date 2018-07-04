@@ -16,7 +16,7 @@ class LvNAConfigemu extends Config(
   ++ new WithNonblockingL1(8)
   ++ new WithNBigCores(1)
   ++ new WithEmu
-//  ++ new WithAsynchronousRocketTiles(8, 3)
+  ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x800000L) // 8MB
   ++ new WithNoMMIOPort
   ++ new WithJtagDTM
@@ -26,7 +26,7 @@ class LvNAConfigemu extends Config(
 class LvNAFPGAConfigzedboard extends Config(
   new WithNBigCores(2)
   ++ new WithoutFPU
-//  ++ new WithAsynchronousRocketTiles(8, 3)
+  ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x4000000L) // 64MB
   ++ new WithJtagDTM
   ++ new WithDebugSBA
@@ -36,7 +36,7 @@ class LvNAFPGAConfigzcu102 extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
   ++ new WithNBigCores(1)
-//  ++ new WithAsynchronousRocketTiles(8, 3)
+  ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
