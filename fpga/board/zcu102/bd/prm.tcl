@@ -237,9 +237,12 @@ proc create_hier_cell_hier_uart { parentCell nameHier } {
 
   # Create pins
   create_bd_pin -dir I -type rst aresetn
-  create_bd_pin -dir O -from 3 -to 0 dout
   create_bd_pin -dir I -type clk pardcore_coreclk
   create_bd_pin -dir I -type rst pardcore_uncorerstn
+  create_bd_pin -dir O -type intr uart0_irq
+  create_bd_pin -dir O -type intr uart1_irq
+  create_bd_pin -dir O -type intr uart2_irq
+  create_bd_pin -dir O -type intr uart3_irq
 
   # Create instance: axi_crossbar_pardcore, and set properties
   set axi_crossbar_pardcore [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_crossbar:2.1 axi_crossbar_pardcore ]
@@ -301,12 +304,6 @@ proc create_hier_cell_hier_uart { parentCell nameHier } {
    CONFIG.C_BAUDRATE {115200} \
  ] $axi_uartlite_pardcore_3
 
-  # Create instance: xlconcat_0, and set properties
-  set xlconcat_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 xlconcat_0 ]
-  set_property -dict [ list \
-   CONFIG.NUM_PORTS {4} \
- ] $xlconcat_0
-
   # Create interface connections
   connect_bd_intf_net -intf_net Conn1 [get_bd_intf_pins S00_AXI] [get_bd_intf_pins axi_crossbar_pardcore/S00_AXI]
   connect_bd_intf_net -intf_net Conn2 [get_bd_intf_pins S00_AXI1] [get_bd_intf_pins axi_crossbar_prm/S00_AXI]
@@ -321,13 +318,13 @@ proc create_hier_cell_hier_uart { parentCell nameHier } {
 
   # Create port connections
   connect_bd_net -net aresetn_1 [get_bd_pins aresetn] [get_bd_pins axi_crossbar_pardcore/aresetn] [get_bd_pins axi_crossbar_prm/aresetn]
-  connect_bd_net -net axi_uartlite_0_interrupt [get_bd_pins axi_uartlite_0/interrupt] [get_bd_pins xlconcat_0/In0]
+  connect_bd_net -net axi_uartlite_0_interrupt [get_bd_pins uart0_irq] [get_bd_pins axi_uartlite_0/interrupt]
   connect_bd_net -net axi_uartlite_0_tx [get_bd_pins axi_uartlite_0/tx] [get_bd_pins axi_uartlite_pardcore_0/rx]
-  connect_bd_net -net axi_uartlite_1_interrupt [get_bd_pins axi_uartlite_1/interrupt] [get_bd_pins xlconcat_0/In1]
+  connect_bd_net -net axi_uartlite_1_interrupt [get_bd_pins uart1_irq] [get_bd_pins axi_uartlite_1/interrupt]
   connect_bd_net -net axi_uartlite_1_tx [get_bd_pins axi_uartlite_1/tx] [get_bd_pins axi_uartlite_pardcore_1/rx]
-  connect_bd_net -net axi_uartlite_2_interrupt [get_bd_pins axi_uartlite_2/interrupt] [get_bd_pins xlconcat_0/In2]
+  connect_bd_net -net axi_uartlite_2_interrupt [get_bd_pins uart2_irq] [get_bd_pins axi_uartlite_2/interrupt]
   connect_bd_net -net axi_uartlite_2_tx [get_bd_pins axi_uartlite_2/tx] [get_bd_pins axi_uartlite_pardcore_2/rx]
-  connect_bd_net -net axi_uartlite_3_interrupt [get_bd_pins axi_uartlite_3/interrupt] [get_bd_pins xlconcat_0/In3]
+  connect_bd_net -net axi_uartlite_3_interrupt [get_bd_pins uart3_irq] [get_bd_pins axi_uartlite_3/interrupt]
   connect_bd_net -net axi_uartlite_3_tx [get_bd_pins axi_uartlite_3/tx] [get_bd_pins axi_uartlite_pardcore_3/rx]
   connect_bd_net -net axi_uartlite_pardcore_0_tx [get_bd_pins axi_uartlite_0/rx] [get_bd_pins axi_uartlite_pardcore_0/tx]
   connect_bd_net -net axi_uartlite_pardcore_1_tx [get_bd_pins axi_uartlite_1/rx] [get_bd_pins axi_uartlite_pardcore_1/tx]
@@ -335,7 +332,6 @@ proc create_hier_cell_hier_uart { parentCell nameHier } {
   connect_bd_net -net axi_uartlite_pardcore_3_tx [get_bd_pins axi_uartlite_3/rx] [get_bd_pins axi_uartlite_pardcore_3/tx]
   connect_bd_net -net clk_wiz_0_clk_out1 [get_bd_pins pardcore_coreclk] [get_bd_pins axi_crossbar_pardcore/aclk] [get_bd_pins axi_crossbar_prm/aclk] [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins axi_uartlite_1/s_axi_aclk] [get_bd_pins axi_uartlite_2/s_axi_aclk] [get_bd_pins axi_uartlite_3/s_axi_aclk] [get_bd_pins axi_uartlite_pardcore_0/s_axi_aclk] [get_bd_pins axi_uartlite_pardcore_1/s_axi_aclk] [get_bd_pins axi_uartlite_pardcore_2/s_axi_aclk] [get_bd_pins axi_uartlite_pardcore_3/s_axi_aclk]
   connect_bd_net -net proc_sys_reset_1_peripheral_aresetn [get_bd_pins pardcore_uncorerstn] [get_bd_pins axi_uartlite_0/s_axi_aresetn] [get_bd_pins axi_uartlite_1/s_axi_aresetn] [get_bd_pins axi_uartlite_2/s_axi_aresetn] [get_bd_pins axi_uartlite_pardcore_0/s_axi_aresetn] [get_bd_pins axi_uartlite_pardcore_1/s_axi_aresetn] [get_bd_pins axi_uartlite_pardcore_2/s_axi_aresetn] [get_bd_pins axi_uartlite_pardcore_3/s_axi_aresetn]
-  connect_bd_net -net xlconcat_0_dout [get_bd_pins dout] [get_bd_pins xlconcat_0/dout]
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -759,7 +755,7 @@ proc create_root_design { parentCell } {
   # Create instance: xlconcat_0, and set properties
   set xlconcat_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 xlconcat_0 ]
   set_property -dict [ list \
-   CONFIG.NUM_PORTS {3} \
+   CONFIG.NUM_PORTS {6} \
  ] $xlconcat_0
 
   # Create instance: xlslice_0, and set properties
@@ -1455,7 +1451,10 @@ proc create_root_design { parentCell } {
   connect_bd_net -net hier_dma_mm2s_introut1 [get_bd_ports mm2s_introut] [get_bd_pins hier_dma/mm2s_introut1]
   connect_bd_net -net hier_dma_s2mm_introut [get_bd_pins hier_dma/s2mm_introut] [get_bd_pins xlconcat_0/In1]
   connect_bd_net -net hier_dma_s2mm_introut1 [get_bd_ports s2mm_introut] [get_bd_pins hier_dma/s2mm_introut1]
-  connect_bd_net -net hier_uart_dout [get_bd_pins hier_uart/dout] [get_bd_pins xlconcat_0/In2]
+  connect_bd_net -net hier_uart_uart0_irq [get_bd_pins hier_uart/uart0_irq] [get_bd_pins xlconcat_0/In2]
+  connect_bd_net -net hier_uart_uart1_irq [get_bd_pins hier_uart/uart1_irq] [get_bd_pins xlconcat_0/In3]
+  connect_bd_net -net hier_uart_uart2_irq [get_bd_pins hier_uart/uart2_irq] [get_bd_pins xlconcat_0/In4]
+  connect_bd_net -net hier_uart_uart3_irq [get_bd_pins hier_uart/uart3_irq] [get_bd_pins xlconcat_0/In5]
   connect_bd_net -net jtag_TDO_1 [get_bd_ports jtag_TDO] [get_bd_pins axi_jtag_v1_0_0/TDO]
   connect_bd_net -net pardcore_uncorerst_interconnect_aresetn [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins axi_crossbar_1/aresetn] [get_bd_pins axi_crossbar_2/aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins hier_dma/s_axi_aresetn] [get_bd_pins hier_slowddr/m_axi_aresetn] [get_bd_pins hier_uart/aresetn] [get_bd_pins pardcore_uncorerst/interconnect_aresetn]
   connect_bd_net -net proc_sys_reset_0_interconnect_aresetn [get_bd_pins hier_dma/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
