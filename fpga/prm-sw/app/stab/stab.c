@@ -6,6 +6,7 @@
 #include "dtm.h"
 #include <stdlib.h>
 #include "platform.h"
+#include <math.h>
 
 enum { BOARD_ultraZ, BOARD_zedboard, BOARD_zcu102, BOARD_sidewinder };
 static const struct BoardConfig {
@@ -22,6 +23,14 @@ static const struct BoardConfig {
 
 #define NR_BOARD (sizeof(board_config) / sizeof(board_config[0]))
 
+struct StabData {
+  uint32_t cached_tl_bw;    // 1 TL transaction per unit
+  uint32_t uncached_tl_bw;
+  uint32_t cache_access;
+  uint32_t cache_miss;
+  uint32_t cache_usage; // 64Byte per unit
+};
+
 void help() {
   printf("Usage: stab-fpga [board]\n");
   printf("Supported boards:\n");
@@ -30,6 +39,101 @@ void help() {
     printf("%s ", board_config[i].name);
   }
   printf("[default: %s]\n", board_config[0].name);
+}
+
+void output_stdout(struct StabData *data, const struct BoardConfig *bc) {
+  uint32_t cache_usage_total = 0;
+  uint32_t cache_access_total = 0;
+  uint32_t L1toL2_bw_total = 0;
+  int row;
+  for (row = 0; row < bc->nr_core; row ++) {
+    struct StabData *d = &data[row];
+    uint32_t tl_bw = d->cached_tl_bw + d->uncached_tl_bw;
+    printf("[dsid = %d] # L1toL2 TL acquire transaction: cachedTL = %d, uncachedTL = %d, total = %d (%lf%%)\n"
+        "\t cache: access = %d, miss = %d (%lf%%), usage = %lfKB (%lf%%)\n",
+        row, d->cached_tl_bw, d->uncached_tl_bw, tl_bw, tl_bw / (double)bc->uncore_freq * 100,
+        d->cache_access, d->cache_miss,
+        (double)d->cache_miss / (double)d->cache_access * 100,
+        d->cache_usage / 16.0, //  = * 64B / 1024.0
+        d->cache_usage / 16.0 / bc->cache_size * 100
+        );
+    cache_usage_total  += d->cache_usage;
+    cache_access_total += d->cache_access;
+    L1toL2_bw_total += d->uncached_tl_bw + d->cached_tl_bw;
+  }
+  printf("\t\t\ttotal L1toL2 TL acquire transaction = %d (%lf%%)\n", L1toL2_bw_total,
+      L1toL2_bw_total / (double)bc->uncore_freq * 100);
+  printf("\t\t\ttotal L2 access = %d (%lf%%)\n", cache_access_total,
+      cache_access_total / (double)bc->uncore_freq * 100);
+  printf("\t\t\ttotal cache usage = %lfKB\n", cache_usage_total / 16.0);
+  /*
+  if (cache_usage_total < cache_usage_total_last) {
+    printf("Warning: total cache usage is decreasing, last = %lfKB\n",
+    cache_usage_total_last / 16.0);
+  }
+  cache_usage_total_last = cache_usage_total;
+  */
+  fflush(stdout);
+}
+
+void output_web(struct StabData *data, const struct BoardConfig *bc) {
+  const char *json_format =
+    "{ \n\
+    \"cpu_switch\" : [%d, %d, %d, %d],\n\
+    \"cache_usage\" : [%d, %d, %d, %d],\n\
+    \"mem_usage\" : [%lf, %lf, %lf, %lf]\n}";
+
+  int cache_cap[4];
+  double bw[4];  // ktps
+  int state[4];
+
+  int unused_cache = 0;
+  int row;
+  for (row = 0; row < bc->nr_core; row ++) {
+    struct StabData *d = &data[row];
+    uint32_t total_bw = d->cached_tl_bw + d->uncached_tl_bw;
+    bw[row] = total_bw / 1024.0 * 8 / 1024.0;
+    state[row] = (total_bw != 0);
+    cache_cap[row] = round(d->cache_usage / 16.0 / bc->cache_size * 100);
+    unused_cache += cache_cap[row];
+  }
+
+  // fix approximation
+  unused_cache -= 100;
+  while (unused_cache > 0) {
+    // find the max capacity
+    int i;
+    int max_idx = 0;
+    for (i = 1; i < bc->nr_core; i ++) {
+      if (cache_cap[i] > cache_cap[max_idx]) max_idx = i;
+    }
+
+    cache_cap[max_idx] --;
+    unused_cache --;
+  }
+
+#define DATA_FILE ".stabdata.json"
+  static int last_ok = 0;
+  static int stuck = 0;
+  int ok = (state[0] && state[1] && state[2] && state[3]);
+  if (last_ok && !ok) { stuck = 1; }
+  if (stuck) return;
+  last_ok = ok;
+
+  char buf[1024];
+  sprintf(buf, json_format, state[0], state[1], state[2], state[3],
+      cache_cap[0], cache_cap[1], cache_cap[2], cache_cap[3],
+      bw[0], bw[1], bw[2], bw[3]);
+  puts(buf);
+
+  FILE *fp = fopen(DATA_FILE, "w");
+  assert(fp != NULL);
+  fputs(buf, fp);
+  fclose(fp);
+
+  system("cp " DATA_FILE " /root/pard_web/data.json > /dev/null");
+  //system("scp " DATA_FILE " sdc@10.30.6.123:/home/sdc/5/apache-tomcat-7.0.79/webapps/sdcloud/WEB-INF/pages/monitor_1_data.json > /dev/null");
+  system("scp " DATA_FILE " sdc@10.30.6.123:/home/sdc/1/czh/pard_web/pages/monitor_1_data.json > /dev/null");
 }
 
 int main(int argc, char *argv[]) {
@@ -57,64 +161,34 @@ int main(int argc, char *argv[]) {
 
   init_dtm();
 
-  uint32_t cache_usage_total_last = 0;
   const struct BoardConfig *bc = &board_config[board_idx];
 
   while (1) {
     int row;
     printf("==================================\n");
-    uint32_t cached_tl_bw[4];    // 1 TL transaction per unit
-    uint32_t uncached_tl_bw[4];
-    uint32_t cache_access[4];
-    uint32_t cache_miss[4];
-    uint32_t cache_usage[4]; // 64Byte per unit
+    struct StabData data[4];
 
     const int stabIdx = 1;
     const int memCpIdx = 1;
     const int cacheCpIdx = 2;
 
     for (row = 0; row < bc->nr_core; row ++) {
-      cached_tl_bw[row] = read_cp_reg(get_cp_addr(memCpIdx, stabIdx, 0, row));
+      data[row].cached_tl_bw = read_cp_reg(get_cp_addr(memCpIdx, stabIdx, 0, row));
       write_cp_reg(get_cp_addr(memCpIdx, stabIdx, 0, row), 0);
-      uncached_tl_bw[row] = read_cp_reg(get_cp_addr(memCpIdx, stabIdx, 1, row));
+      data[row].uncached_tl_bw = read_cp_reg(get_cp_addr(memCpIdx, stabIdx, 1, row));
       write_cp_reg(get_cp_addr(memCpIdx, stabIdx, 1, row), 0);
 
-      cache_access[row] = read_cp_reg(get_cp_addr(cacheCpIdx, stabIdx, 0, row));
+      data[row].cache_access = read_cp_reg(get_cp_addr(cacheCpIdx, stabIdx, 0, row));
       write_cp_reg(get_cp_addr(cacheCpIdx, stabIdx, 0, row), 0);
-      cache_miss[row] = read_cp_reg(get_cp_addr(cacheCpIdx, stabIdx, 1, row));
+      data[row].cache_miss = read_cp_reg(get_cp_addr(cacheCpIdx, stabIdx, 1, row));
       write_cp_reg(get_cp_addr(cacheCpIdx, stabIdx, 1, row), 0);
 
-      cache_usage[row] = read_cp_reg(get_cp_addr(cacheCpIdx, stabIdx, 2, row));
+      data[row].cache_usage = read_cp_reg(get_cp_addr(cacheCpIdx, stabIdx, 2, row));
     }
 
-    uint32_t cache_usage_total = 0;
-    uint32_t cache_access_total = 0;
-    uint32_t L1toL2_bw_total = 0;
-    for (row = 0; row < bc->nr_core; row ++) {
-      uint32_t tl_bw = cached_tl_bw[row] + uncached_tl_bw[row];
-      printf("[dsid = %d] # L1toL2 TL acquire transaction: cachedTL = %d, uncachedTL = %d, total = %d (%lf%%)\n"
-          "\t cache: access = %d, miss = %d (%lf%%), usage = %lfKB (%lf%%)\n",
-          row, cached_tl_bw[row], uncached_tl_bw[row], tl_bw, tl_bw / (double)bc->uncore_freq * 100,
-          cache_access[row], cache_miss[row],
-          (double)cache_miss[row] / (double)cache_access[row] * 100,
-          cache_usage[row] / 16.0, //  = * 64B / 1024.0
-          cache_usage[row] / 16.0 / bc->cache_size * 100
-          );
-      cache_usage_total += cache_usage[row];
-      cache_access_total += cache_access[row];
-      L1toL2_bw_total += uncached_tl_bw[row] + cached_tl_bw[row];
-    }
-    printf("\t\t\ttotal L1toL2 TL acquire transaction = %d (%lf%%)\n", L1toL2_bw_total,
-        L1toL2_bw_total / (double)bc->uncore_freq * 100);
-    printf("\t\t\ttotal L2 access = %d (%lf%%)\n", cache_access_total,
-        cache_access_total / (double)bc->uncore_freq * 100);
-    printf("\t\t\ttotal cache usage = %lfKB\n", cache_usage_total / 16.0);
-    if (cache_usage_total < cache_usage_total_last) {
-      printf("Warning: total cache usage is decreasing, last = %lfKB\n",
-          cache_usage_total_last / 16.0);
-    }
-    cache_usage_total_last = cache_usage_total;
-    fflush(stdout);
+	output_stdout(data, bc);
+//	output_web(data, bc);
+
     sleep(1);
   }
 
