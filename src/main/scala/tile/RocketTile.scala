@@ -141,7 +141,9 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
   core.io.rocc.busy := roccCore.busy
   core.io.rocc.interrupt := roccCore.interrupt
 
-  val dsid = UInt(0x1, width = 16) + constants.hartid
+  // FIXME: currently we set the same dsid for all cores
+  // take care the cache coherency flitering probe requests based on dsid
+  val dsid = UInt(0x1, width = 16)
   val (masterBundleOut, _) = outer.masterNode.out.unzip
   masterBundleOut.foreach { x => {
       x.a.bits.dsid := dsid
