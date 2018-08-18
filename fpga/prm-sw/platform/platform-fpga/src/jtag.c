@@ -1,4 +1,5 @@
 #include "jtag.h"
+#include <sys/file.h>
 
 #define LEN_IDX 0
 #define TMS_IDX 1
@@ -7,6 +8,21 @@
 #define CTRL_IDX 4
 
 extern volatile uint32_t *jtag_base;
+static int fd;
+
+static inline void jtag_lock(void) {
+  int ret;
+  while ((ret = flock(fd, LOCK_EX | LOCK_NB)) != 0) {
+    perror("flock");
+  }
+}
+
+static inline void jtag_unlock(void) {
+  int ret;
+  while ((ret = flock(fd, LOCK_UN)) != 0) {
+    perror("flock");
+  }
+}
 
 static inline void set_tms(uint32_t val) {
   Debug("write tms = 0x%x", val);
@@ -81,14 +97,18 @@ static inline uint64_t scan(uint64_t val, int len) {
 }
 
 void goto_run_test_idle_from_reset() {
+  jtag_lock();
   seq_tms("0");
+  jtag_unlock();
 }
 
 
 void reset_soft() {
   // change the state machine to test logic reset
   // does not clear any internal registers
+  jtag_lock();
   seq_tms("11111");
+  jtag_unlock();
 
   goto_run_test_idle_from_reset();
 }
@@ -119,6 +139,14 @@ static inline uint64_t write_dr(uint64_t value, int len) {
 }
 
 uint64_t rw_jtag_reg(uint64_t ir_val, uint64_t dr_val, int nb_bits) {
+  jtag_lock();
   write_ir(ir_val);
-  return write_dr(dr_val, nb_bits);
+  uint64_t ret = write_dr(dr_val, nb_bits);
+  jtag_unlock();
+  return ret;
+}
+
+void init_jtag(void) {
+  fd = open("/tmp/.jtaglock", O_RDONLY | O_CREAT);
+  assert(fd != -1);
 }
