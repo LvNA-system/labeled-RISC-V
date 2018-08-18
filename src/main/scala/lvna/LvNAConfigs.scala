@@ -37,6 +37,7 @@ class LvNAFPGAConfigzcu102 extends Config(
   ++ new WithNonblockingL1(8)
   ++ new WithNBigCores(1)
   ++ new WithAsynchronousRocketTiles(8, 3)
+  ++ new WithTimebase(BigInt(10000000)) // 10 MHz
   ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
@@ -47,6 +48,7 @@ class LvNAFPGAConfigsidewinder extends Config(
   ++ new WithNonblockingL1(8)
   ++ new WithNBigCores(1)
   ++ new WithAsynchronousRocketTiles(8, 3)
+  ++ new WithTimebase(BigInt(10000000)) // 10 MHz
   ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
