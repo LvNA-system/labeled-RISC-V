@@ -51,3 +51,16 @@ class LvNAFPGAConfigsidewinder extends Config(
   ++ new WithJtagDTM
   ++ new WithDebugSBA
   ++ new BaseFPGAConfig)
+
+class LvNAFPGAConfigrv32 extends Config(
+  new WithoutFPU
+  //++ new WithNonblockingL1(8)
+  ++ new WithRV32
+  ++ new WithNBigCores(1)
+  ++ new WithAsynchronousRocketTiles(8, 3)
+  ++ new WithTimebase(BigInt(10000000)) // 10 MHz
+  ++ new WithExtMemBase(0x80000000L)
+  ++ new WithExtMemSize(0x80000000L)
+  ++ new WithJtagDTM
+  ++ new WithDebugSBA
+  ++ new BaseFPGAConfig)

@@ -288,6 +288,10 @@ class WithNMemoryChannels(n: Int) extends Config((site, here, up) => {
   case BankedL2Key => up(BankedL2Key, site).copy(nMemoryChannels = n)
 })
 
+class WithExtMemBase(n: Long) extends Config((site, here, up) => {
+  case ExtMem => up(ExtMem, site).map(_.copy(base = n))
+})
+
 class WithExtMemSize(n: Long) extends Config((site, here, up) => {
   case ExtMem => up(ExtMem, site).map(_.copy(size = n))
 })
