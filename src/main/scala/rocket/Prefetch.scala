@@ -6,7 +6,8 @@ import freechips.rocketchip.tile._
 import freechips.rocketchip.util._
 
 trait PrefetchPolicy {
-  def debug = true
+  def enablePrefetch = false
+  def debug = false
 }
 
 class PrefetchPolicyIO extends Bundle {
@@ -60,12 +61,8 @@ class Prefetcher(implicit p: Parameters) extends L1HellaCacheModule()(p)
   policyIO.in.fire := io.in.fire && !isMMIO && isTypeOk && io.enablePrefetch
   policyIO.out.ready := io.out.req.ready
 
-  if(tileParams.dcache.get.nMSHRs == 0) {
-    new NoPrefetcher(policyIO)
-  }
-  else {
-    new NextLinePrefetcher(policyIO)
-  }
+  if (!enablePrefetch || tileParams.dcache.get.nMSHRs == 0) new NoPrefetcher(policyIO)
+  else new NextLinePrefetcher(policyIO)
 
   io.out.req.valid := policyIO.out.valid
   val req = io.out.req.bits
