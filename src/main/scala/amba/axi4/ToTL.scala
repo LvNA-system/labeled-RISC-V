@@ -158,6 +158,9 @@ class AXI4ToTL(wcorrupt: Boolean = false)(implicit p: Parameters) extends LazyMo
       in.b.valid := q_b.valid && b_allow
       q_b.ready := in.b.ready && b_allow
 
+      // FIXME: keep this consistent with the hart dsid to make DMA work in SMP
+      out.a.bits.dsid := UInt(0x1, width = 16)
+
       // Unused channels
       out.b.ready := Bool(true)
       out.c.valid := Bool(false)
