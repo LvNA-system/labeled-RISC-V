@@ -14,7 +14,7 @@ class WithEmu extends Config ((site, here, up) => {
 class LvNAConfigemu extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
-  ++ new WithNBigCores(1)
+  ++ new WithNBigCores(2)
   ++ new WithEmu
   ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithExtMemSize(0x800000L) // 8MB
@@ -35,7 +35,7 @@ class LvNAFPGAConfigzedboard extends Config(
 class LvNAFPGAConfigzcu102 extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
-  ++ new WithNBigCores(1)
+  ++ new WithNBigCores(4)
   ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
   ++ new WithExtMemSize(0x100000000L)
@@ -46,7 +46,7 @@ class LvNAFPGAConfigzcu102 extends Config(
 class LvNAFPGAConfigsidewinder extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
-  ++ new WithNBigCores(1)
+  ++ new WithNBigCores(4)
   ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
   ++ new WithExtMemSize(0x100000000L)
