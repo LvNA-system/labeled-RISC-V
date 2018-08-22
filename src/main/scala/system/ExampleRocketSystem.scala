@@ -27,3 +27,23 @@ class ExampleRocketSystemModuleImp[+L <: ExampleRocketSystem](_outer: L) extends
     with CanHaveSlaveAXI4PortModuleImp
     with HasPeripheryBootROMModuleImp
     with DontTouch
+
+/** Example Top with periphery devices and ports, and a Rocket subsystem */
+class ExampleRocketSystemAHB(implicit p: Parameters) extends RocketSubsystem
+  with HasAsyncExtInterrupts
+  with CanHaveMasterAHBMemPort
+  with CanHaveMasterAHBMMIOPort
+  with CanHaveSlaveAXI4Port
+  with HasPeripheryBootROM
+  with HasSystemErrorSlave {
+  override lazy val module = new ExampleRocketSystemModuleAHBImp(this)
+}
+
+class ExampleRocketSystemModuleAHBImp[+L <: ExampleRocketSystemAHB](_outer: L) extends RocketSubsystemModuleImp(_outer)
+  with HasRTCModuleImp
+  with HasExtInterruptsModuleImp
+  with CanHaveMasterAHBMemPortModuleImp
+  with CanHaveMasterAHBMMIOPortModuleImp
+  with CanHaveSlaveAXI4PortModuleImp
+  with HasPeripheryBootROMModuleImp
+  with DontTouch

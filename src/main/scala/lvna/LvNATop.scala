@@ -17,3 +17,7 @@ class LvNAFPGATop(implicit p: Parameters) extends ExampleRocketSystem
 
 class LvNAFPGATopModule[+L <: LvNAFPGATop](_outer: L) extends ExampleRocketSystemModuleImp(_outer)
 
+class LvNAFPGATopAHB(implicit p: Parameters) extends ExampleRocketSystemAHB
+
+class LvNAFPGATopAHBModule[+L <: LvNAFPGATopAHB](_outer: L) extends ExampleRocketSystemModuleAHBImp(_outer)
+
