@@ -18,30 +18,24 @@ $(SW_PATH):
 RISCV_PREFIX=riscv64-unknown-linux-gnu-
 CC = $(RISCV_PREFIX)gcc
 LD = $(RISCV_PREFIX)ld
-RISCV_DUMP = $(RISCV_PREFIX)objdump
 RISCV_COPY = $(RISCV_PREFIX)objcopy
-RISCV_READELF = $(RISCV_PREFIX)readelf
-CFLAGS = -static -Wa,-march=RVIMAFD -ffast-math -fno-builtin-printf -O2 #-fPIC
-RISCV_DUMP_OPTS = -D
-RISCV_LINK_OPTS = -nostdlib -nostartfiles -ffast-math #-lc -lgcc
+RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .sbss=alloc,contents -O binary
 
 #--------------------------------------------------------------------
 # BBL variables
 #--------------------------------------------------------------------
 
-BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = 78748942edaec953e097097ea337a8f308ec872c
+BBL_REPO_PATH = $(SW_PATH)/riscv-pk
+BBL_BUILD_COMMIT = dd3148e5ade718191c371c771e7f328cf02a003a
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
 
 BBL_PAYLOAD = $(LINUX_ELF)
-#BBL_CONFIG = --host=riscv64-unknown-linux-gnu --enable-logo
-BBL_CONFIG = --host=riscv64-unknown-linux-gnu --with-payload=$(BBL_PAYLOAD) --enable-logo
-BBL_CFLAGS = "-mabi=lp64 -march=rv64imac"
+BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imac --enable-logo
 
 BBL_ELF = $(build_dir)/bbl.elf
-BBL_BIN = $(build_dir)/bbl.bin
+BBL_BIN = $(build_dir)/linux.bin
 
 #--------------------------------------------------------------------
 # Linux variables
@@ -62,14 +56,14 @@ ROOTFS_PATH = $(LINUX_REPO_PATH)/arch/riscv/rootfs
 bbl: $(BBL_BIN)
 
 $(BBL_BIN): $(BBL_ELF)
-	$(RISCV_COPY) -O binary $< $@
+	$(RISCV_COPY) $(RISCV_COPY_FLAGS) $< $@
 
 $(BBL_ELF): $(BBL_ELF_BUILD)
 	ln -sf $(abspath $<) $@
 
 $(BBL_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_bbl $@
+	git clone https://github.com/LvNA-system/riscv-pk.git $@
 
 $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 	mkdir -p $@
@@ -81,7 +75,7 @@ $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 $(BBL_ELF_BUILD): | $(BBL_BUILD_PATH)
 	cd $(@D) && \
 		git checkout $(BBL_BUILD_COMMIT) && \
-		(CFLAGS=$(BBL_CFLAGS) $(MAKE) || (git checkout @{-1}; false)) && \
+		($(MAKE) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 bbl-clean:
