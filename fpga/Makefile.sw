@@ -41,8 +41,8 @@ BBL_BIN = $(build_dir)/linux.bin
 # Linux variables
 #--------------------------------------------------------------------
 
-LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
-LINUX_BUILD_COMMIT = b949d3aefcd334d75a94fafbc4909752a5ebf2b8
+LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
+LINUX_BUILD_COMMIT = e9545bee93bbd6ed14f848be0cc99eca622eb9a6
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
@@ -90,8 +90,9 @@ bbl-clean:
 
 $(LINUX_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_linux $@
-	cd $@ && (curl -L https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.2.tar.xz | tar -xJ --strip-components=1) && git checkout . && cp arch/riscv/configs/riscv64_pard .config && make ARCH=riscv menuconfig
+	@/bin/echo -e "\033[1;31mBy default, a shallow clone with only 1 commit history is performed, since the commit history is very large.\nThis is enough for building the project.\nTo fetch full history, run 'git fetch --unshallow' under $(LINUX_REPO_PATH).\033[0m"
+	git clone --depth 1 https://github.com/LvNA-system/riscv-linux.git $@
+	cd $@ && make ARCH=riscv fpga_defconfig
 
 linux: $(LINUX_ELF)
 
@@ -101,7 +102,7 @@ $(LINUX_ELF): $(LINUX_ELF_BUILD)
 $(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) 
 	cd $(@D) && \
 		git checkout $(LINUX_BUILD_COMMIT) && \
-		(($(MAKE) -C $(ROOTFS_PATH) && $(MAKE) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
+		(($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 linux-clean:
