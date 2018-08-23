@@ -47,7 +47,7 @@ LINUX_BUILD_COMMIT = e9545bee93bbd6ed14f848be0cc99eca622eb9a6
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
 
-ROOTFS_PATH = $(LINUX_REPO_PATH)/arch/riscv/rootfs
+ROOTFS_PATH = $(SW_PATH)/riscv-rootfs
 
 #--------------------------------------------------------------------
 # BBL rules
@@ -94,12 +94,18 @@ $(LINUX_REPO_PATH): | $(SW_PATH)
 	git clone --depth 1 https://github.com/LvNA-system/riscv-linux.git $@
 	cd $@ && make ARCH=riscv fpga_defconfig
 
+$(ROOTFS_PATH): | $(SW_PATH)
+	mkdir -p $@
+	@/bin/echo -e "\033[1;31mPlease manually set the RISCV_ROOTFS_HOME environment variable to $(ROOTFS_PATH).\033[0m"
+	git clone https://github.com/LvNA-system/riscv-rootfs.git $@
+
 linux: $(LINUX_ELF)
 
 $(LINUX_ELF): $(LINUX_ELF_BUILD)
 	ln -sf $(abspath $<) $@
 
-$(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) 
+$(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) $(ROOTFS_PATH)
+	$(MAKE) -C $(ROOTFS_PATH)
 	cd $(@D) && \
 		git checkout $(LINUX_BUILD_COMMIT) && \
 		(($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
