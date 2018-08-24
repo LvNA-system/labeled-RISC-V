@@ -43,6 +43,6 @@ module cdma_addr(
     assign  m_axi_wstrb   = s_axi_wstrb  ;
     assign  m_axi_wvalid  = s_axi_wvalid ;
     assign  m_axi_arqos   = s_axi_arqos  ;
-    // assign  m_axi_awqos   = s_axi_awqos  ;
+    assign  m_axi_awqos   = s_axi_awqos  ;
 
 endmodule

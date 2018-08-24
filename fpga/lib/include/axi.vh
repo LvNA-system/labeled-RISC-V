@@ -91,7 +91,7 @@
 	`axi_field(dir2, 2, prefix, awburst), \
 	`axi_field(dir2, 1, prefix, awlock), \
 	`axi_field(dir2, 4, prefix, awcache), \
-	/* `axi_field(dir2, 4, prefix, awqos), */ \
+	`axi_field(dir2, 4, prefix, awqos), \
 	`axi_field(dir2, id_width, prefix, awid), \
 	/* `axi_field(dir2, 6, prefix, awuser), */ \
 	`axi_field(dir2, 1, prefix, wlast), \
@@ -101,7 +101,7 @@
 	`axi_field(dir2, 2, prefix, arburst), \
 	`axi_field(dir2, 1, prefix, arlock), \
 	`axi_field(dir2, 4, prefix, arcache), \
-	/* `axi_field(dir2, 4, prefix, arqos), */ \
+	`axi_field(dir2, 4, prefix, arqos), \
 	`axi_field(dir2, id_width, prefix, arid), \
 	/* `axi_field(dir2, 6, prefix, aruser), */ \
 	`axi_field(dir1, 1, prefix, rlast), \
@@ -120,7 +120,7 @@
 	`axi_wire_field(2, prefix, awburst); \
 	`axi_wire_field(1, prefix, awlock); \
 	`axi_wire_field(4, prefix, awcache); \
-	/* `axi_wire_field(4, prefix, awqos); */ \
+	`axi_wire_field(4, prefix, awqos); \
 	`axi_wire_field(id_width, prefix, awid); \
 	/* `axi_wire_field(6, prefix, awuser); */ \
 	`axi_wire_field(1, prefix, wlast); \
@@ -130,7 +130,7 @@
 	`axi_wire_field(2, prefix, arburst); \
 	`axi_wire_field(1, prefix, arlock); \
 	`axi_wire_field(4, prefix, arcache); \
-	/* `axi_wire_field(4, prefix, arqos); */ \
+	`axi_wire_field(4, prefix, arqos); \
 	`axi_wire_field(id_width, prefix, arid); \
 	/* `axi_wire_field(6, prefix, aruser); */ \
 	`axi_wire_field(1, prefix, rlast); \
@@ -143,7 +143,7 @@
 	`axi_connect_field(io_prefix, wire_prefix, awburst), \
 	`axi_connect_field(io_prefix, wire_prefix, awlock), \
 	`axi_connect_field(io_prefix, wire_prefix, awcache), \
-	/* `axi_connect_field(io_prefix, wire_prefix, awqos), */ \
+	`axi_connect_field(io_prefix, wire_prefix, awqos), \
 	/* `axi_connect_field(io_prefix, wire_prefix, awuser), */ \
 	`axi_connect_field(io_prefix, wire_prefix, wlast), \
 	`axi_connect_field(io_prefix, wire_prefix, arlen), \
@@ -151,7 +151,7 @@
 	`axi_connect_field(io_prefix, wire_prefix, arburst), \
 	`axi_connect_field(io_prefix, wire_prefix, arlock), \
 	`axi_connect_field(io_prefix, wire_prefix, arcache), \
-	/* `axi_connect_field(io_prefix, wire_prefix, arqos), */ \
+	`axi_connect_field(io_prefix, wire_prefix, arqos), \
 	/* `axi_connect_field(io_prefix, wire_prefix, aruser), */ \
 	`axi_connect_field(io_prefix, wire_prefix, rlast)
 
