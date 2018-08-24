@@ -16,6 +16,9 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dut.corerst := dut.reset
   dut.coreclk := dut.clock
 
+  val ahbInst = Module(LazyModule(new LvNAFPGATopAHB).module)
+  ahbInst.dontTouchPorts()
+
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
   dut.connectSimAXIMem()
