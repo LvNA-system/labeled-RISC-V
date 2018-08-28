@@ -14,6 +14,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import freechips.rocketchip.amba.axi4._
 
+case object HasL2Cache extends Field[Boolean](true)
 case object NL2CacheCapacity extends Field[Int](2048)
 case object NL2CacheWays extends Field[Int](16)
 
@@ -443,7 +444,13 @@ object AXI4SimpleL2Cache
 {
   def apply()(implicit p: Parameters): AXI4Node =
   {
-    val axi4simpleL2cache = LazyModule(new AXI4SimpleL2Cache(L2CacheParams()))
-    axi4simpleL2cache.node
+    if (p(HasL2Cache)) {
+      val axi4simpleL2cache = LazyModule(new AXI4SimpleL2Cache(L2CacheParams()))
+      axi4simpleL2cache.node
+    }
+    else {
+      val axi4simpleL2cache = LazyModule(new AXI4Buffer(BufferParams.none))
+      axi4simpleL2cache.node
+    }
   }
 }
