@@ -5,17 +5,19 @@
 // Zhigang Liu
 // 2018 Aug 15
 
-package freechips.rocketchip.amba.axi4
+package freechips.rocketchip.subsystem
 
 import Chisel._
 import chisel3.util.IrrevocableIO
-import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.config.{Field,Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
+import freechips.rocketchip.amba.axi4._
+
+case object NL2CacheCapacity extends Field[Int](2048)
+case object NL2CacheWays extends Field[Int](16)
 
 case class L2CacheParams(
-  nSets: Int = 2048,
-  nWays: Int = 16,
   debug: Boolean = false
 )
 
@@ -25,9 +27,11 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
   val node = AXI4AdapterNode()
 
   lazy val module = new LazyModuleImp(this) {
+    val nWays = p(NL2CacheWays)
+    val nSets = p(NL2CacheCapacity) * 1024 / 64 / nWays
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
-      require(isPow2(param.nSets))
-      require(isPow2(param.nWays))
+      require(isPow2(nSets))
+      require(isPow2(nWays))
 
       val Y = true.B
       val N = false.B
@@ -51,7 +55,7 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       val splitBits = log2Ceil(split)
       require(isPow2(split))
 
-      val indexBits = log2Ceil(param.nSets)
+      val indexBits = log2Ceil(nSets)
       val blockOffsetBits = log2Ceil(blockBytes)
       val tagBits = addrWidth - indexBits - blockOffsetBits
       val offsetLSB = 0
@@ -61,8 +65,8 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       val tagLSB = indexMSB + 1
       val tagMSB = tagLSB + tagBits - 1
 
-      val rst_cnt = RegInit(0.asUInt(log2Up(2 * param.nSets + 1).W))
-      val rst = (rst_cnt < UInt(2 * param.nSets)) && !reset.toBool
+      val rst_cnt = RegInit(0.asUInt(log2Up(2 * nSets + 1).W))
+      val rst = (rst_cnt < UInt(2 * nSets)) && !reset.toBool
       when (rst) { rst_cnt := rst_cnt + 1.U }
 
       val s_idle :: s_gather_write_data :: s_send_bresp :: s_update_meta :: s_tag_read :: s_data_read :: s_data_write :: s_wait_ram_awready :: s_do_ram_write :: s_wait_ram_bresp :: s_wait_ram_arready :: s_do_ram_read :: s_data_resp :: Nil = Enum(UInt(), 13)
@@ -140,13 +144,13 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
 
       // s_tag_read: inspecting meta data
       // valid bit array
-      val vb_array = SeqMem(param.nSets, Bits(width = param.nWays.W))
+      val vb_array = SeqMem(nSets, Bits(width = nWays.W))
       val vb_array_wen = Wire(Bool())
       // dirty bit array
-      val db_array = SeqMem(param.nSets, Bits(width = param.nWays.W))
+      val db_array = SeqMem(nSets, Bits(width = nWays.W))
       val db_array_wen = Wire(Bool())
 
-      val tag_array = SeqMem(param.nSets, Vec(param.nWays, UInt(width = tagBits.W)))
+      val tag_array = SeqMem(nSets, Vec(nWays, UInt(width = tagBits.W)))
       val tag_raddr = Mux(in.ar.fire(), in_ar.addr, addr)
       val tag_wen = Wire(Bool())
       val tag_ridx = tag_raddr(indexMSB, indexLSB)
@@ -157,7 +161,7 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
 
       val idx = addr(indexMSB, indexLSB)
       val tag = addr(tagMSB, tagLSB)
-      def wayMap[T <: Data](f: Int => T) = Vec((0 until param.nWays).map(f))
+      def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
       val tag_eq_way = wayMap((w: Int) => tag_rdata(w) === tag)
       val tag_match_way = wayMap((w: Int) => tag_eq_way(w) && vb_rdata(w)).asUInt
       val hit = tag_match_way.orR
@@ -167,12 +171,12 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       val write_miss = !hit && wen
       val hit_way = Wire(Bits())
       hit_way := Bits(0)
-      (0 until param.nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
+      (0 until nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
 
       // use random replacement
       val lfsr = LFSR16(state === s_update_meta && !hit)
       val repl_way_enable = (state === s_idle && in.ar.fire()) || (state === s_send_bresp && in.b.fire())
-      val repl_way = RegEnable(next = if(param.nWays == 1) UInt(0) else lfsr(log2Ceil(param.nWays) - 1, 0),
+      val repl_way = RegEnable(next = if(nWays == 1) UInt(0) else lfsr(log2Ceil(nWays) - 1, 0),
         init = 0.U, enable = repl_way_enable)
 
       // valid and dirty
@@ -199,7 +203,7 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
             printf("repl_way: %d repl_addr: %x\n", repl_way, writeback_addr)
           }
           printf("time: %d [L2Cache] s1 tags: ", GTimer())
-          for (i <- 0 until param.nWays) {
+          for (i <- 0 until nWays) {
             printf("%x ", tag_rdata(i))
           }
           printf("\n")
@@ -234,14 +238,14 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       val data_write_idx = idx << log2Ceil(innerDataBeats) | data_write_cnt
       val din = Wire(Vec(split, UInt(outerBeatSize.W)))
 
-      val data_arrays = Seq.fill(split) { SeqMem(param.nSets * innerDataBeats, Vec(param.nWays, UInt(width = outerBeatSize.W))) }
+      val data_arrays = Seq.fill(split) { SeqMem(nSets * innerDataBeats, Vec(nWays, UInt(width = outerBeatSize.W))) }
       for ((data_array, i) <- data_arrays zipWithIndex) {
         when (data_write_valid) {
           if (param.debug) {
             printf("time: %d [L2 Cache] write data array: %d idx: %d way: %d data: %x\n",
               GTimer(), i.U, data_write_idx, data_write_way, din(i))
           }
-          data_array.write(data_write_idx, Vec.fill(param.nWays)(din(i)), (0 until param.nWays).map(data_write_way === UInt(_)))
+          data_array.write(data_write_idx, Vec.fill(nWays)(din(i)), (0 until nWays).map(data_write_way === UInt(_)))
         }
         dout(i) := data_array.read(data_read_idx, data_read_valid)(data_read_way)
         if (param.debug) {
@@ -288,7 +292,7 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
 
       vb_array_wen := rst || state === s_update_meta
       val vb_array_widx = Mux(rst, rst_cnt, idx)
-      val vb_array_wdata = Mux(rst, Bits(0, param.nWays), vb_rdata.bitSet(way, true.B))
+      val vb_array_wdata = Mux(rst, Bits(0, nWays), vb_rdata.bitSet(way, true.B))
 
       when (vb_array_wen) {
         if (param.debug) {
@@ -300,7 +304,7 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
 
       db_array_wen := rst || state === s_update_meta
       val db_array_widx = Mux(rst, rst_cnt, idx)
-      val db_array_wdata = Mux(rst, Bits(0, param.nWays), db_rdata.bitSet(way, wen))
+      val db_array_wdata = Mux(rst, Bits(0, nWays), db_rdata.bitSet(way, wen))
       when (db_array_wen) {
         if (param.debug) {
           printf("time: %d [L2Cache] write_db_array: idx: %d data: %d\n",
@@ -321,7 +325,7 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
           if (param.debug) {
             printf("update_tag: idx: %d tag: %x repl_way: %d\n", idx, tag, repl_way)
           }
-          tag_array.write(idx, Vec.fill(param.nWays)(tag), Seq.tabulate(param.nWays)(repl_way === UInt(_)))
+          tag_array.write(idx, Vec.fill(nWays)(tag), Seq.tabulate(nWays)(repl_way === UInt(_)))
         }
       }
 

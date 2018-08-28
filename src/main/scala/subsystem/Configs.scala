@@ -347,3 +347,11 @@ class WithScratchpadsOnly extends Config((site, here, up) => {
         scratch = Some(0x80000000L))))
   }
 })
+
+class WithNL2CacheCapacity(kb: Int) extends Config((site, here, up) => {
+  case NL2CacheCapacity => kb
+})
+
+class WithNL2CacheWays(ways: Int) extends Config((site, here, up) => {
+  case NL2CacheWays => ways
+})
