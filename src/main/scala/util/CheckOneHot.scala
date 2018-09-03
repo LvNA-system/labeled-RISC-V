@@ -13,3 +13,11 @@ object CheckOneHot {
     assert(oneHot || noneHot)
   }
 }
+
+// a and b must be both hot or none hot
+object bothHotOrNoneHot {
+  def apply(a: Bool, b: Bool, str: String): Unit = {
+    val cond = (a === b)
+      assert(cond, str)
+  }
+}
