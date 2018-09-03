@@ -42,6 +42,11 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       val innerBeatSize = in.r.bits.params.dataBits
       val innerBeatBytes = innerBeatSize / 8
       val innerDataBeats = blockSize / innerBeatSize
+      val innerBeatBits = log2Ceil(innerBeatBytes)
+      val innerBeatIndexBits = log2Ceil(innerDataBeats)
+      val innerBeatLSB = innerBeatBits
+      val innerBeatMSB = innerBeatLSB + innerBeatIndexBits - 1
+
       val outerBeatSize = out.r.bits.params.dataBits
       val outerBeatBytes = outerBeatSize / 8
       val outerDataBeats = blockSize / outerBeatSize
@@ -70,9 +75,19 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       val rst = (rst_cnt < UInt(2 * nSets)) && !reset.toBool
       when (rst) { rst_cnt := rst_cnt + 1.U }
 
-      val s_idle :: s_gather_write_data :: s_send_bresp :: s_update_meta :: s_tag_read :: s_data_read :: s_data_write :: s_wait_ram_awready :: s_do_ram_write :: s_wait_ram_bresp :: s_wait_ram_arready :: s_do_ram_read :: s_data_resp :: Nil = Enum(UInt(), 13)
+      val s_idle :: s_gather_write_data :: s_send_bresp :: s_update_meta :: s_tag_read :: s_merge_put_data :: s_data_read :: s_data_write :: s_wait_ram_awready :: s_do_ram_write :: s_wait_ram_bresp :: s_wait_ram_arready :: s_do_ram_read :: s_data_resp :: Nil = Enum(UInt(), 14)
 
       val state = Reg(init = s_idle)
+      // state transitions for each case
+      // read hit: s_idle -> s_tag_read -> s_data_read -> s_data_resp -> s_idle
+      // read miss no writeback : s_idle -> s_tag_read -> s_wait_ram_arready -> s_do_ram_read -> s_data_write -> s_update_meta -> s_idle
+      // read miss writeback : s_idle -> s_tag_read -> s_data_read -> s_wait_ram_awready -> s_do_ram_write -> s_wait_ram_bresp
+      //                              -> s_wait_ram_arready -> s_do_ram_read -> s_data_write -> s_update_meta -> s_idle
+      // write hit: s_idle -> s_gather_write_data ->  s_send_bresp -> s_tag_read -> s_data_read -> s_merge_put_data -> s_data_write -> s_update_meta -> s_idle
+      // write miss no writeback : s_idle -> s_gather_write_data ->  s_send_bresp -> s_tag_read -> s_wait_ram_arready -> s_do_ram_read
+      //                                  -> s_merge_put_data -> s_data_write -> s_update_meta -> s_idle
+      // write miss writeback : s_idle -> s_gather_write_data ->  s_send_bresp -> s_tag_read -> s_data_read -> s_wait_ram_awready -> s_do_ram_write -> s_wait_ram_bresp
+      //                               -> s_wait_ram_arready -> s_do_ram_read -> s_merge_put_data -> s_data_write -> s_update_meta -> s_idle
 
       val in_ar = in.ar.bits
       val in_aw = in.aw.bits
@@ -88,8 +103,16 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
 
       val addr = Reg(UInt(addrWidth.W))
       val id = Reg(UInt(innerIdWidth.W))
+      val inner_end_beat = Reg(UInt(4.W))
       val ren = RegInit(N)
       val wen = RegInit(N)
+
+      val gather_curr_beat = RegInit(0.asUInt(log2Ceil(innerDataBeats).W))
+      val gather_last_beat = gather_curr_beat === inner_end_beat
+      val merge_curr_beat = RegInit(0.asUInt(log2Ceil(innerDataBeats).W))
+      val merge_last_beat = merge_curr_beat === inner_end_beat
+      val resp_curr_beat = RegInit(0.asUInt(log2Ceil(innerDataBeats).W))
+      val resp_last_beat = resp_curr_beat === inner_end_beat
 
       // state transitions:
       // s_idle: idle state
@@ -101,12 +124,26 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
           wen := N
           addr := in_ar.addr
           id := in_ar.id
+
+          val start_beat = in_ar.addr(innerBeatMSB, innerBeatLSB)
+            gather_curr_beat := start_beat
+          merge_curr_beat := start_beat
+          resp_curr_beat := start_beat
+          inner_end_beat := start_beat + in_ar.len
+
           state := s_tag_read
         } .elsewhen (in.aw.fire()) {
           ren := N
           wen := Y
           addr := in_aw.addr
           id := in_aw.id
+
+          val start_beat = in_aw.addr(innerBeatMSB, innerBeatLSB)
+          gather_curr_beat := start_beat
+          merge_curr_beat := start_beat
+          resp_curr_beat := start_beat
+          inner_end_beat := start_beat + in_aw.len
+
           state := s_gather_write_data
         } .elsewhen (in.r.fire() || in.w.fire() || in.b.fire()) {
           assert(N, "Inner axi Unexpected handshake")
@@ -120,17 +157,18 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       // s_gather_write_data:
       // gather write data
       val put_data_buf = Reg(Vec(outerDataBeats, UInt(outerBeatSize.W)))
-      val (gather_cnt, gather_done) = Counter(in.w.fire() && state === s_gather_write_data, innerDataBeats)
       in.w.ready := state === s_gather_write_data
-      when (state === s_gather_write_data) {
-        when (in.w.fire()) {
-          for (i <- 0 until split) {
-            put_data_buf((gather_cnt << splitBits) + i.U) := in_w.data(outerBeatSize * (i + 1) - 1, outerBeatSize * i)
-          }
+      when (state === s_gather_write_data && in.w.fire()) {
+        gather_curr_beat := gather_curr_beat + 1.U
+        for (i <- 0 until split) {
+          put_data_buf((gather_curr_beat << splitBits) + i.U) := in_w.data(outerBeatSize * (i + 1) - 1, outerBeatSize * i)
         }
-        when (gather_done) { state := s_send_bresp }
+        when (gather_last_beat) {
+          state := s_send_bresp
+        }
+        assert(in_w.strb === "hff".U, "Partial write stribe detected")
+        bothHotOrNoneHot(gather_last_beat, in_w.last, "L2 gather beat error")
       }
-      assert(!gather_done || in_w.last)
 
       // s_send_bresp:
       // send bresp, end write transaction
@@ -162,6 +200,7 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
 
       val idx = addr(indexMSB, indexLSB)
       val tag = addr(tagMSB, tagLSB)
+
       def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
       val tag_eq_way = wayMap((w: Int) => tag_rdata(w) === tag)
       val tag_match_way = wayMap((w: Int) => tag_eq_way(w) && vb_rdata(w)).asUInt
@@ -184,7 +223,13 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       val need_writeback = vb_rdata(repl_way) && db_rdata(repl_way)
       val writeback_tag = tag_rdata(repl_way)
       val writeback_addr = Cat(writeback_tag, Cat(idx, 0.U(blockOffsetBits.W)))
-      val need_data_read = read_hit || ((read_miss || write_miss) && need_writeback)
+
+      val read_miss_writeback = read_miss && need_writeback
+      val read_miss_no_writeback = read_miss && !need_writeback
+      val write_miss_writeback = write_miss && need_writeback
+      val write_miss_no_writeback = write_miss && !need_writeback
+
+      val need_data_read = read_hit || write_hit || read_miss_writeback || write_miss_writeback
 
       when (state === s_tag_read) {
         if (param.debug) {
@@ -211,22 +256,23 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
           printf("time: %d [L2Cache] s1 vb: %x db: %x\n", GTimer(), vb_rdata, db_rdata)
         }
 
-        when (write_hit || (write_miss && !need_writeback)) {
-          // no need to do write back, directly write data
-          state := s_data_write
-        } .elsewhen (read_miss && !need_writeback) {
+        // check for cross cache line bursts
+        assert(inner_end_beat < innerDataBeats.U, "cross cache line bursts detected")
+
+        when (read_hit || write_hit || read_miss_writeback || write_miss_writeback) {
+          state := s_data_read
+        } .elsewhen (read_miss_no_writeback || write_miss_no_writeback) {
           // no need to write back, directly refill data
           state := s_wait_ram_arready
         } .otherwise {
-          // others: read_hit, read_miss && need_writeback, write_miss && need_writeback
-          state := s_data_read
+          assert(N, "Unexpected condition in s_tag_read")
         }
       }
 
       // ###############################################################
       // #                  data array read/write                      #
       // ###############################################################
-      val data_read_way = Mux(read_hit, hit_way, repl_way)
+      val data_read_way = Mux(read_hit || write_hit, hit_way, repl_way)
       // incase it overflows
       val data_read_cnt = RegInit(0.asUInt((log2Ceil(innerDataBeats) + 1).W))
       val data_read_valid = (state === s_tag_read && need_data_read) || (state === s_data_read && data_read_cnt =/= innerDataBeats.U)
@@ -271,9 +317,26 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
           data_read_cnt := 0.U
           when (read_hit) {
             state := s_data_resp
-          } .otherwise {
+          } .elsewhen (read_miss_writeback || write_miss_writeback) {
             state := s_wait_ram_awready
+          } .elsewhen (write_hit) {
+            state := s_merge_put_data
+          } .otherwise {
+            assert(N, "Unexpected condition in s_data_read")
           }
+        }
+      }
+
+      // s_merge_put_data
+      // merge put data
+      when (state === s_merge_put_data) {
+        merge_curr_beat := merge_curr_beat + 1.U
+        for (i <- 0 until split) {
+          val idx = (merge_curr_beat << splitBits) + i.U
+          data_buf(idx) := put_data_buf(idx)
+        }
+        when (merge_last_beat) {
+          state := s_data_write
         }
       }
 
@@ -282,7 +345,7 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       data_write_cnt := write_cnt
       for (i <- 0 until split) {
         val idx = (data_write_cnt << splitBits) + i.U
-        din(i) := Mux(wen, put_data_buf(idx), data_buf(idx))
+        din(i) := data_buf(idx)
       }
       when (state === s_data_write && write_done) {
         state := s_update_meta
@@ -348,7 +411,9 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       when (state === s_do_ram_write && wb_done) {
         state := s_wait_ram_bresp
       }
-      assert(!wb_done || out_w.last)
+      when (!reset.toBool && out.w.fire()) {
+        bothHotOrNoneHot(wb_done, out_w.last, "L2 write back error")
+      }
 
       // write address channel signals
       out_aw.id := 0.asUInt(outerIdWidth.W)
@@ -373,12 +438,11 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       out.w.valid := state === s_do_ram_write
 
       when (state === s_wait_ram_bresp && out.b.fire()) {
-        when (read_miss) {
+        when (read_miss_writeback || write_miss_writeback) {
           // do refill
           state := s_wait_ram_arready
         } .otherwise {
-          // write miss
-          state := s_data_write
+          assert(N, "Unexpected condition in s_wait_ram_bresp")
         }
       }
 
@@ -392,13 +456,17 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
         state := s_do_ram_read
       }
       val (refill_cnt, refill_done) = Counter(out.r.fire() && state === s_do_ram_read, outerDataBeats)
-      when (state === s_do_ram_read) {
+      when (state === s_do_ram_read && out.r.fire()) {
         data_buf(refill_cnt) := out_r.data
         when (refill_done) {
-          state := s_data_write
+          when (ren) {
+            state := s_data_write
+          } .otherwise {
+            state := s_merge_put_data
+          }
         }
+        bothHotOrNoneHot(refill_done, out_r.last, "L2 refill error")
       }
-      assert(!refill_done || out_r.last)
 
       // read address channel signals
       out_ar.id := 0.asUInt(outerIdWidth.W)
@@ -421,19 +489,21 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       // ########################################################
       // #                  data resp path                      #
       // ########################################################
-      val (resp_cnt, resp_done) = Counter(in.r.fire() && state === s_data_resp, innerDataBeats)
-      when (state === s_data_resp && resp_done) {
-        state := s_idle
+      when (state === s_data_resp && in.r.fire()) {
+        resp_curr_beat := resp_curr_beat + 1.U
+        when (resp_last_beat) {
+          state := s_idle
+        }
       }
+
       val resp_data = Wire(Vec(split, UInt(outerBeatSize.W)))
       for (i <- 0 until split) {
-        resp_data(i) := data_buf((resp_cnt << splitBits) + i.U)
+        resp_data(i) := data_buf((resp_curr_beat << splitBits) + i.U)
       }
-      assert(!resp_done || in_r.last)
       in_r.id := id
       in_r.data := resp_data.asUInt
       in_r.resp := 0.asUInt(2.W)
-      in_r.last := resp_cnt === (innerDataBeats - 1).U
+      in_r.last := resp_last_beat
       //in_r.user := 0.asUInt(5.W)
       in.r.valid := state === s_data_resp
     }
