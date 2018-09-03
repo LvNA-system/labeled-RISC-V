@@ -157,16 +157,17 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
       // s_gather_write_data:
       // gather write data
       val put_data_buf = Reg(Vec(outerDataBeats, UInt(outerBeatSize.W)))
+      val put_data_mask = Reg(init=Vec.fill(outerDataBeats)(Fill(outerBeatBytes, 0.U)))
       in.w.ready := state === s_gather_write_data
       when (state === s_gather_write_data && in.w.fire()) {
         gather_curr_beat := gather_curr_beat + 1.U
         for (i <- 0 until split) {
           put_data_buf((gather_curr_beat << splitBits) + i.U) := in_w.data(outerBeatSize * (i + 1) - 1, outerBeatSize * i)
+          put_data_mask((gather_curr_beat << splitBits) + i.U) := in_w.strb(outerBeatBytes * (i + 1) - 1, outerBeatBytes * i)
         }
         when (gather_last_beat) {
           state := s_send_bresp
         }
-        assert(in_w.strb === "hff".U, "Partial write stribe detected")
         bothHotOrNoneHot(gather_last_beat, in_w.last, "L2 gather beat error")
       }
 
@@ -327,13 +328,18 @@ class AXI4SimpleL2Cache(param: L2CacheParams)(implicit p: Parameters) extends La
         }
       }
 
-      // s_merge_put_data
-      // merge put data
+      // s_merge_put_data: merge data_buf and put_data_buf, and store the final result in data_buf
+      // the old data(either read from data array or from refill) resides in data_buf
+      // the new data(gathered from inner write) resides in put_data_buf
+      def mergePutData(old_data: UInt, new_data: UInt, wmask: UInt): UInt = {
+        val full_wmask = FillInterleaved(8, wmask)
+          ((~full_wmask & old_data) | (full_wmask & new_data))
+      }
       when (state === s_merge_put_data) {
         merge_curr_beat := merge_curr_beat + 1.U
         for (i <- 0 until split) {
           val idx = (merge_curr_beat << splitBits) + i.U
-          data_buf(idx) := put_data_buf(idx)
+          data_buf(idx) := mergePutData(data_buf(idx), put_data_buf(idx), put_data_mask(idx))
         }
         when (merge_last_beat) {
           state := s_data_write
