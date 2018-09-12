@@ -316,6 +316,14 @@ object DMI_RegAddrs {
   */
   def DMI_SBDATA3 =  0x3f
 
+  /* Access current dsid */
+  def CP_DSID = 0x41
+
+  /* Access dsid selector */
+  def CP_DSID_SEL = 0x42
+
+  /* Read total dsid count */
+  def CP_DSID_COUNT = 0x43
 }
 
 class DMSTATUSFields extends Bundle {

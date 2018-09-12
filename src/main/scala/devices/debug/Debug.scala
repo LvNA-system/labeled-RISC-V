@@ -12,6 +12,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
 import freechips.rocketchip.devices.debug.systembusaccess._
+import lvna.{ControlPlaneIO, DsidWidth}
 
 /** Constant values used by both Debug Bus Response & Request
   */
@@ -449,7 +450,12 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       val dmactive = Bool(INPUT)
       val innerCtrl = (new DecoupledIO(new DebugInternalBundle())).flip
       val debugUnavail = Vec(nComponents, Bool()).asInput
+      val cp = new ControlPlaneIO().flip()
     })
+
+    /* ControlPlane: these read enables are required but not used */
+    val dsidRen = Wire(init = false.B)
+    val selRen = Wire(init = false.B)
 
 
     //--------------------------------------------------------------
@@ -752,6 +758,9 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
         dmiProgramBufferRdEn(i),
         dmiProgramBufferWrEnMaybe(i),
         Some(RegFieldDesc(s"dmi_progbuf_$i", "", reset = Some(0))))}),
+      (CP_DSID << 2) -> Seq(RWNotify(p(DsidWidth), io.cp.dsid, io.cp.dsidUpdate, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
+      (CP_DSID_SEL << 2) -> Seq(RWNotify(32, io.cp.sel, io.cp.selUpdate, selRen, io.cp.selWen, Some(RegFieldDesc("dsid-sel", "Hart index")))),
+      (CP_DSID_COUNT << 2) -> Seq(RegField.r(32, io.cp.count, RegFieldDesc("dsid-count", "The total number of dsid registers"))),
       (DMI_SBCS       << 2) -> sbcsFields,
       (DMI_SBDATA0    << 2) -> sbDataFields(0),
       (DMI_SBDATA1    << 2) -> sbDataFields(1),
@@ -1064,8 +1073,10 @@ class TLDebugModuleInnerAsync(device: Device, getNComponents: () => Int, beatByt
       // This comes from tlClk domain.
       val debugUnavail    = Vec(getNComponents(), Bool()).asInput
       val psd = new PSDTestMode().asInput
+      val cp = new ControlPlaneIO().flip()
     })
 
+    dmInner.module.io.cp <> io.cp
     dmInner.module.io.innerCtrl := FromAsyncBundle(io.innerCtrl)
     dmInner.module.io.dmactive := ~ResetCatchAndSync(clock, ~io.dmactive, "dmactiveSync", io.psd)
     dmInner.module.io.debugUnavail := io.debugUnavail
@@ -1098,8 +1109,10 @@ class TLDebugModule(beatBytes: Int)(implicit p: Parameters) extends LazyModule {
       val ctrl = new DebugCtrlBundle(nComponents)
       val dmi = new ClockedDMIIO().flip
       val psd = new PSDTestMode().asInput
+      val cp = new ControlPlaneIO().flip()
     })
 
+    dmInner.module.io.cp <> io.cp
     dmOuter.module.io.dmi <> io.dmi.dmi
     dmOuter.module.reset := io.dmi.dmiReset
     dmOuter.module.clock := io.dmi.dmiClock
