@@ -23,7 +23,8 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dut.connectSimAXIMMIO()
   dut.connectDebug(clock, reset, io.success)
 
-  //dut.l2_frontend_bus_axi4.foreach(_.tieoff)
+  dut.l2_frontend_bus_axi4.foreach(_.tieoff)
+  /*
   val axi = dut.l2_frontend_bus_axi4(0)
   axi.r.ready := Bool(true)
   axi.b.ready := Bool(true)
@@ -61,4 +62,5 @@ class TestHarness()(implicit p: Parameters) extends Module {
   //axi.w.bits.data := UInt(0xdeadbeefL)
   //axi.w.bits.strb := UInt(0xff)
   //axi.w.bits.last := (Counter(axi.w.fire(), 0x4)._2)
+  */
 }
