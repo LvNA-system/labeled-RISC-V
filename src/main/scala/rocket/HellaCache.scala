@@ -4,13 +4,15 @@
 package freechips.rocketchip.rocket
 
 import Chisel._
+import chisel3.core.Input
 import chisel3.experimental.dontTouch
-import freechips.rocketchip.config.{Parameters, Field}
+import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+
 import scala.collection.mutable.ListBuffer
 import scala.math.max
 
@@ -193,6 +195,8 @@ class HellaCacheModule(outer: HellaCache) extends LazyModuleImp(outer)
   implicit val edge = outer.node.edges.out(0)
   val (tl_out, _) = outer.node.out(0)
   val io = IO(new HellaCacheBundle(outer))
+  val memBase = IO(Input(UInt(p(XLen).W)))
+  val memMask = IO(Input(UInt(p(XLen).W)))
   dontTouch(io.cpu.resp) // Users like to monitor these fields even if the core ignores some signals
   dontTouch(io.cpu.s1_data)
 

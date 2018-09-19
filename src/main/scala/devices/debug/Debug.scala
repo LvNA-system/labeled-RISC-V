@@ -12,6 +12,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
 import freechips.rocketchip.devices.debug.systembusaccess._
+import freechips.rocketchip.tile.XLen
 import lvna.{ControlPlaneIO, DsidWidth}
 
 /** Constant values used by both Debug Bus Response & Request
@@ -758,9 +759,6 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
         dmiProgramBufferRdEn(i),
         dmiProgramBufferWrEnMaybe(i),
         Some(RegFieldDesc(s"dmi_progbuf_$i", "", reset = Some(0))))}),
-      (CP_DSID << 2) -> Seq(RWNotify(p(DsidWidth), io.cp.dsid, io.cp.dsidUpdate, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
-      (CP_DSID_SEL << 2) -> Seq(RWNotify(32, io.cp.sel, io.cp.selUpdate, selRen, io.cp.selWen, Some(RegFieldDesc("dsid-sel", "Hart index")))),
-      (CP_DSID_COUNT << 2) -> Seq(RegField.r(32, io.cp.count, RegFieldDesc("dsid-count", "The total number of dsid registers"))),
       (DMI_SBCS       << 2) -> sbcsFields,
       (DMI_SBDATA0    << 2) -> sbDataFields(0),
       (DMI_SBDATA1    << 2) -> sbDataFields(1),
@@ -769,7 +767,14 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (DMI_SBADDRESS0 << 2) -> sbAddrFields(0),
       (DMI_SBADDRESS1 << 2) -> sbAddrFields(1),
       (DMI_SBADDRESS2 << 2) -> sbAddrFields(2),
-      (DMI_SBADDRESS3 << 2) -> sbAddrFields(3) 
+      (DMI_SBADDRESS3 << 2) -> sbAddrFields(3),
+      (CP_DSID        << 2) -> Seq(RWNotify(p(DsidWidth), io.cp.dsid, io.cp.dsidUpdate, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
+      (CP_DSID_SEL    << 2) -> Seq(RWNotify(32, io.cp.sel, io.cp.selUpdate, selRen, io.cp.selWen, Some(RegFieldDesc("dsid-sel", "Hart index")))),
+      (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32, io.cp.count, RegFieldDesc("dsid-count", "The total number of dsid registers"))),
+      (CP_MEM_BASE_LO << 2) -> Seq(RWNotify(32, io.cp.memBase(31, 0), io.cp.memBaseUpdate, Wire(init = false.B), io.cp.memBaseLoWen, Some(RegFieldDesc("mem-base lo", "Memory base for the current hart")))),
+      (CP_MEM_BASE_HI << 2) -> Seq(RWNotify(32, io.cp.memBase(63, 32), io.cp.memBaseUpdate, Wire(init = false.B), io.cp.memBaseHiWen, Some(RegFieldDesc("mem-base hi", "Memory base for the current hart")))),
+      (CP_MEM_MASK_LO << 2) -> Seq(RWNotify(32, io.cp.memMask(31, 0), io.cp.memMaskUpdate, Wire(init = false.B), io.cp.memMaskLoWen, Some(RegFieldDesc("mem-mask lo", "Memory mask for the current hart")))),
+      (CP_MEM_MASK_HI << 2) -> Seq(RWNotify(32, io.cp.memMask(63, 32), io.cp.memMaskUpdate, Wire(init = false.B), io.cp.memMaskHiWen, Some(RegFieldDesc("mem-mask hi", "Memory mask for the current hart"))))
     )
 
     abstractDataMem.zipWithIndex.foreach { case (x, i) =>

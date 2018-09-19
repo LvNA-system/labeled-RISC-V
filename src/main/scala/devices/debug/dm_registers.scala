@@ -324,6 +324,16 @@ object DMI_RegAddrs {
 
   /* Read total dsid count */
   def CP_DSID_COUNT = 0x43
+
+  /* Access mem base with current dsid */
+  def CP_MEM_BASE_LO = 0x44
+
+  def CP_MEM_BASE_HI = 0x45
+
+  /* Access mem mask with current dsid */
+  def CP_MEM_MASK_LO = 0x46
+
+  def CP_MEM_MASK_HI = 0x47
 }
 
 class DMSTATUSFields extends Bundle {
