@@ -18,42 +18,36 @@ $(SW_PATH):
 RISCV_PREFIX=riscv64-unknown-linux-gnu-
 CC = $(RISCV_PREFIX)gcc
 LD = $(RISCV_PREFIX)ld
-RISCV_DUMP = $(RISCV_PREFIX)objdump
 RISCV_COPY = $(RISCV_PREFIX)objcopy
-RISCV_READELF = $(RISCV_PREFIX)readelf
-CFLAGS = -static -Wa,-march=RVIMAFD -ffast-math -fno-builtin-printf -O2 #-fPIC
-RISCV_DUMP_OPTS = -D
-RISCV_LINK_OPTS = -nostdlib -nostartfiles -ffast-math #-lc -lgcc
+RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .sbss=alloc,contents -O binary
 
 #--------------------------------------------------------------------
 # BBL variables
 #--------------------------------------------------------------------
 
-BBL_REPO_PATH = $(SW_PATH)/riscv_bbl
-BBL_BUILD_COMMIT = 78748942edaec953e097097ea337a8f308ec872c
+BBL_REPO_PATH = $(SW_PATH)/riscv-pk
+BBL_BUILD_COMMIT = dd3148e5ade718191c371c771e7f328cf02a003a
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
 
 BBL_PAYLOAD = $(LINUX_ELF)
-#BBL_CONFIG = --host=riscv64-unknown-linux-gnu --enable-logo
-BBL_CONFIG = --host=riscv64-unknown-linux-gnu --with-payload=$(BBL_PAYLOAD) --enable-logo
-BBL_CFLAGS = "-mabi=lp64 -march=rv64imac"
+BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imac --enable-logo
 
 BBL_ELF = $(build_dir)/bbl.elf
-BBL_BIN = $(build_dir)/bbl.bin
+BBL_BIN = $(build_dir)/linux.bin
 
 #--------------------------------------------------------------------
 # Linux variables
 #--------------------------------------------------------------------
 
-LINUX_REPO_PATH = $(SW_PATH)/riscv_linux
-LINUX_BUILD_COMMIT = b949d3aefcd334d75a94fafbc4909752a5ebf2b8
+LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
+LINUX_BUILD_COMMIT = e9545bee93bbd6ed14f848be0cc99eca622eb9a6
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
 
-ROOTFS_PATH = $(LINUX_REPO_PATH)/arch/riscv/rootfs
+ROOTFS_PATH = $(SW_PATH)/riscv-rootfs
 
 #--------------------------------------------------------------------
 # BBL rules
@@ -62,14 +56,14 @@ ROOTFS_PATH = $(LINUX_REPO_PATH)/arch/riscv/rootfs
 bbl: $(BBL_BIN)
 
 $(BBL_BIN): $(BBL_ELF)
-	$(RISCV_COPY) -O binary $< $@
+	$(RISCV_COPY) $(RISCV_COPY_FLAGS) $< $@
 
 $(BBL_ELF): $(BBL_ELF_BUILD)
 	ln -sf $(abspath $<) $@
 
 $(BBL_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_bbl $@
+	git clone https://github.com/LvNA-system/riscv-pk.git $@
 
 $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 	mkdir -p $@
@@ -81,7 +75,7 @@ $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 $(BBL_ELF_BUILD): | $(BBL_BUILD_PATH)
 	cd $(@D) && \
 		git checkout $(BBL_BUILD_COMMIT) && \
-		(CFLAGS=$(BBL_CFLAGS) $(MAKE) || (git checkout @{-1}; false)) && \
+		($(MAKE) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 bbl-clean:
@@ -96,18 +90,25 @@ bbl-clean:
 
 $(LINUX_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_linux $@
-	cd $@ && (curl -L https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.2.tar.xz | tar -xJ --strip-components=1) && git checkout . && cp arch/riscv/configs/riscv64_pard .config && make ARCH=riscv menuconfig
+	@/bin/echo -e "\033[1;31mBy default, a shallow clone with only 1 commit history is performed, since the commit history is very large.\nThis is enough for building the project.\nTo fetch full history, run 'git fetch --unshallow' under $(LINUX_REPO_PATH).\033[0m"
+	git clone --depth 1 https://github.com/LvNA-system/riscv-linux.git $@
+	cd $@ && make ARCH=riscv emu_defconfig
+
+$(ROOTFS_PATH): | $(SW_PATH)
+	mkdir -p $@
+	@/bin/echo -e "\033[1;31mPlease manually set the RISCV_ROOTFS_HOME environment variable to $(ROOTFS_PATH).\033[0m"
+	git clone https://github.com/LvNA-system/riscv-rootfs.git $@
 
 linux: $(LINUX_ELF)
 
 $(LINUX_ELF): $(LINUX_ELF_BUILD)
 	ln -sf $(abspath $<) $@
 
-$(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) 
+$(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) $(ROOTFS_PATH)
+	$(MAKE) -C $(ROOTFS_PATH)
 	cd $(@D) && \
 		git checkout $(LINUX_BUILD_COMMIT) && \
-		(($(MAKE) -C $(ROOTFS_PATH) && $(MAKE) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
+		(($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 linux-clean:
