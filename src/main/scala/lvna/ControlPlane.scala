@@ -65,6 +65,8 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     io.cp.dsid := currDsid
     io.cp.sel := dsidSel
     io.cp.count := dsidCnt
+    io.cp.memBase := memBases(dsidSel)
+    io.cp.memMask := memMasks(dsidSel)
     io.dsids := dsids
     io.memBases := memBases
     io.memMasks := memMasks
