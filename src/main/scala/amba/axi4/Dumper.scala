@@ -14,7 +14,7 @@ class AXI4Dumper()(implicit p: Parameters) extends LazyModule
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       out <> in
       when (in.ar.fire()) {
-        printf("dumper: ar[len] = %d [addr] = 0x%x\n", in.ar.bits.len, in.ar.bits.addr)
+//        printf("dumper: ar[len] = %d [addr] = 0x%x\n", in.ar.bits.len, in.ar.bits.addr)
       }
     }
   }

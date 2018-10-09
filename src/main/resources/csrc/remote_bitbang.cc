@@ -161,6 +161,7 @@ void remote_bitbang_t::execute_command()
 
   char tosend = '?';
 
+  int shutdown = 0;
   switch (command) {
   case 'B': /* fprintf(stderr, "*BLINK*\n"); */ break;
   case 'b': /* fprintf(stderr, "_______\n"); */ break;
@@ -174,7 +175,7 @@ void remote_bitbang_t::execute_command()
   case '6': set_pins(1, 1, 0); break;
   case '7': set_pins(1, 1, 1); break;
   case 'R': dosend = 1; tosend = tdo ? '1' : '0'; break;
-  case 'Q': quit = 1; break;
+  case 'Q': shutdown = 1; break;
   default:
     fprintf(stderr, "remote_bitbang got unsupported command '%c'\n",
             command);
@@ -193,7 +194,7 @@ void remote_bitbang_t::execute_command()
     }
   }
 
-  if (quit) {
+  if (shutdown) {
     // The remote disconnected.
     fprintf(stderr, "Remote end disconnected\n");
     close(client_fd);

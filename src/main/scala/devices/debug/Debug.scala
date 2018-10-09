@@ -12,6 +12,8 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
 import freechips.rocketchip.devices.debug.systembusaccess._
+import freechips.rocketchip.tile.XLen
+import lvna.{ControlPlaneIO, DsidWidth}
 
 /** Constant values used by both Debug Bus Response & Request
   */
@@ -449,7 +451,14 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       val dmactive = Bool(INPUT)
       val innerCtrl = (new DecoupledIO(new DebugInternalBundle())).flip
       val debugUnavail = Vec(nComponents, Bool()).asInput
+      val cp = new ControlPlaneIO().flip()
     })
+
+    /* ControlPlane: these read enables are required but not used */
+    val dsidRen = Wire(init = false.B)
+    val selRen = Wire(init = false.B)
+    val memBaseRen = Wire(init = false.B)
+    val memMaskRen = Wire(init = false.B)
 
 
     //--------------------------------------------------------------
@@ -760,7 +769,14 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (DMI_SBADDRESS0 << 2) -> sbAddrFields(0),
       (DMI_SBADDRESS1 << 2) -> sbAddrFields(1),
       (DMI_SBADDRESS2 << 2) -> sbAddrFields(2),
-      (DMI_SBADDRESS3 << 2) -> sbAddrFields(3) 
+      (DMI_SBADDRESS3 << 2) -> sbAddrFields(3),
+      (CP_DSID        << 2) -> Seq(RWNotify(p(DsidWidth), io.cp.dsid, io.cp.dsidUpdate, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
+      (CP_DSID_SEL    << 2) -> Seq(RWNotify(32, io.cp.sel, io.cp.selUpdate, selRen, io.cp.selWen, Some(RegFieldDesc("dsid-sel", "Hart index")))),
+      (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32, io.cp.count, RegFieldDesc("dsid-count", "The total number of dsid registers"))),
+      (CP_MEM_BASE_LO << 2) -> Seq(RWNotify(32, io.cp.memBase(31, 0), io.cp.memBaseUpdate, memBaseRen, io.cp.memBaseLoWen, Some(RegFieldDesc("mem-base lo", "Memory base for the current hart")))),
+      (CP_MEM_BASE_HI << 2) -> Seq(RWNotify(32, io.cp.memBase(63, 32), io.cp.memBaseUpdate, memBaseRen, io.cp.memBaseHiWen, Some(RegFieldDesc("mem-base hi", "Memory base for the current hart")))),
+      (CP_MEM_MASK_LO << 2) -> Seq(RWNotify(32, io.cp.memMask(31, 0), io.cp.memMaskUpdate, memMaskRen, io.cp.memMaskLoWen, Some(RegFieldDesc("mem-mask lo", "Memory mask for the current hart")))),
+      (CP_MEM_MASK_HI << 2) -> Seq(RWNotify(32, io.cp.memMask(63, 32), io.cp.memMaskUpdate, memMaskRen, io.cp.memMaskHiWen, Some(RegFieldDesc("mem-mask hi", "Memory mask for the current hart"))))
     )
 
     abstractDataMem.zipWithIndex.foreach { case (x, i) =>
@@ -1064,8 +1080,10 @@ class TLDebugModuleInnerAsync(device: Device, getNComponents: () => Int, beatByt
       // This comes from tlClk domain.
       val debugUnavail    = Vec(getNComponents(), Bool()).asInput
       val psd = new PSDTestMode().asInput
+      val cp = new ControlPlaneIO().flip()
     })
 
+    dmInner.module.io.cp <> io.cp
     dmInner.module.io.innerCtrl := FromAsyncBundle(io.innerCtrl)
     dmInner.module.io.dmactive := ~ResetCatchAndSync(clock, ~io.dmactive, "dmactiveSync", io.psd)
     dmInner.module.io.debugUnavail := io.debugUnavail
@@ -1098,8 +1116,10 @@ class TLDebugModule(beatBytes: Int)(implicit p: Parameters) extends LazyModule {
       val ctrl = new DebugCtrlBundle(nComponents)
       val dmi = new ClockedDMIIO().flip
       val psd = new PSDTestMode().asInput
+      val cp = new ControlPlaneIO().flip()
     })
 
+    dmInner.module.io.cp <> io.cp
     dmOuter.module.io.dmi <> io.dmi.dmi
     dmOuter.module.reset := io.dmi.dmiReset
     dmOuter.module.clock := io.dmi.dmiClock

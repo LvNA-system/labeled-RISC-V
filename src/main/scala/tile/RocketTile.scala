@@ -4,6 +4,7 @@
 package freechips.rocketchip.tile
 
 import Chisel._
+import chisel3.core.Input
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem.SubsystemClockCrossing
 import freechips.rocketchip.devices.tilelink._
@@ -118,6 +119,12 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
   val uncorrectable = RegInit(Bool(false))
   val halt_and_catch_fire = outer.rocketParams.hcfOnUncorrectable.option(IO(Bool(OUTPUT)))
 
+  val memBase = IO(Input(UInt(p(XLen).W)))
+  val memMask = IO(Input(UInt(p(XLen).W)))
+  outer.dcache.module.memBase := memBase
+  outer.dcache.module.memMask := memMask
+  outer.frontend.module.memBase := memBase
+  outer.frontend.module.memMask := memMask
   outer.bus_error_unit.foreach { lm =>
     lm.module.io.errors.dcache := outer.dcache.module.io.errors
     lm.module.io.errors.icache := outer.frontend.module.io.errors
@@ -143,7 +150,7 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
 
   // FIXME: currently we set the same dsid for all cores
   // take care the cache coherency flitering probe requests based on dsid
-  val dsid = UInt(0x1, width = 16)
+  val dsid = IO(chisel3.core.Input(UInt(16.W)))
   val (masterBundleOut, _) = outer.masterNode.out.unzip
   masterBundleOut.foreach { x => {
       x.a.bits.dsid := dsid
