@@ -7,15 +7,7 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.subsystem.{BaseSubsystem, HasRocketTiles, HasRocketTilesModuleImp, NTiles}
 import freechips.rocketchip.tile.XLen
 
-case object CtrlCpAddrBase extends Field[Int]
-case object CtrlCpAddrSize extends Field[Int]
-case object DsidWidth extends Field[Int]
-
-class WithControlPlane extends Config((site, here, up) => {
-  case CtrlCpAddrBase => 0x20000
-  case CtrlCpAddrSize => 0x100
-  case DsidWidth => 16
-})
+case object DsidWidth extends Field[Int](5)
 
 /**
   * From ControlPlane's side of view.
