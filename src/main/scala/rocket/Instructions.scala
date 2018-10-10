@@ -495,6 +495,7 @@ object CSRs {
   val mhpmcounter29h = 0xb9d
   val mhpmcounter30h = 0xb9e
   val mhpmcounter31h = 0xb9f
+  val simlog = 0x800
   val pfctl = 0x801
   val all = {
     val res = ArrayBuffer[Int]()

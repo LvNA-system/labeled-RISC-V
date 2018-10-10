@@ -210,6 +210,7 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle
   val inst = Vec(retireWidth, UInt(width = iLen)).asInput
   val trace = Vec(retireWidth, new TracedInstruction).asOutput
 
+  val simlog = Bool(OUTPUT)
   val prefetch_enable = Bool(OUTPUT)
 }
 
@@ -310,6 +311,9 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
   val reg_hpmcounter = io.counters.map(c => WideCounter(CSR.hpmWidth, c.inc, reset = false))
   val hpm_mask = reg_mcounteren & Mux((!usingVM).B || reg_mstatus.prv === PRV.S, delegable_counters.U, reg_scounteren)
 
+  val reg_simlog = Reg(init=Bool(false))
+  io.simlog := reg_simlog
+
   val reg_pfctl = Reg(init=UInt(1, width=32))
   io.prefetch_enable := reg_pfctl(0)
 
@@ -404,6 +408,8 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
       read_mapping += CSRs.cycle -> reg_cycle
       read_mapping += CSRs.instret -> reg_instret
     }
+
+    read_mapping += CSRs.simlog -> reg_simlog
 
     if (xLen == 32) {
       read_mapping += CSRs.mcycleh -> (reg_cycle >> 32)
@@ -783,6 +789,7 @@ class CSRFile(perfEventSets: EventSets = new EventSets(Seq()))(implicit p: Param
       }
     }
 
+    when (decoded_addr(CSRs.simlog)) { reg_simlog := wdata }
     when (decoded_addr(CSRs.pfctl)) { reg_pfctl := wdata }
   }
 
