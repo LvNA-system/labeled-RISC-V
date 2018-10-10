@@ -92,91 +92,92 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
       //                               -> s_wait_ram_arready -> s_do_ram_read -> s_merge_put_data -> s_data_write -> s_update_meta -> s_idle
       if (param.debug) {
         printf("time: %d [L2Cache] state = %x\n", GTimer(), state)
-//         printf("""
-// time: %d [L2Cache] in.a.opcode  = %x, 
-//                    in.a.param   = %x,
-//                    in.a.size    = %x, 
-//                    in.a.source  = %x,
-//                    in.a.address = %x,
-//                    in.a.mask    = %x,
-//                    in.a.data    = %x,
-//                    in.a.valid   = %x,
-//                    in.a.ready   = %x
+        printf("""
+time: %d [L2Cache] in.a.opcode  = %x, 
+                   in.a.param   = %x,
+                   in.a.size    = %x, 
+                   in.a.source  = %x,
+                   in.a.address = %x,
+                   in.a.mask    = %x,
+                   in.a.data    = %x,
+                   in.a.valid   = %x,
+                   in.a.ready   = %x
                    
-//                    in.d.opcode  = %x, 
-//                    in.d.param   = %x,
-//                    in.d.size    = %x, 
-//                    in.d.source  = %x,
-//                    in.d.sink    = %x,
-//                    in.d.data    = %x,
-//                    in.d.valid   = %x,
-//                    in.d.ready   = %x
-// """, 
-//                    GTimer(), 
-//                    in.a.bits.opcode,
-//                    in.a.bits.param, 
-//                    in.a.bits.size, 
-//                    in.a.bits.source, 
-//                    in.a.bits.address, 
-//                    in.a.bits.mask, 
-//                    in.a.bits.data, 
-//                    in.a.valid, 
-//                    in.a.ready, 
+                   in.d.opcode  = %x, 
+                   in.d.param   = %x,
+                   in.d.size    = %x, 
+                   in.d.source  = %x,
+                   in.d.sink    = %x,
+                   in.d.data    = %x,
+                   in.d.valid   = %x,
+                   in.d.ready   = %x
+""", 
+                   GTimer(), 
+                   in.a.bits.opcode,
+                   in.a.bits.param, 
+                   in.a.bits.size, 
+                   in.a.bits.source, 
+                   in.a.bits.address, 
+                   in.a.bits.mask, 
+                   in.a.bits.data, 
+                   in.a.valid, 
+                   in.a.ready, 
 
-//                    in.d.bits.opcode, 
-//                    in.d.bits.param, 
-//                    in.d.bits.size, 
-//                    in.d.bits.source, 
-//                    in.d.bits.sink, 
-//                    in.d.bits.data, 
-//                    in.d.valid, 
-//                    in.d.ready
-//                    )
-//         printf("""
-// time: %d [L2Cache] out.a.opcode  = %x, 
-//                    out.a.param   = %x,
-//                    out.a.size    = %x, 
-//                    out.a.source  = %x,
-//                    out.a.address = %x,
-//                    out.a.mask    = %x,
-//                    out.a.data    = %x,
-//                    out.a.valid   = %x,
-//                    out.a.ready   = %x
+                   in.d.bits.opcode, 
+                   in.d.bits.param, 
+                   in.d.bits.size, 
+                   in.d.bits.source, 
+                   in.d.bits.sink, 
+                   in.d.bits.data, 
+                   in.d.valid, 
+                   in.d.ready
+                   )
+        printf("""
+time: %d [L2Cache] out.a.opcode  = %x, 
+                   out.a.param   = %x,
+                   out.a.size    = %x, 
+                   out.a.source  = %x,
+                   out.a.address = %x,
+                   out.a.mask    = %x,
+                   out.a.data    = %x,
+                   out.a.valid   = %x,
+                   out.a.ready   = %x
                    
-//                    out.d.opcode  = %x, 
-//                    out.d.param   = %x,
-//                    out.d.size    = %x, 
-//                    out.d.source  = %x,
-//                    out.d.sink    = %x,
-//                    out.d.data    = %x,
-//                    out.d.valid   = %x,
-//                    out.d.ready   = %x
-// """, 
-//                    GTimer(), 
-//                    out.a.bits.opcode,
-//                    out.a.bits.param, 
-//                    out.a.bits.size, 
-//                    out.a.bits.source, 
-//                    out.a.bits.address, 
-//                    out.a.bits.mask, 
-//                    out.a.bits.data, 
-//                    out.a.valid, 
-//                    out.a.ready, 
+                   out.d.opcode  = %x, 
+                   out.d.param   = %x,
+                   out.d.size    = %x, 
+                   out.d.source  = %x,
+                   out.d.sink    = %x,
+                   out.d.data    = %x,
+                   out.d.valid   = %x,
+                   out.d.ready   = %x
+""", 
+                   GTimer(), 
+                   out.a.bits.opcode,
+                   out.a.bits.param, 
+                   out.a.bits.size, 
+                   out.a.bits.source, 
+                   out.a.bits.address, 
+                   out.a.bits.mask, 
+                   out.a.bits.data, 
+                   out.a.valid, 
+                   out.a.ready, 
 
-//                    out.d.bits.opcode, 
-//                    out.d.bits.param, 
-//                    out.d.bits.size, 
-//                    out.d.bits.source, 
-//                    out.d.bits.sink, 
-//                    out.d.bits.data, 
-//                    out.d.valid, 
-//                    out.d.ready
-//                    )
+                   out.d.bits.opcode, 
+                   out.d.bits.param, 
+                   out.d.bits.size, 
+                   out.d.bits.source, 
+                   out.d.bits.sink, 
+                   out.d.bits.data, 
+                   out.d.valid, 
+                   out.d.ready
+                   )
       }
       val in_opcode = in.a.bits.opcode
       val in_addr = in.a.bits.address
       val in_id   = in.a.bits.source
-      val in_len  = ((1.U << in.a.bits.size) >> innerBeatBits) - 1.U  // #word, i.e., arlen in AXI
+      val in_len_shift = in.a.bits.size >= innerBeatBits.U
+      val in_len  = Mux(in_len_shift, ((1.U << in.a.bits.size) >> innerBeatBits) - 1.U, 0.U)  // #word, i.e., arlen in AXI
       val in_data = in.a.bits.data
       val in_data_mask = in.a.bits.mask
 
@@ -193,11 +194,15 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
       val id = Reg(UInt(innerIdWidth.W))
       val opcode = Reg(UInt(3.W))
       val size_reg = Reg(UInt(width=in.a.bits.params.sizeBits))
-      val inner_end_beat = Reg(UInt(4.W))
+      
       val ren = RegInit(N)
       val wen = RegInit(N)
 
-      val gather_curr_beat = RegInit(0.asUInt(log2Ceil(innerDataBeats).W))
+      val start_beat = in_addr(innerBeatMSB, innerBeatLSB)
+      val inner_end_beat_reg = Reg(UInt(4.W))
+      val inner_end_beat = Mux(state === s_idle, start_beat + in_len, inner_end_beat_reg)
+      val gather_curr_beat_reg = RegInit(0.asUInt(log2Ceil(innerDataBeats).W))
+      val gather_curr_beat = Mux(state === s_idle, start_beat, gather_curr_beat_reg)
       val gather_last_beat = gather_curr_beat === inner_end_beat
       val merge_curr_beat = RegInit(0.asUInt(log2Ceil(innerDataBeats).W))
       val merge_last_beat = merge_curr_beat === inner_end_beat
@@ -218,14 +223,10 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
           opcode := in_opcode
           size_reg := in.a.bits.size
 
-          val start_beat = in_addr(innerBeatMSB, innerBeatLSB)
-          //assert(start_beat === 0.U, "start beat != 0")
-
-          gather_curr_beat := start_beat
+          // gather_curr_beat_reg := start_beat
           merge_curr_beat := start_beat
           resp_curr_beat := start_beat
-          inner_end_beat := start_beat + in_len
-          //assert(in_len === 7.U, "in_len != 7")
+          inner_end_beat_reg := start_beat + in_len
 
           state := s_tag_read
         } .elsewhen (in_write_req) {
@@ -236,14 +237,10 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
           opcode := in_opcode
           size_reg := in.a.bits.size
 
-          val start_beat = in_addr(innerBeatMSB, innerBeatLSB)
-          //assert(start_beat === 0.U, "start beat != 0")
-
-          gather_curr_beat := start_beat
+          // gather_curr_beat_reg := start_beat
           merge_curr_beat := start_beat
           resp_curr_beat := start_beat
-          inner_end_beat := start_beat + in_len
-          //assert(in_len === 7.U, "in_len != 7")
+          inner_end_beat_reg := start_beat + in_len
 
           state := s_gather_write_data
         } .elsewhen (in.b.fire() || in.c.fire() || in.e.fire()) {
@@ -260,8 +257,17 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
       val put_data_mask = Reg(init=Vec.fill(outerDataBeats)(Fill(outerBeatBytes, 0.U)))
       val wdata_recv_ready = state === s_gather_write_data
       // when (state === s_gather_write_data && in_write_req) {
-      when (in_write_req) {
-        gather_curr_beat := gather_curr_beat + 1.U
+      // tilelink receives the first data beat when address handshake
+      // which is different with axi
+      when (in_write_req || (state === s_gather_write_data && in_recv_fire)) {
+        when (state === s_idle) {
+          gather_curr_beat_reg := start_beat + 1.U
+        } .elsewhen (state === s_gather_write_data) {
+          gather_curr_beat_reg := gather_curr_beat_reg + 1.U
+        } .otherwise {
+          assert(N, "state error")
+        }
+
         for (i <- 0 until split) {
           put_data_buf((gather_curr_beat << splitBits) + i.U) := in_data(outerBeatSize * (i + 1) - 1, outerBeatSize * i)
           put_data_mask((gather_curr_beat << splitBits) + i.U) := in_data_mask(outerBeatBytes * (i + 1) - 1, outerBeatBytes * i)
@@ -279,6 +285,10 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
       // s_send_bresp:
       // send bresp, end write transaction
       val in_write_ok = state === s_send_bresp
+      if (param.debug) {
+          printf("time: %d [L2Cache] edgeIn.d id: %x size_reg: %x gather_curr_beat %x inner_end_beat %x\n",
+            GTimer(), id, size_reg, gather_curr_beat, inner_end_beat)
+      }
 
       when (state === s_send_bresp && in_send_ok) {
         state := s_tag_read
@@ -600,7 +610,7 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
       if (param.debug) {
           printf("time: %d [L2Cache] edgeIn.d id: %x size_reg: %x resp_curr_beat %x data: %x\n",
             GTimer(), id, size_reg, resp_curr_beat, resp_data(resp_curr_beat))
-        }
+      }
       in.d.bits.opcode  := Mux(in_read_ok, TLMessages.AccessAckData, TLMessages.AccessAck)
       in.d.bits.param   := UInt(0)
       in.d.bits.size    := size_reg
