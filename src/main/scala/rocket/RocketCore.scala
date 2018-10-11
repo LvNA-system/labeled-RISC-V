@@ -703,6 +703,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   csr.io.counters foreach { c => c.inc := RegNext(perfEvents.evaluate(c.eventSel)) }
 
   val t = csr.io.trace(0)
+  when (csr.io.simlog) {
   if (enableCommitLog) {
     val rd = wb_waddr
     val wfd = wb_ctrl.wfd
@@ -738,6 +739,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
         wb_reg_inst(24,20), Reg(next=Reg(next=ex_rs(1))),
         t.insn, t.insn)
     }
+  }
   }
 
   PlusArg.timeout(
