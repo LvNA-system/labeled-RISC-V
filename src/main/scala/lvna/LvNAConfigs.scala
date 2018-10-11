@@ -4,7 +4,6 @@ package freechips.rocketchip.system
 
 import freechips.rocketchip.config.{Config, Field}
 import freechips.rocketchip.subsystem._
-import lvna.WithControlPlane
 import uncore.pard.BucketConfig
 
 case object UseEmu extends Field[Boolean](false)
@@ -24,7 +23,6 @@ class LvNAConfigemu extends Config(
   ++ new WithNoMMIOPort
   ++ new WithJtagDTM
   ++ new WithDebugSBA
-  ++ new WithControlPlane
   ++ new BucketConfig
   ++ new BaseConfig)
 
@@ -47,7 +45,6 @@ class LvNAFPGAConfigzcu102 extends Config(
   ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
-  ++ new WithControlPlane
   ++ new BucketConfig
   ++ new BaseFPGAConfig)
 
