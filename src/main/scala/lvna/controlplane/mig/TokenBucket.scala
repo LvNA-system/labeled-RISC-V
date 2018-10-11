@@ -73,4 +73,13 @@ class TokenBucket(implicit p: Parameters) extends Module {
     threshold := 0.U
   }
   io.enable := enable
+
+  val logToken = false
+  if (logToken) {
+    when(counter === 1.U) {
+      printf("tokenAdd inc %d nTokens %d, enable %d r(%d,%d), w(%d,%d)\n", bucketInc, RegNext(nTokens), RegNext(enable),
+        RegNext(io.read.ready), RegNext(io.read.valid), RegNext(io.write.ready), RegNext(io.write.valid)
+      )
+    }
+  }
 }

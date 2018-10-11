@@ -29,6 +29,9 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   out.a.valid := in.a.valid && enable
   out.c.valid := in.c.valid && enable
 
+  in.a.ready := out.a.ready && enable
+  in.c.ready := out.c.ready && enable
+
   val (op_a, op_c) = (in.a.bits.opcode, in.c.bits.opcode)
   val (size_a, size_c) = (in.a.bits.size, in.c.bits.size)
 
