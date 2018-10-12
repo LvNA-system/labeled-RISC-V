@@ -3,6 +3,7 @@
 package freechips.rocketchip.devices.debug
 
 import Chisel._
+import chisel3.core.WireInit
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.regmapper._
@@ -770,13 +771,16 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (DMI_SBADDRESS1 << 2) -> sbAddrFields(1),
       (DMI_SBADDRESS2 << 2) -> sbAddrFields(2),
       (DMI_SBADDRESS3 << 2) -> sbAddrFields(3),
-      (CP_DSID        << 2) -> Seq(RWNotify(p(DsidWidth), io.cp.dsid, io.cp.dsidUpdate, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
+      (CP_DSID        << 2) -> Seq(RWNotify(p(DsidWidth), io.cp.dsid, io.cp.updateData, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(32, io.cp.sel, io.cp.selUpdate, selRen, io.cp.selWen, Some(RegFieldDesc("dsid-sel", "Hart index")))),
       (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32, io.cp.count, RegFieldDesc("dsid-count", "The total number of dsid registers"))),
-      (CP_MEM_BASE_LO << 2) -> Seq(RWNotify(32, io.cp.memBase(31, 0), io.cp.memBaseUpdate, memBaseRen, io.cp.memBaseLoWen, Some(RegFieldDesc("mem-base lo", "Memory base for the current hart")))),
-      (CP_MEM_BASE_HI << 2) -> Seq(RWNotify(32, io.cp.memBase(63, 32), io.cp.memBaseUpdate, memBaseRen, io.cp.memBaseHiWen, Some(RegFieldDesc("mem-base hi", "Memory base for the current hart")))),
-      (CP_MEM_MASK_LO << 2) -> Seq(RWNotify(32, io.cp.memMask(31, 0), io.cp.memMaskUpdate, memMaskRen, io.cp.memMaskLoWen, Some(RegFieldDesc("mem-mask lo", "Memory mask for the current hart")))),
-      (CP_MEM_MASK_HI << 2) -> Seq(RWNotify(32, io.cp.memMask(63, 32), io.cp.memMaskUpdate, memMaskRen, io.cp.memMaskHiWen, Some(RegFieldDesc("mem-mask hi", "Memory mask for the current hart"))))
+      (CP_MEM_BASE_LO << 2) -> Seq(RWNotify(32, io.cp.memBase(31, 0), io.cp.updateData, memBaseRen, io.cp.memBaseLoWen, Some(RegFieldDesc("mem-base lo", "Memory base for the current hart")))),
+      (CP_MEM_BASE_HI << 2) -> Seq(RWNotify(32, io.cp.memBase(63, 32), io.cp.updateData, memBaseRen, io.cp.memBaseHiWen, Some(RegFieldDesc("mem-base hi", "Memory base for the current hart")))),
+      (CP_MEM_MASK_LO << 2) -> Seq(RWNotify(32, io.cp.memMask(31, 0), io.cp.updateData, memMaskRen, io.cp.memMaskLoWen, Some(RegFieldDesc("mem-mask lo", "Memory mask for the current hart")))),
+      (CP_MEM_MASK_HI << 2) -> Seq(RWNotify(32, io.cp.memMask(63, 32), io.cp.updateData, memMaskRen, io.cp.memMaskHiWen, Some(RegFieldDesc("mem-mask hi", "Memory mask for the current hart")))),
+      (CP_BUCKET_FREQ << 2) -> Seq(RWNotify(32, io.cp.bucket.freq, io.cp.updateData, WireInit(false.B), io.cp.bktFreqWen, Some(RegFieldDesc("bucket-freq", "Token Bucket regain frequency for the current hart")))),
+      (CP_BUCKET_SIZE << 2) -> Seq(RWNotify(32, io.cp.bucket.size, io.cp.updateData, WireInit(false.B), io.cp.bktSizeWen, Some(RegFieldDesc("bucket-freq", "Token Bucket size for the current hart")))),
+      (CP_BUCKET_INC  << 2) -> Seq(RWNotify(32, io.cp.bucket.inc,  io.cp.updateData, WireInit(false.B), io.cp.bktIncWen,  Some(RegFieldDesc("bucket-freq", "Token Bucket regain step size for the current hart"))))
     )
 
     abstractDataMem.zipWithIndex.foreach { case (x, i) =>

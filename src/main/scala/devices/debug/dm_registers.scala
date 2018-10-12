@@ -334,6 +334,12 @@ object DMI_RegAddrs {
   def CP_MEM_MASK_LO = 0x46
 
   def CP_MEM_MASK_HI = 0x47
+
+  def CP_BUCKET_FREQ = 0x48
+
+  def CP_BUCKET_SIZE = 0x49
+
+  def CP_BUCKET_INC = 0x4a
 }
 
 class DMSTATUSFields extends Bundle {

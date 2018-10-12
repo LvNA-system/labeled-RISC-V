@@ -1,7 +1,6 @@
 package uncore.pard
 
 import chisel3._
-import chisel3.util._
 
 import freechips.rocketchip.config._
 
@@ -31,13 +30,13 @@ class TokenBucket(implicit p: Parameters) extends Module {
     val enable = Output(Bool())
   })
 
-  // val bucketSize = io.bucket.size
-  // val bucketFreq = io.bucket.freq
-  // val bucketInc = io.bucket.inc
-  val bucketSize = 32.U
+  val bucketSize = io.bucket.size
+  val bucketFreq = io.bucket.freq
+  val bucketInc = io.bucket.inc
+  // val bucketSize = 32.U
   // we bypass tokenBucket by default
-  val bucketFreq = 0.U
-  val bucketInc = 32.U
+  // val bucketFreq = 0.U
+  // val bucketInc = 32.U
 
   val nTokensNext = Wire(UInt())
   val nTokens = RegNext(
@@ -74,4 +73,13 @@ class TokenBucket(implicit p: Parameters) extends Module {
     threshold := 0.U
   }
   io.enable := enable
+
+  val logToken = false
+  if (logToken) {
+    when(counter === 1.U) {
+      printf("tokenAdd inc %d nTokens %d, enable %d r(%d,%d), w(%d,%d)\n", bucketInc, RegNext(nTokens), RegNext(enable),
+        RegNext(io.read.ready), RegNext(io.read.valid), RegNext(io.write.ready), RegNext(io.write.valid)
+      )
+    }
+  }
 }
