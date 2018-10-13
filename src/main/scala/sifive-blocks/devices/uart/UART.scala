@@ -229,7 +229,8 @@ trait HasUARTTopModuleContents extends HasUARTParameters with HasRegMap {
   printer.io.data := txm.io.in.bits
 
   rxm.io.en := rxen
-  rxm.io.in := io.port.rxd
+  // disable rx for emulator
+  rxm.io.in := Bool(true)
   rxq.io.enq <> rxm.io.out
   rxm.io.div := div
 
