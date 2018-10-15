@@ -127,8 +127,8 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
   val memMask = IO(Input(UInt(p(XLen).W)))
   outer.dcache.module.memBase := memBase
   outer.dcache.module.memMask := memMask
-  outer.frontend.module.memBase := memBase
-  outer.frontend.module.memMask := memMask
+  outer.frontend.module.io.memBase := memBase
+  outer.frontend.module.io.memMask := memMask
   outer.bus_error_unit.foreach { lm =>
     lm.module.io.errors.dcache := outer.dcache.module.io.errors
     lm.module.io.errors.icache := outer.frontend.module.io.errors

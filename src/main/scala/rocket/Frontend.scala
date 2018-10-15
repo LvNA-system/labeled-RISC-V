@@ -5,7 +5,6 @@ package freechips.rocketchip.rocket
 
 import Chisel._
 import Chisel.ImplicitConversions._
-import chisel3.core.{Input, withReset}
 import chisel3.experimental._
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem._
@@ -69,6 +68,8 @@ class FrontendBundle(val outer: Frontend) extends CoreBundle()(outer.p)
   val cpu = new FrontendIO().flip
   val ptw = new TLBPTWIO()
   val errors = new ICacheErrors
+  val memBase = UInt(INPUT, p(XLen).W)
+  val memMask = UInt(INPUT, p(XLen).W)
 }
 
 @chiselName
@@ -149,10 +150,8 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
   icache.io.req.valid := s0_valid
   icache.io.req.bits.addr := io.cpu.npc
   icache.io.invalidate := io.cpu.flush_icache
-  val memBase = IO(Input(UInt(p(XLen).W)))
-  val memMask = IO(Input(UInt(p(XLen).W)))
   val isMMIO = tlb.io.resp.paddr < 0x100000000L.U
-  val mappedAddr = (tlb.io.resp.paddr & memMask) | memBase
+  val mappedAddr = (tlb.io.resp.paddr & io.memMask) | io.memBase
   icache.io.s1_paddr := Mux(isMMIO, tlb.io.resp.paddr, mappedAddr)
   icache.io.s2_vaddr := s2_pc
   icache.io.s1_kill := s2_redirect || tlb.io.resp.miss || s2_replay
