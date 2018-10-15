@@ -9,7 +9,6 @@ import freechips.rocketchip.rocket._
 import freechips.rocketchip.util._
 import util._
 
-case object BuildCore extends Field[Parameters => CoreModule with HasCoreIO]
 case object XLen extends Field[Int]
 
 // These parameters can be varied per-core
@@ -21,6 +20,7 @@ trait CoreParams {
   val useAtomics: Boolean
   val useAtomicsOnlyForIO: Boolean
   val useCompressed: Boolean
+  val useSCIE: Boolean
   val mulDiv: Option[MulDivParams]
   val fpu: Option[FPUParams]
   val fetchWidth: Int
@@ -39,6 +39,7 @@ trait CoreParams {
   val mtvecInit: Option[BigInt]
   val mtvecWritable: Boolean
   val tileControlAddr: Option[BigInt]
+  def customCSRs(implicit p: Parameters): CustomCSRs = new CustomCSRs
 
   def instBytes: Int = instBits / 8
   def fetchBytes: Int = fetchWidth * instBytes
@@ -56,6 +57,7 @@ trait HasCoreParameters extends HasTileParameters {
   val usingAtomicsOnlyForIO = coreParams.useAtomicsOnlyForIO
   val usingAtomicsInCache = usingAtomics && !usingAtomicsOnlyForIO
   val usingCompressed = coreParams.useCompressed
+  val usingSCIE = coreParams.useSCIE
 
   val retireWidth = coreParams.retireWidth
   val fetchWidth = coreParams.fetchWidth

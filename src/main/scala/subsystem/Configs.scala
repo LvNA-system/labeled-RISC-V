@@ -22,14 +22,15 @@ class BaseSubsystemConfig extends Config ((site, here, up) => {
   case XLen => 64 // Applies to all cores
   case MaxHartIdBits => log2Up(site(RocketTilesKey).size)
   case NTiles => site(RocketTilesKey).size
-  case BuildCore => (p: Parameters) => new Rocket()(p)
   // Interconnect parameters
   case SystemBusKey => SystemBusParams(beatBytes = site(XLen)/8, blockBytes = site(CacheBlockBytes))
-  case PeripheryBusKey => PeripheryBusParams(beatBytes = site(XLen)/8, blockBytes = site(CacheBlockBytes))
+  case PeripheryBusKey => PeripheryBusParams(
+    beatBytes = site(XLen)/8,
+    blockBytes = site(CacheBlockBytes),
+    errorDevice = Some(DevNullParams(List(AddressSet(0x3000, 0xfff)), maxAtomic=site(XLen)/8, maxTransfer=4096)))
   case MemoryBusKey => MemoryBusParams(beatBytes = site(XLen)/8, blockBytes = site(CacheBlockBytes))
   case FrontBusKey => FrontBusParams(beatBytes = site(XLen)/8, blockBytes = site(CacheBlockBytes))
   // Additional device Parameters
-  case ErrorParams => ErrorParams(Seq(AddressSet(0x3000, 0xfff)), maxAtomic=site(XLen)/8, maxTransfer=4096)
   case BootROMParams => BootROMParams(contentFileName = "./bootrom/bootrom.img")
   case DebugModuleParams => DefaultDebugModuleParams(site(XLen))
   case CLINTKey => Some(CLINTParams())
