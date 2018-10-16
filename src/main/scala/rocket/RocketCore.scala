@@ -567,6 +567,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   csr.io.rw.addr := wb_reg_inst(31,20)
   csr.io.rw.cmd := Mux(wb_reg_valid, wb_ctrl.csr, CSR.N)
   csr.io.rw.wdata := wb_reg_wdata
+  io.procdsid := csr.io.procdsid
   io.trace := csr.io.trace
   io.prefetch_enable := csr.io.prefetch_enable
 

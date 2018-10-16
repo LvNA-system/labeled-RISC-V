@@ -103,6 +103,7 @@ trait HasCoreIO extends HasTileParameters {
     val ptw = new DatapathPTWIO().flip
     val fpu = new FPUCoreIO().flip
     val rocc = new RoCCCoreIO().flip
+    val procdsid = UInt(OUTPUT, p(ProcDsidBits))
 
     val ila = new ILABundle()
     val prefetch_enable = Bool(OUTPUT)
