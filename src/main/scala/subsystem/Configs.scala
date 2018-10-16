@@ -34,6 +34,7 @@ class BaseSubsystemConfig extends Config ((site, here, up) => {
   case DebugModuleParams => DefaultDebugModuleParams(site(XLen))
   case CLINTKey => Some(CLINTParams())
   case PLICKey => Some(PLICParams())
+  case LDomDsidBits => if (log2Up(site(RocketTilesKey).size) < 2) 2 else log2Up(site(RocketTilesKey).size)
   case ProcDsidBits => 3
 })
 

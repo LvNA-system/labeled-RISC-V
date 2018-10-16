@@ -13,6 +13,7 @@ import scala.collection.mutable.LinkedHashMap
 import Instructions._
 
 case object ProcDsidBits extends Field[Int]
+case object LDomDsidBits extends Field[Int]
 
 class MStatus extends Bundle {
   // not truly part of mstatus, but convenient
