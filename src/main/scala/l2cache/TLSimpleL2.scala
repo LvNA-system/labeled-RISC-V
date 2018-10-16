@@ -21,6 +21,63 @@ case class TLL2CacheParams(
   debug: Boolean = false
 )
 
+abstract class SeqReplacementPolicy {
+  def access(set: UInt, ren: Bool): Unit
+  def update(valid: Bool, hit: Bool, set: UInt, way: UInt): Unit
+  def way: UInt
+}
+
+// class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, s0_dsid: UInt, s1_dsid: UInt, s1_valid_way: UInt, cache_config: CachePartitionConfigIO) extends SeqReplacementPolicy {
+class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, s0_dsid: UInt, s1_dsid: UInt) extends SeqReplacementPolicy {
+  val state = SeqMem(n_sets, Bits(width = n_ways))
+  val curr_state = Wire(Bits(width = n_ways))
+  val next_state = Wire(Bits())
+
+  val dsids = SeqMem(n_sets, Vec(n_ways, UInt(width = dsid_bits)))
+  val set_dsids = Wire(Vec(n_ways, UInt(width = dsid_bits)))
+
+  /*
+  cache_config.p_dsid := s0_dsid
+  val curr_mask = Mux(cache_config.waymask === 0.U,
+    UInt((BigInt(1) << n_ways) - 1), cache_config.waymask)
+  */
+  val curr_mask = UInt((BigInt(1) << n_ways) - 1)
+
+  val target_way = Mux((curr_state & curr_mask).orR, PriorityEncoder(curr_state & curr_mask),
+    Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
+
+
+  def access(set: UInt, ren: Bool) = {
+    curr_state := state.read(set, ren)
+    set_dsids := dsids.read(set, ren)
+  }
+
+  def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
+    val update_way = Mux(hit, way, target_way)
+
+    /*
+    cache_config.access := valid
+    cache_config.miss := valid && !hit
+    cache_config.curr_dsid := s1_dsid
+    cache_config.replaced_dsid := set_dsids(update_way)
+    cache_config.victim_way_valid := s1_valid_way(update_way)
+    */
+
+    val wmask = (0 until n_ways).map(i => update_way === UInt(i))
+    when (valid) {
+      when (!(curr_state & curr_mask).orR) {
+        next_state := curr_state | curr_mask
+      } .otherwise {
+        next_state := curr_state.bitSet(update_way, Bool(false))
+      }
+      state.write(set, next_state)
+      when (!hit) { dsids.write(set, Vec.fill(n_ways)(s1_dsid), wmask) }
+    }
+  }
+
+  def way = target_way
+}
+
 // ============================== DCache ==============================
 class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends LazyModule
 {
@@ -92,8 +149,10 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
       //                               -> s_wait_ram_arready -> s_do_ram_read -> s_merge_put_data -> s_data_write -> s_update_meta -> s_idle
       if (param.debug) {
         printf("time: %d [L2Cache] state = %x\n", GTimer(), state)
+        when (in.a.fire()) {
         printf("""
 time: %d [L2Cache] in.a.opcode  = %x, 
+                   in.a.dsid   = %x,
                    in.a.param   = %x,
                    in.a.size    = %x, 
                    in.a.source  = %x,
@@ -114,6 +173,7 @@ time: %d [L2Cache] in.a.opcode  = %x,
 """, 
                    GTimer(), 
                    in.a.bits.opcode,
+                   in.a.bits.dsid,
                    in.a.bits.param, 
                    in.a.bits.size, 
                    in.a.bits.source, 
@@ -132,8 +192,12 @@ time: %d [L2Cache] in.a.opcode  = %x,
                    in.d.valid, 
                    in.d.ready
                    )
+        }
+
+        when (out.a.fire()) {
         printf("""
 time: %d [L2Cache] out.a.opcode  = %x, 
+                   out.a.dsid   = %x,
                    out.a.param   = %x,
                    out.a.size    = %x, 
                    out.a.source  = %x,
@@ -154,6 +218,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
 """, 
                    GTimer(), 
                    out.a.bits.opcode,
+                   out.a.bits.dsid,
                    out.a.bits.param, 
                    out.a.bits.size, 
                    out.a.bits.source, 
@@ -172,8 +237,11 @@ time: %d [L2Cache] out.a.opcode  = %x,
                    out.d.valid, 
                    out.d.ready
                    )
+        }
       }
+
       val in_opcode = in.a.bits.opcode
+      val in_dsid = in.a.bits.dsid
       val in_addr = in.a.bits.address
       val in_id   = in.a.bits.source
       val in_len_shift = in.a.bits.size >= innerBeatBits.U
@@ -193,6 +261,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val addr = Reg(UInt(addrWidth.W))
       val id = Reg(UInt(innerIdWidth.W))
       val opcode = Reg(UInt(3.W))
+      val dsid = Reg(UInt(16.W))
       val size_reg = Reg(UInt(width=in.a.bits.params.sizeBits))
       
       val ren = RegInit(N)
@@ -221,6 +290,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
           addr := in_addr
           id := in_id
           opcode := in_opcode
+          dsid := in_dsid
           size_reg := in.a.bits.size
 
           // gather_curr_beat_reg := start_beat
@@ -235,6 +305,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
           addr := in_addr
           id := in_id
           opcode := in_opcode
+          dsid := in_dsid
           size_reg := in.a.bits.size
 
           // gather_curr_beat_reg := start_beat
@@ -311,7 +382,6 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val db_rdata = db_array.read(tag_ridx, !db_array_wen)
       val tag_rdata = tag_array.read(tag_ridx, !tag_wen)
 
-      val idx = addr(indexMSB, indexLSB)
       val tag = addr(tagMSB, tagLSB)
 
       def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
@@ -326,11 +396,31 @@ time: %d [L2Cache] out.a.opcode  = %x,
       hit_way := Bits(0)
       (0 until nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
 
+      /*
       // use random replacement
       val lfsr = LFSR16(state === s_update_meta && !hit)
       val repl_way_enable = (state === s_idle && raddr_fire) || (state === s_send_bresp && in_send_ok)
       val repl_way = RegEnable(next = if(nWays == 1) UInt(0) else lfsr(log2Ceil(nWays) - 1, 0),
         init = 0.U, enable = repl_way_enable)
+      */
+
+      // use Round-Robin with cache partition
+      val s0_dsid = Mux(state === s_idle && in_read_req, in_dsid, dsid)
+      val replacer = new DsidRR(nSets, nWays, 16, s0_dsid, dsid)
+      val idx = tag_raddr(indexMSB, indexLSB)
+      replacer.access(idx, state =/= s_tag_read)
+      replacer.update(state === s_tag_read, hit, idx, hit_way)
+
+      val latched_repl_way = RegEnable(next = replacer.way,
+        init = 0.U, enable = state === s_tag_read)
+      val repl_way = Mux(state === s_tag_read, replacer.way, latched_repl_way)(log2Ceil(nWays) - 1, 0)
+      if (param.debug) {
+        when (state === s_tag_read) {
+          printf("time: %d [Update] hit: %d idx: %x curr_state: %x hit_way: %x repl_way: %x\n",
+            GTimer(), hit, idx, replacer.curr_state, hit_way, repl_way)
+        }
+      }
+
 
       // valid and dirty
       val need_writeback = vb_rdata(repl_way) && db_rdata(repl_way)
@@ -575,6 +665,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val out_opcode = Mux(out_read_valid, TLMessages.Get, TLMessages.PutFullData)
 
       out.a.bits.opcode  := out_opcode
+      out.a.bits.dsid    := dsid
       out.a.bits.param   := UInt(0)
       out.a.bits.size    := outerBurstLen.U
       out.a.bits.source  := 0.asUInt(outerIdWidth.W)
