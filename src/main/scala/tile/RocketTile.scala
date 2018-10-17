@@ -4,7 +4,7 @@
 package freechips.rocketchip.tile
 
 import Chisel._
-import chisel3.core.Input
+import chisel3.core.{Input, Output}
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem.SubsystemClockCrossing
 import freechips.rocketchip.devices.tilelink._
@@ -13,8 +13,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.util._
-import freechips.rocketchip.pard.ControlledCrossing
-import lvna.TokenBucketNode
+import lvna.{TokenBucketNode, TrafficWidth}
 import uncore.pard.BucketBundle
 
 case class RocketTileParams(
@@ -164,6 +163,9 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
 
   val bucketParam = IO(Input(new BucketBundle))
   outer.tokenBucket.module.bucketParam := bucketParam
+
+  val traffic = IO(Output(UInt(p(TrafficWidth).W)))
+  traffic := outer.tokenBucket.module.traffic
 
   val dcachePrefetcher = Module(new Prefetcher)
   dcachePrefetcher.io.enablePrefetch := core.io.prefetch_enable

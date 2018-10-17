@@ -1,8 +1,8 @@
 package uncore.pard
 
 import chisel3._
-
 import freechips.rocketchip.config._
+import lvna.TrafficWidth
 
 
 class BucketBundle(implicit p: Parameters) extends Bundle {
@@ -19,6 +19,8 @@ class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
   val valid = Input(Bool())
   val ready = Input(Bool())
   val bits  = Input(gen.cloneType)
+
+  def fire = valid && ready
 }
 
 
@@ -28,6 +30,7 @@ class TokenBucket(implicit p: Parameters) extends Module {
     val write = new ReadyValidMonitor(UInt(p(BucketBits).data.W))
     val bucket = Input(new BucketBundle)
     val enable = Output(Bool())
+    val traffic = Output(UInt(p(TrafficWidth).W))
   })
 
   val bucketSize = io.bucket.size
@@ -42,6 +45,7 @@ class TokenBucket(implicit p: Parameters) extends Module {
   val nTokens = RegNext(
     Mux(nTokensNext < bucketSize, nTokensNext, bucketSize),
     bucketSize)
+  val traffic = RegInit(0.U(p(TrafficWidth).W))
 
   val counterNext = Wire(UInt())
   val counter = RegNext(counterNext, 0.U(p(BucketBits).freq.W))
@@ -73,6 +77,14 @@ class TokenBucket(implicit p: Parameters) extends Module {
     threshold := 0.U
   }
   io.enable := enable
+
+  when (io.read.fire && io.write.fire) {
+    traffic := traffic + 2.U
+  }.elsewhen (io.read.fire || io.write.fire) {
+    traffic := traffic + 1.U
+  }
+
+  io.traffic := traffic
 
   val logToken = false
   if (logToken) {

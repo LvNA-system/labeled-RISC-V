@@ -8,7 +8,8 @@ import freechips.rocketchip.subsystem.{BaseSubsystem, HasRocketTiles, HasRocketT
 import freechips.rocketchip.tile.XLen
 import uncore.pard.{BucketBits, BucketBitsParams, BucketBundle}
 
-case object DsidWidth extends Field[Int](5)
+case object DsidWidth extends Field[Int](16)
+case object TrafficWidth extends Field[Int](32)
 
 /**
   * From ControlPlane's side of view.
@@ -17,6 +18,7 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle {
   private val dsidWidth = p(DsidWidth).W
   private val indexWidth = 32.W
   val dsid          = Output(UInt(dsidWidth))
+  val traffic       = Output(UInt(p(TrafficWidth).W))
   val updateData    = Input(UInt(32.W))
   val dsidWen       = Input(Bool())
   val memBase       = Output(UInt(p(XLen).W))
@@ -48,6 +50,7 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val memBases = Output(Vec(nTiles, UInt(memAddrWidth.W)))
       val memMasks = Output(Vec(nTiles, UInt(memAddrWidth.W)))
       val bucketParams = Output(Vec(nTiles, new BucketBundle()))
+      val traffics = Input(Vec(nTiles, UInt(p(TrafficWidth).W)))
       val cp = new ControlPlaneIO()
     })
 
@@ -61,6 +64,8 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     }))
     val dsidCnt = WireInit(nTiles.U(dsidWidth.W))
     val currDsid = WireInit(dsids(dsidSel))
+
+    io.cp.traffic := io.traffics(dsidSel)
 
     io.cp.dsid := currDsid
     io.cp.sel := dsidSel
@@ -128,6 +133,7 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
     tile.module.memBase := cpio.memBases(i.U)
     tile.module.memMask := cpio.memMasks(i.U)
     tile.module.bucketParam := cpio.bucketParams(i.U)
+    cpio.traffics(i) := tile.module.traffic
   }
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp

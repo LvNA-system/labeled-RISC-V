@@ -340,6 +340,8 @@ object DMI_RegAddrs {
   def CP_BUCKET_SIZE = 0x49
 
   def CP_BUCKET_INC = 0x4a
+
+  def CP_TRAFFIC = 0x4b
 }
 
 class DMSTATUSFields extends Bundle {

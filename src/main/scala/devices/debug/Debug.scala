@@ -14,7 +14,7 @@ import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
 import freechips.rocketchip.devices.debug.systembusaccess._
 import freechips.rocketchip.tile.XLen
-import lvna.{ControlPlaneIO, DsidWidth}
+import lvna.{ControlPlaneIO, DsidWidth, TrafficWidth}
 
 /** Constant values used by both Debug Bus Response & Request
   */
@@ -780,7 +780,8 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_MEM_MASK_HI << 2) -> Seq(RWNotify(32, io.cp.memMask(63, 32), io.cp.updateData, memMaskRen, io.cp.memMaskHiWen, Some(RegFieldDesc("mem-mask hi", "Memory mask for the current hart")))),
       (CP_BUCKET_FREQ << 2) -> Seq(RWNotify(32, io.cp.bucket.freq, io.cp.updateData, WireInit(false.B), io.cp.bktFreqWen, Some(RegFieldDesc("bucket-freq", "Token Bucket regain frequency for the current hart")))),
       (CP_BUCKET_SIZE << 2) -> Seq(RWNotify(32, io.cp.bucket.size, io.cp.updateData, WireInit(false.B), io.cp.bktSizeWen, Some(RegFieldDesc("bucket-freq", "Token Bucket size for the current hart")))),
-      (CP_BUCKET_INC  << 2) -> Seq(RWNotify(32, io.cp.bucket.inc,  io.cp.updateData, WireInit(false.B), io.cp.bktIncWen,  Some(RegFieldDesc("bucket-freq", "Token Bucket regain step size for the current hart"))))
+      (CP_BUCKET_INC  << 2) -> Seq(RWNotify(32, io.cp.bucket.inc,  io.cp.updateData, WireInit(false.B), io.cp.bktIncWen,  Some(RegFieldDesc("bucket-freq", "Token Bucket regain step size for the current hart")))),
+      (CP_TRAFFIC     << 2) -> Seq(RegField.r(p(TrafficWidth), io.cp.traffic, RegFieldDesc("traffic", "The L1 cache line r/w request counter for the selected hart")))
     )
 
     abstractDataMem.zipWithIndex.foreach { case (x, i) =>
