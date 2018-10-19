@@ -21,63 +21,6 @@ case class TLL2CacheParams(
   debug: Boolean = false
 )
 
-abstract class SeqReplacementPolicy {
-  def access(set: UInt, ren: Bool): Unit
-  def update(valid: Bool, hit: Bool, set: UInt, way: UInt): Unit
-  def way: UInt
-}
-
-// class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, s0_dsid: UInt, s1_dsid: UInt, s1_valid_way: UInt, cache_config: CachePartitionConfigIO) extends SeqReplacementPolicy {
-class DsidRR(n_sets: Int, n_ways: Int, dsid_bits: Int, s0_dsid: UInt, s1_dsid: UInt) extends SeqReplacementPolicy {
-  val state = SeqMem(n_sets, Bits(width = n_ways))
-  val curr_state = Wire(Bits(width = n_ways))
-  val next_state = Wire(Bits())
-
-  val dsids = SeqMem(n_sets, Vec(n_ways, UInt(width = dsid_bits)))
-  val set_dsids = Wire(Vec(n_ways, UInt(width = dsid_bits)))
-
-  /*
-  cache_config.p_dsid := s0_dsid
-  val curr_mask = Mux(cache_config.waymask === 0.U,
-    UInt((BigInt(1) << n_ways) - 1), cache_config.waymask)
-  */
-  val curr_mask = UInt((BigInt(1) << n_ways) - 1)
-
-  val target_way = Mux((curr_state & curr_mask).orR, PriorityEncoder(curr_state & curr_mask),
-    Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
-
-
-  def access(set: UInt, ren: Bool) = {
-    curr_state := state.read(set, ren)
-    set_dsids := dsids.read(set, ren)
-  }
-
-  def update(valid: Bool, hit: Bool, set: UInt, way: UInt) = {
-    val update_way = Mux(hit, way, target_way)
-
-    /*
-    cache_config.access := valid
-    cache_config.miss := valid && !hit
-    cache_config.curr_dsid := s1_dsid
-    cache_config.replaced_dsid := set_dsids(update_way)
-    cache_config.victim_way_valid := s1_valid_way(update_way)
-    */
-
-    val wmask = (0 until n_ways).map(i => update_way === UInt(i))
-    when (valid) {
-      when (!(curr_state & curr_mask).orR) {
-        next_state := curr_state | curr_mask
-      } .otherwise {
-        next_state := curr_state.bitSet(update_way, Bool(false))
-      }
-      state.write(set, next_state)
-      when (!hit) { dsids.write(set, Vec.fill(n_ways)(s1_dsid), wmask) }
-    }
-  }
-
-  def way = target_way
-}
-
 // ============================== DCache ==============================
 class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends LazyModule
 {
@@ -134,7 +77,7 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
       val rst = (rst_cnt < UInt(2 * nSets)) && !reset.toBool
       when (rst) { rst_cnt := rst_cnt + 1.U }
 
-      val s_idle :: s_gather_write_data :: s_send_bresp :: s_update_meta :: s_tag_read :: s_merge_put_data :: s_data_read :: s_data_write :: s_wait_ram_awready :: s_do_ram_write :: s_wait_ram_bresp :: s_wait_ram_arready :: s_do_ram_read :: s_data_resp :: Nil = Enum(UInt(), 14)
+      val s_idle :: s_gather_write_data :: s_send_bresp :: s_update_meta :: s_tag_read_req :: s_tag_read_resp :: s_tag_read :: s_merge_put_data :: s_data_read :: s_data_write :: s_wait_ram_awready :: s_do_ram_write :: s_wait_ram_bresp :: s_wait_ram_arready :: s_do_ram_read :: s_data_resp :: Nil = Enum(UInt(), 16)
 
       val state = Reg(init = s_idle)
       // state transitions for each case
@@ -298,7 +241,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
           resp_curr_beat := start_beat
           inner_end_beat_reg := start_beat + in_len
 
-          state := s_tag_read
+          state := s_tag_read_req
         } .elsewhen (in_write_req) {
           ren := N
           wen := Y
@@ -362,31 +305,59 @@ time: %d [L2Cache] out.a.opcode  = %x,
       }
 
       when (state === s_send_bresp && in_send_ok) {
-        state := s_tag_read
+        state := s_tag_read_req
       }
 
       // s_tag_read: inspecting meta data
+      // to keep the sram access path short, sram addr and output are latched
+      // now, tag access has three stages:
+      // 1. read req  2. read response  3. check hit, miss
+
       // valid bit array
       val vb_array = SeqMem(nSets, Bits(width = nWays.W))
-      val vb_array_wen = Wire(Bool())
       // dirty bit array
       val db_array = SeqMem(nSets, Bits(width = nWays.W))
-      val db_array_wen = Wire(Bool())
 
       val tag_array = SeqMem(nSets, Vec(nWays, UInt(width = tagBits.W)))
-      val tag_raddr = Mux(raddr_fire, in_addr, addr)
-      val tag_wen = Wire(Bool())
-      val tag_ridx = tag_raddr(indexMSB, indexLSB)
+      val idx = addr(indexMSB, indexLSB)
 
-      val vb_rdata = vb_array.read(tag_ridx, !vb_array_wen)
-      val db_rdata = db_array.read(tag_ridx, !db_array_wen)
-      val tag_rdata = tag_array.read(tag_ridx, !tag_wen)
+      // RR replacement meta data
+      val rr_state = SeqMem(nSets, Bits(width = nWays))
+      // record each cache line owner's dsid(is this still necessary)
+      val dsids = SeqMem(nSets, Vec(nWays, UInt(width = 16)))
 
+      val read_tag_req = state === s_tag_read_req
+      val vb_rdata = vb_array.read(idx, read_tag_req)
+      val db_rdata = db_array.read(idx, read_tag_req)
+      val tag_rdata = tag_array.read(idx, read_tag_req)
+      val curr_state = rr_state.read(idx, read_tag_req)
+      val set_dsids = dsids.read(idx, read_tag_req)
+
+      when (state === s_tag_read_req) {
+        state := s_tag_read_resp
+      }
+
+      // tag, valid, dirty response
+      val vb_rdata_reg = Reg(Bits(width = nWays.W))
+      val db_rdata_reg = Reg(Bits(width = nWays.W))
+      val tag_rdata_reg = Reg(Vec(nWays, UInt(width = tagBits.W)))
+      val curr_state_reg = Reg(Bits(width = nWays))
+      val set_dsids_reg = Reg(Vec(nWays, UInt(width = 16)))
+
+      when (state === s_tag_read_resp) {
+        state := s_tag_read
+        vb_rdata_reg := vb_rdata
+        db_rdata_reg := db_rdata
+        tag_rdata_reg := tag_rdata
+        curr_state_reg := curr_state
+        set_dsids_reg := set_dsids
+      }
+
+      // check hit, miss, repl_way
       val tag = addr(tagMSB, tagLSB)
-
       def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
-      val tag_eq_way = wayMap((w: Int) => tag_rdata(w) === tag)
-      val tag_match_way = wayMap((w: Int) => tag_eq_way(w) && vb_rdata(w)).asUInt
+      val tag_eq_way = wayMap((w: Int) => tag_rdata_reg(w) === tag)
+      val tag_match_way = wayMap((w: Int) => tag_eq_way(w) && vb_rdata_reg(w)).asUInt
       val hit = tag_match_way.orR
       val read_hit = hit && ren
       val write_hit = hit && wen
@@ -396,35 +367,27 @@ time: %d [L2Cache] out.a.opcode  = %x,
       hit_way := Bits(0)
       (0 until nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
 
-      /*
-      // use random replacement
-      val lfsr = LFSR16(state === s_update_meta && !hit)
-      val repl_way_enable = (state === s_idle && raddr_fire) || (state === s_send_bresp && in_send_ok)
-      val repl_way = RegEnable(next = if(nWays == 1) UInt(0) else lfsr(log2Ceil(nWays) - 1, 0),
-        init = 0.U, enable = repl_way_enable)
-      */
+      val curr_mask = UInt((BigInt(1) << nWays) - 1)
+      val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
+        Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
 
-      // use Round-Robin with cache partition
-      val s0_dsid = Mux(state === s_idle && in_read_req, in_dsid, dsid)
-      val replacer = new DsidRR(nSets, nWays, 16, s0_dsid, dsid)
-      val idx = tag_raddr(indexMSB, indexLSB)
-      replacer.access(idx, state =/= s_tag_read)
-      replacer.update(state === s_tag_read, hit, idx, hit_way)
-
-      val latched_repl_way = RegEnable(next = replacer.way,
-        init = 0.U, enable = state === s_tag_read)
-      val repl_way = Mux(state === s_tag_read, replacer.way, latched_repl_way)(log2Ceil(nWays) - 1, 0)
-      if (param.debug) {
-        when (state === s_tag_read) {
-          printf("time: %d [Update] hit: %d idx: %x curr_state: %x hit_way: %x repl_way: %x\n",
-            GTimer(), hit, idx, replacer.curr_state, hit_way, repl_way)
+      // update RR metadata
+      val update_way = Mux(hit, hit_way, repl_way)
+      val wmask = (0 until nWays).map(i => update_way === UInt(i))
+      when (state === s_tag_read) {
+        val next_state = Wire(Bits())
+        when (!(curr_state_reg & curr_mask).orR) {
+          next_state := curr_state_reg | curr_mask
+        } .otherwise {
+          next_state := curr_state_reg.bitSet(update_way, Bool(false))
         }
+        rr_state.write(idx, next_state)
+        when (!hit) { dsids.write(idx, Vec.fill(nWays)(dsid), wmask) }
       }
 
-
       // valid and dirty
-      val need_writeback = vb_rdata(repl_way) && db_rdata(repl_way)
-      val writeback_tag = tag_rdata(repl_way)
+      val need_writeback = vb_rdata_reg(repl_way) && db_rdata_reg(repl_way)
+      val writeback_tag = tag_rdata_reg(repl_way)
       val writeback_addr = Cat(writeback_tag, Cat(idx, 0.U(blockOffsetBits.W)))
 
       val read_miss_writeback = read_miss && need_writeback
@@ -436,6 +399,8 @@ time: %d [L2Cache] out.a.opcode  = %x,
 
       when (state === s_tag_read) {
         if (param.debug) {
+          printf("time: %d [Update] hit: %d idx: %x curr_state_reg: %x hit_way: %x repl_way: %x\n",
+            GTimer(), hit, idx, curr_state_reg, hit_way, repl_way)
           when (ren) {
             printf("time: %d [L2] read addr: %x idx: %d tag: %x hit: %d ",
               GTimer(), addr, idx, tag, hit)
@@ -453,10 +418,10 @@ time: %d [L2Cache] out.a.opcode  = %x,
           }
           printf("time: %d [L2Cache] s1 tags: ", GTimer())
           for (i <- 0 until nWays) {
-            printf("%x ", tag_rdata(i))
+            printf("%x ", tag_rdata_reg(i))
           }
           printf("\n")
-          printf("time: %d [L2Cache] s1 vb: %x db: %x\n", GTimer(), vb_rdata, db_rdata)
+          printf("time: %d [L2Cache] s1 vb: %x db: %x\n", GTimer(), vb_rdata_reg, db_rdata_reg)
         }
 
         // check for cross cache line bursts
@@ -562,9 +527,9 @@ time: %d [L2Cache] out.a.opcode  = %x,
       // s_update_meta
       val way = Mux(write_hit, hit_way, repl_way)
 
-      vb_array_wen := rst || state === s_update_meta
+      val vb_array_wen = rst || state === s_update_meta
       val vb_array_widx = Mux(rst, rst_cnt, idx)
-      val vb_array_wdata = Mux(rst, Bits(0, nWays), vb_rdata.bitSet(way, true.B))
+      val vb_array_wdata = Mux(rst, Bits(0, nWays), vb_rdata_reg.bitSet(way, true.B))
 
       when (vb_array_wen) {
         if (param.debug) {
@@ -574,9 +539,9 @@ time: %d [L2Cache] out.a.opcode  = %x,
         vb_array.write(vb_array_widx, vb_array_wdata)
       }
 
-      db_array_wen := rst || state === s_update_meta
+      val db_array_wen = rst || state === s_update_meta
       val db_array_widx = Mux(rst, rst_cnt, idx)
-      val db_array_wdata = Mux(rst, Bits(0, nWays), db_rdata.bitSet(way, wen))
+      val db_array_wdata = Mux(rst, Bits(0, nWays), db_rdata_reg.bitSet(way, wen))
       when (db_array_wen) {
         if (param.debug) {
           printf("time: %d [L2Cache] write_db_array: idx: %d data: %d\n",
@@ -585,7 +550,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
         db_array.write(db_array_widx, db_array_wdata)
       }
 
-      tag_wen := state === s_update_meta
+      val tag_wen = state === s_update_meta
       when (state === s_update_meta) {
         // refill done
         when (ren) {
