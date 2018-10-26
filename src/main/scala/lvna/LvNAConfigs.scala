@@ -58,6 +58,7 @@ class LvNAFPGAConfigsidewinder extends Config(
   ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
+  ++ new BucketConfig
   ++ new BaseFPGAConfig)
 
 class LvNAFPGAConfigrv32 extends Config(

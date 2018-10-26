@@ -97,6 +97,9 @@ class ICacheBundle(val outer: ICache) extends CoreBundle()(outer.p) {
 
   val errors = new ICacheErrors
   val perf = new ICachePerfEvents().asOutput
+
+  val clock_enabled = Bool(INPUT)
+  val keep_clock_enabled = Bool(OUTPUT)
 }
 
 class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
@@ -142,8 +145,10 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
   val send_hint = RegInit(false.B)
   val refill_fire = tl_out.a.fire() && !send_hint
   val hint_outstanding = RegInit(false.B)
-  val s2_miss = s2_valid && !s2_hit && !io.s2_kill && !RegNext(refill_valid)
-  val refill_addr = RegEnable(io.s1_paddr, s1_valid && !(refill_valid || s2_miss))
+  val s2_miss = s2_valid && !s2_hit && !io.s2_kill
+  val s1_can_request_refill = !(s2_miss || refill_valid)
+  val s2_request_refill = s2_miss && RegNext(s1_can_request_refill)
+  val refill_addr = RegEnable(io.s1_paddr, s1_valid && s1_can_request_refill)
   val refill_tag = refill_addr(tagBits+untagBits-1,untagBits)
   val refill_idx = refill_addr(untagBits-1,blockOffBits)
   val refill_one_beat = tl_out.d.fire() && edge_out.hasData(tl_out.d.bits)
@@ -304,7 +309,7 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
 
       tl_in.map { tl =>
         val respValid = RegInit(false.B)
-        tl.a.ready := !(tl_out.d.valid || s1_slaveValid || s2_slaveValid || s3_slaveValid || respValid)
+        tl.a.ready := !(tl_out.d.valid || s1_slaveValid || s2_slaveValid || s3_slaveValid || respValid || !io.clock_enabled)
         val s1_a = RegEnable(tl.a.bits, s0_slaveValid)
         s2_full_word_write := edge_in.get.hasData(s1_a) && s1_a.mask.andR
         when (s0_slaveValid) {
@@ -370,7 +375,7 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
       }
   }
 
-  tl_out.a.valid := s2_miss && !refill_valid
+  tl_out.a.valid := s2_request_refill
   tl_out.a.bits := edge_out.Get(
                     fromSource = UInt(0),
                     toAddress = (refill_addr >> blockOffBits) << blockOffBits,
@@ -415,6 +420,9 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
   when (refill_done) { refill_valid := false.B}
 
   io.perf.acquire := refill_fire
+  io.keep_clock_enabled :=
+    tl_in.map(tl => tl.a.valid || tl.d.valid || s1_slaveValid || s2_slaveValid || s3_slaveValid).getOrElse(false.B) || // ITIM
+    s1_valid || s2_valid || refill_valid || send_hint || hint_outstanding // I$
 
   ccover(!send_hint && (tl_out.a.valid && !tl_out.a.ready), "MISS_A_STALL", "I$ miss blocked by A-channel")
   ccover(invalidate && refill_valid, "FLUSH_DURING_MISS", "I$ flushed during miss")

@@ -3,50 +3,15 @@
 package freechips.rocketchip.devices.tilelink
 
 import Chisel._
-import freechips.rocketchip.config.{Field, Parameters}
-import freechips.rocketchip.subsystem.BaseSubsystem
+import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
 import scala.math.min
 
-case class ErrorParams(address: Seq[AddressSet], maxAtomic: Int, maxTransfer: Int, acquire: Boolean = false)
-{
-  require (1 <= maxAtomic && maxAtomic <= maxTransfer && maxTransfer <= 4096)
-}
-
-case object ErrorParams extends Field[ErrorParams]
-
-abstract class DevNullDevice(params: ErrorParams, beatBytes: Int = 4)
-                            (device: SimpleDevice)
-                            (implicit p: Parameters) extends LazyModule {
-  val xfer = TransferSizes(1, params.maxTransfer)
-  val atom = TransferSizes(1, params.maxAtomic)
-  val node = TLManagerNode(Seq(TLManagerPortParameters(
-    Seq(TLManagerParameters(
-      address            = params.address,
-      resources          = device.reg("mem"),
-      regionType         = if (params.acquire) RegionType.TRACKED else RegionType.UNCACHEABLE,
-      executable         = true,
-      supportsAcquireT   = if (params.acquire) xfer else TransferSizes.none,
-      supportsAcquireB   = if (params.acquire) xfer else TransferSizes.none,
-      supportsGet        = xfer,
-      supportsPutPartial = xfer,
-      supportsPutFull    = xfer,
-      supportsArithmetic = atom,
-      supportsLogical    = atom,
-      supportsHint       = xfer,
-      fifoId             = Some(0),
-      mayDenyGet         = true,
-      mayDenyPut         = true)), // requests are handled in order
-    beatBytes  = beatBytes,
-    endSinkId  = if (params.acquire) 1 else 0,
-    minLatency = 1))) // no bypass needed for this device
-}
-
 /** Adds a /dev/null slave that generates TL error response messages */
-class TLError(params: ErrorParams, beatBytes: Int = 4)(implicit p: Parameters)
-    extends DevNullDevice(params, beatBytes)(new SimpleDevice("error-device", Seq("sifive,error0")))
+class TLError(params: DevNullParams, beatBytes: Int = 4)(implicit p: Parameters)
+    extends DevNullDevice(params, beatBytes, new SimpleDevice("error-device", Seq("sifive,error0")))
 {
   lazy val module = new LazyModuleImp(this) {
     import TLMessages._
@@ -109,27 +74,4 @@ class TLError(params: ErrorParams, beatBytes: Int = 4)(implicit p: Parameters)
     // Sink GrantAcks
     in.e.ready := Bool(true)
   }
-}
-
-/** Adds a /dev/null slave that does not raise ready for any incoming traffic.
-  * !!! WARNING: This device WILL cause your bus to deadlock for as long as you
-  *              continue to send traffic to it !!!
-  */
-class DeadlockDevice(params: ErrorParams, beatBytes: Int = 4)(implicit p: Parameters)
-    extends DevNullDevice(params, beatBytes)(new SimpleDevice("deadlock-device", Seq("sifive,deadlock0")))
-{
-  lazy val module = new LazyModuleImp(this) {
-    val (in, _) = node.in(0)
-    in.a.ready := Bool(false)
-    in.b.valid := Bool(false)
-    in.c.ready := Bool(false)
-    in.d.valid := Bool(false)
-    in.e.ready := Bool(false)
-  }
-}
-
-trait HasSystemErrorSlave { this: BaseSubsystem =>
-  private val params = p(ErrorParams)
-  val error = LazyModule(new TLError(params, sbus.beatBytes))
-  sbus.toSlave(Some("Error")){ error.node }
 }
