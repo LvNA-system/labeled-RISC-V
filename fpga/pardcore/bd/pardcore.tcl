@@ -307,10 +307,8 @@ proc create_root_design { parentCell } {
    }
   
   set_property -dict [ list \
-   CONFIG.SUPPORTS_NARROW_BURST {1} \
    CONFIG.NUM_READ_OUTSTANDING {2} \
    CONFIG.NUM_WRITE_OUTSTANDING {2} \
-   CONFIG.MAX_BURST_LENGTH {256} \
  ] [get_bd_intf_pins /LvNAFPGATop_0/l2_frontend_bus_axi4_0]
 
   set_property -dict [ list \
@@ -389,7 +387,7 @@ proc create_root_design { parentCell } {
   connect_bd_net -net c_shift_ram_1_Q [get_bd_pins LvNAFPGATop_0/corerst] [get_bd_pins c_shift_ram_1/Q]
   connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins LvNAFPGATop_0/clock] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
   connect_bd_net -net coreclk_1 [get_bd_ports coreclk] [get_bd_pins LvNAFPGATop_0/coreclk] [get_bd_pins c_shift_ram_0/CLK] [get_bd_pins c_shift_ram_1/CLK]
-  connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
+  connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins LvNAFPGATop_0/reset] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
   connect_bd_net -net intrs_1 [get_bd_ports intrs] [get_bd_pins LvNAFPGATop_0/interrupts]
   connect_bd_net -net io_jtag_TDI_1 [get_bd_ports jtag_TDI] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TDI]
   connect_bd_net -net io_jtag_TRST_1 [get_bd_ports jtag_TRST] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_reset]
@@ -398,7 +396,6 @@ proc create_root_design { parentCell } {
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
   connect_bd_net -net uncore_rstn_1 [get_bd_ports uncore_rstn] [get_bd_pins proc_sys_reset_0/ext_reset_in]
   connect_bd_net -net xlslice_0_Dout [get_bd_pins c_shift_ram_0/D] [get_bd_pins xlslice_0/Dout]
-  connect_bd_net -net xlslice_1_Dout [get_bd_pins LvNAFPGATop_0/reset] [get_bd_pins xlslice_1/Dout]
 
   # Create address segments
   create_bd_addr_seg -range 0x20000000 -offset 0x60000000 [get_bd_addr_spaces LvNAFPGATop_0/mmio_axi4_0] [get_bd_addr_segs M_AXILITE_MMIO/Reg] SEG_M_AXILITE_MMIO_Reg
