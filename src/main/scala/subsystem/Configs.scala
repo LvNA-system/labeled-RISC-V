@@ -311,7 +311,7 @@ class WithDefaultMemPort extends Config((site, here, up) => {
                       base = x"10000_0000",
                       size = x"1000_0000",
                       beatBytes = site(MemoryBusKey).beatBytes,
-                      idBits = 4))
+                      idBits = 0))
 })
 
 class WithNoMemPort extends Config((site, here, up) => {
@@ -323,7 +323,7 @@ class WithDefaultMMIOPort extends Config((site, here, up) => {
                       base = x"6000_0000",
                       size = x"2000_0000",
                       beatBytes = site(MemoryBusKey).beatBytes,
-                      idBits = 4))
+                      idBits = 0))
 })
 
 class WithNoMMIOPort extends Config((site, here, up) => {
@@ -331,7 +331,7 @@ class WithNoMMIOPort extends Config((site, here, up) => {
 })
 
 class WithDefaultSlavePort extends Config((site, here, up) => {
-  case ExtIn  => Some(SlavePortParams(beatBytes = 8, idBits = 8, sourceBits = 4))
+  case ExtIn  => Some(SlavePortParams(beatBytes = 8, idBits = 1, sourceBits = 3))
 })
 
 class WithNoSlavePort extends Config((site, here, up) => {

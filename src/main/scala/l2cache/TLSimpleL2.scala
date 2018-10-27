@@ -24,7 +24,9 @@ case class TLL2CacheParams(
 // ============================== DCache ==============================
 class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends LazyModule
 {
-  val node = TLAdapterNode()
+  val node = TLAdapterNode(
+    clientFn = { c => c.copy(clients = c.clients map { c2 => c2.copy(sourceId = IdRange(0, 1))} )}
+  )
 
   lazy val module = new LazyModuleImp(this) {
     val nWays = p(TLL2CacheWays)
