@@ -551,7 +551,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   csr.io.retire := wb_valid
   csr.io.inst(0) := (if (usingCompressed) Cat(Mux(wb_reg_raw_inst(1, 0).andR, wb_reg_inst >> 16, 0.U), wb_reg_raw_inst(15, 0)) else wb_reg_inst)
   csr.io.interrupts := io.interrupts
-  csr.io.hartid := io.hartid
+  csr.io.hartid := 0.U
   io.fpu.fcsr_rm := csr.io.fcsr_rm
   csr.io.fcsr_flags := io.fpu.fcsr_flags
   csr.io.rocc_interrupt := io.rocc.interrupt

@@ -54,9 +54,9 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val cp = new ControlPlaneIO()
     })
 
-    val dsids = RegInit(VecInit(Seq.fill(nTiles)(1.U(dsidWidth.W))))
+    val dsids = RegInit(VecInit(Seq.tabulate(nTiles)(_.U(dsidWidth.W))))
     val dsidSel = RegInit(0.U(dsidWidth.W))
-    val memBases = RegInit(VecInit(Seq.fill(nTiles)(0.U(memAddrWidth.W))))
+    val memBases = RegInit(VecInit(Seq.tabulate(nTiles)(i => (i * 0x20000000L).U(memAddrWidth.W)))) // distance 1GB
     val memMasks = RegInit(VecInit(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
     val bucketParams = RegInit(VecInit(Seq.fill(nTiles){
       val bkt = p(BucketBits)
