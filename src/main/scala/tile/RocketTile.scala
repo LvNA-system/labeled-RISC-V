@@ -157,11 +157,11 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
 
   // FIXME: currently we set the same dsid for all cores
   // take care the cache coherency flitering probe requests based on dsid
-  val dsid = IO(chisel3.core.Input(UInt(16.W)))
+  val dsid = IO(chisel3.core.Input(UInt(width=p(LDomDsidBits))))
   val (masterBundleOut, _) = outer.masterNode.out.unzip
   masterBundleOut.foreach { x => {
-      x.a.bits.dsid := dsid
-      x.c.bits.dsid := dsid
+      x.a.bits.dsid := Cat(core.io.procdsid, dsid)
+      x.c.bits.dsid := Cat(core.io.procdsid, dsid)
     }
   }
 

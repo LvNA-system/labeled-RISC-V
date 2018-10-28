@@ -3,10 +3,11 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import scala.math.{min,max}
+import freechips.rocketchip.rocket.LDomDsidBits
 
 class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = false)(implicit p: Parameters) extends LazyModule
 {
@@ -170,9 +171,9 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
           dsid := in.a.bits.dsid
         }
       }
-
+      
       val dsid_mask = Vec(cache_dsids.map { dsid =>
-        Mux(dsid === UInt(0), Bool(true), dsid === in.a.bits.dsid)
+        Mux(dsid === UInt(0), Bool(true), dsid(p(LDomDsidBits)-1,0) === in.a.bits.dsid(p(LDomDsidBits)-1,0))
       }).asUInt
       val dsid_todo = (~a_cache) & dsid_mask
 

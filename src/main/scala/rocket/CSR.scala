@@ -6,12 +6,15 @@ package freechips.rocketchip.rocket
 import Chisel._
 import Chisel.ImplicitConversions._
 import chisel3.experimental._
-import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.config.{Field,Parameters}
 import freechips.rocketchip.tile._
 import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
 import scala.collection.mutable.LinkedHashMap
 import Instructions._
+
+case object ProcDsidBits extends Field[Int]
+case object LDomDsidBits extends Field[Int]
 
 class MStatus extends Bundle {
   // not truly part of mstatus, but convenient
@@ -222,6 +225,7 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle
 
   val simlog = Bool(OUTPUT)
   val prefetch_enable = Bool(OUTPUT)
+  val procdsid = UInt(OUTPUT, p(ProcDsidBits))
 }
 
 class CSRFile(
@@ -327,6 +331,9 @@ class CSRFile(
 
   val reg_simlog = Reg(init=Bool(false))
   io.simlog := reg_simlog
+  
+  val reg_procdsid = RegInit(UInt(0, width = p(ProcDsidBits)))
+  io.procdsid := reg_procdsid
 
   val reg_pfctl = Reg(init=UInt(1, width=32))
   io.prefetch_enable := reg_pfctl(0)
@@ -421,6 +428,7 @@ class CSRFile(
     }
 
     read_mapping += CSRs.simlog -> reg_simlog
+    read_mapping += CSRs.procdsid -> reg_procdsid
 
     if (xLen == 32) {
       read_mapping += CSRs.mcycleh -> (reg_cycle >> 32)
@@ -824,6 +832,10 @@ class CSRFile(
     }
 
     when (decoded_addr(CSRs.simlog)) { reg_simlog := wdata }
+    when (decoded_addr(CSRs.procdsid)) { 
+      reg_procdsid := wdata
+      //printf("Write 0x%x to procdsid\n", wdata)
+    }
     when (decoded_addr(CSRs.pfctl)) { reg_pfctl := wdata }
     for ((io, csr, reg) <- (io.customCSRs, customCSRs, reg_custom).zipped) {
       val mask = csr.mask.U(xLen.W)
