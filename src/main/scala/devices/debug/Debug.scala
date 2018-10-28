@@ -14,7 +14,7 @@ import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
 import freechips.rocketchip.devices.debug.systembusaccess._
 import freechips.rocketchip.tile.XLen
-import lvna.{ControlPlaneIO, DsidWidth}
+import lvna.{ControlPlaneIO, HasControlPlaneParameters}
 
 object DsbBusConsts {
   def sbAddrWidth = 12
@@ -373,7 +373,7 @@ class TLDebugModuleOuterAsync(device: Device)(implicit p: Parameters) extends La
   }
 }
 
-class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: Int)(implicit p: Parameters) extends LazyModule
+class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: Int)(implicit p: Parameters) extends LazyModule with HasControlPlaneParameters
 {
 
   val cfg = p(DebugModuleParams)
@@ -728,9 +728,9 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (DMI_SBADDRESS1 << 2) -> sbAddrFields(1),
       (DMI_SBADDRESS2 << 2) -> sbAddrFields(2),
       (DMI_SBADDRESS3 << 2) -> sbAddrFields(3),
-      (CP_DSID        << 2) -> Seq(RWNotify(p(DsidWidth), io.cp.dsid, io.cp.updateData, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
+      (CP_DSID        << 2) -> Seq(RWNotify(ldomDSidWidth, io.cp.dsid, io.cp.updateData, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(32, io.cp.sel, io.cp.selUpdate, selRen, io.cp.selWen, Some(RegFieldDesc("dsid-sel", "Hart index")))),
-      (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32, io.cp.count, RegFieldDesc("dsid-count", "The total number of dsid registers"))),
+      (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32, UInt(nTiles), RegFieldDesc("dsid-count", "The total number of dsid registers"))),
       (CP_MEM_BASE_LO << 2) -> Seq(RWNotify(32, io.cp.memBase(31, 0), io.cp.updateData, memBaseRen, io.cp.memBaseLoWen, Some(RegFieldDesc("mem-base lo", "Memory base for the current hart")))),
       (CP_MEM_BASE_HI << 2) -> Seq(RWNotify(32, io.cp.memBase(63, 32), io.cp.updateData, memBaseRen, io.cp.memBaseHiWen, Some(RegFieldDesc("mem-base hi", "Memory base for the current hart")))),
       (CP_MEM_MASK_LO << 2) -> Seq(RWNotify(32, io.cp.memMask(31, 0), io.cp.updateData, memMaskRen, io.cp.memMaskLoWen, Some(RegFieldDesc("mem-mask lo", "Memory mask for the current hart")))),

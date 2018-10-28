@@ -4,7 +4,6 @@ import chisel3._
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
-import uncore.pard.{BucketBundle, TokenBucket}
 
 class TokenBucketNode(implicit p: Parameters) extends LazyModule {
   val node = TLIdentityNode()
