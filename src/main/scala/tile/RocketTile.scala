@@ -12,7 +12,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.util._
-import lvna.{TokenBucketNode, BucketBundle, HasControlPlaneParameters}
+import lvna.HasControlPlaneParameters
 
 case class RocketTileParams(
     core: RocketCoreParams = RocketCoreParams(),
@@ -65,9 +65,7 @@ class RocketTile(
 
   // TODO: this doesn't block other masters, e.g. RoCCs
   tlOtherMastersNode := tile_master_blocker.map { _.node := tlMasterXbar.node } getOrElse { tlMasterXbar.node }
-  val tokenBucket = LazyModule(new TokenBucketNode())
-  tokenBucket.node := tlOtherMastersNode
-  masterNode :=* tokenBucket.node
+  masterNode :=* tlOtherMastersNode
   DisableMonitors { implicit p => tlSlaveXbar.node :*= slaveNode }
 
   def findScratchpadFromICache: Option[AddressSet] = dtim_adapter.map { s =>
@@ -163,9 +161,6 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
       x.c.bits.dsid := Cat(core.io.procdsid, dsid)
     }
   }
-
-  val bucketParam = IO(Input(new BucketBundle))
-  outer.tokenBucket.module.bucketParam := bucketParam
 
   val dcachePrefetcher = Module(new Prefetcher)
   dcachePrefetcher.io.enablePrefetch := core.io.prefetch_enable

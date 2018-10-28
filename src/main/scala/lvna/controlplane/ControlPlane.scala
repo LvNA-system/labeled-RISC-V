@@ -127,7 +127,6 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
     tile.module.dsid := cpio.dsids(i.U)
     tile.module.memBase := cpio.memBases(i.U)
     tile.module.memMask := cpio.memMasks(i.U)
-    tile.module.bucketParam := cpio.bucketParams(i.U)
   }
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp
