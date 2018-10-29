@@ -21,6 +21,15 @@ case class TLL2CacheParams(
   debug: Boolean = false
 )
 
+class MetadataEntry(tagBits: Int, dsidWidth: Int) extends Bundle {
+  val valid = Bool()
+  val dirty = Bool()
+  val tag = UInt(width = tagBits.W)
+  val rr_state = Bool()
+  val dsid = UInt(width = dsidWidth.W)
+  override def cloneType = new MetadataEntry(tagBits, dsidWidth).asInstanceOf[this.type]
+}
+
 // ============================== DCache ==============================
 class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends LazyModule
 {
@@ -315,25 +324,21 @@ time: %d [L2Cache] out.a.opcode  = %x,
       // now, tag access has three stages:
       // 1. read req  2. read response  3. check hit, miss
 
-      // valid bit array
-      val vb_array = SeqMem(nSets, Bits(width = nWays.W))
-      // dirty bit array
-      val db_array = SeqMem(nSets, Bits(width = nWays.W))
+      // metadata array
+      val meta_array = SeqMem(nSets, Vec(nWays, new MetadataEntry(tagBits, 16)))
 
-      val tag_array = SeqMem(nSets, Vec(nWays, UInt(width = tagBits.W)))
       val idx = addr(indexMSB, indexLSB)
 
-      // RR replacement meta data
-      val rr_state = SeqMem(nSets, Bits(width = nWays))
-      // record each cache line owner's dsid(is this still necessary)
-      val dsids = SeqMem(nSets, Vec(nWays, UInt(width = 16)))
-
       val read_tag_req = state === s_tag_read_req
-      val vb_rdata = vb_array.read(idx, read_tag_req)
-      val db_rdata = db_array.read(idx, read_tag_req)
-      val tag_rdata = tag_array.read(idx, read_tag_req)
-      val curr_state = rr_state.read(idx, read_tag_req)
-      val set_dsids = dsids.read(idx, read_tag_req)
+      val meta_rdata = meta_array.read(idx, read_tag_req)
+
+      def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
+
+      val vb_rdata = wayMap((w: Int) => meta_rdata(w).valid).asUInt
+      val db_rdata = wayMap((w: Int) => meta_rdata(w).dirty).asUInt
+      val tag_rdata = wayMap((w: Int) => meta_rdata(w).tag)
+      val curr_state = wayMap((w: Int) => meta_rdata(w).rr_state).asUInt
+      val set_dsids = wayMap((w: Int) => meta_rdata(w).dsid)
 
       when (state === s_tag_read_req) {
         state := s_tag_read_resp
@@ -357,7 +362,6 @@ time: %d [L2Cache] out.a.opcode  = %x,
 
       // check hit, miss, repl_way
       val tag = addr(tagMSB, tagLSB)
-      def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
       val tag_eq_way = wayMap((w: Int) => tag_rdata_reg(w) === tag)
       val tag_match_way = wayMap((w: Int) => tag_eq_way(w) && vb_rdata_reg(w)).asUInt
       val hit = tag_match_way.orR
@@ -372,20 +376,6 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val curr_mask = UInt((BigInt(1) << nWays) - 1)
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
-
-      // update RR metadata
-      val update_way = Mux(hit, hit_way, repl_way)
-      val wmask = (0 until nWays).map(i => update_way === UInt(i))
-      when (state === s_tag_read) {
-        val next_state = Wire(Bits())
-        when (!(curr_state_reg & curr_mask).orR) {
-          next_state := curr_state_reg | curr_mask
-        } .otherwise {
-          next_state := curr_state_reg.bitSet(update_way, Bool(false))
-        }
-        rr_state.write(idx, next_state)
-        when (!hit) { dsids.write(idx, Vec.fill(nWays)(dsid), wmask) }
-      }
 
       // valid and dirty
       val need_writeback = vb_rdata_reg(repl_way) && db_rdata_reg(repl_way)
@@ -437,6 +427,59 @@ time: %d [L2Cache] out.a.opcode  = %x,
         } .otherwise {
           assert(N, "Unexpected condition in s_tag_read")
         }
+      }
+
+      val rst_metadata = Wire(Vec(nWays, new MetadataEntry(tagBits, 16)))
+      for (i <- 0 until nWays) {
+        val metadata = rst_metadata(i)
+        metadata.valid := false.B
+        metadata.dirty := false.B
+        metadata.tag := 0.U
+        metadata.dsid := 0.U
+      }
+
+
+      // update metadata
+
+      val update_way = Mux(hit, hit_way, repl_way)
+      val next_state = Wire(Bits())
+      when (state === s_tag_read) {
+        when (!(curr_state_reg & curr_mask).orR) {
+          next_state := curr_state_reg | curr_mask
+        } .otherwise {
+          next_state := curr_state_reg.bitSet(update_way, Bool(false))
+        }
+        if (param.debug) {
+          printf("time: %d dsid: %d set: %d hit: %d rw: %d update_way: %d curr_state: %x next_state: %x\n",
+            GTimer(), dsid, idx, hit, ren, update_way, curr_state, next_state)
+        }
+      }
+
+      val update_metadata = Wire(Vec(nWays, new MetadataEntry(tagBits, 16)))
+      for (i <- 0 until nWays) {
+        val metadata = update_metadata(i)
+        val is_update_way = update_way === i.U
+        when (is_update_way) {
+          metadata.valid := true.B
+          metadata.dirty := Mux(read_hit, db_rdata_reg(update_way),
+            Mux(read_miss, false.B, true.B))
+          metadata.tag := tag
+          metadata.dsid := dsid
+        } .otherwise {
+          metadata.valid := vb_rdata_reg(i)
+          metadata.dirty := db_rdata_reg(i)
+          metadata.tag := tag_rdata_reg(i)
+          metadata.dsid := set_dsids_reg(i)
+        }
+        metadata.rr_state := next_state(i)
+      }
+
+      val meta_array_wen = rst || state === s_tag_read
+      val meta_array_widx = Mux(rst, rst_cnt, idx)
+      val meta_array_wdata = Mux(rst, rst_metadata, update_metadata)
+
+      when (meta_array_wen) {
+        meta_array.write(meta_array_widx, meta_array_wdata)
       }
 
       // ###############################################################
@@ -526,45 +569,12 @@ time: %d [L2Cache] out.a.opcode  = %x,
         state := s_update_meta
       }
 
-      // s_update_meta
-      val way = Mux(write_hit, hit_way, repl_way)
-
-      val vb_array_wen = rst || state === s_update_meta
-      val vb_array_widx = Mux(rst, rst_cnt, idx)
-      val vb_array_wdata = Mux(rst, Bits(0, nWays), vb_rdata_reg.bitSet(way, true.B))
-
-      when (vb_array_wen) {
-        if (param.debug) {
-          printf("time: %d [L2Cache] write_vb_array: idx: %d data: %d\n",
-            GTimer(), vb_array_widx, vb_array_wdata)
-        }
-        vb_array.write(vb_array_widx, vb_array_wdata)
-      }
-
-      val db_array_wen = rst || state === s_update_meta
-      val db_array_widx = Mux(rst, rst_cnt, idx)
-      val db_array_wdata = Mux(rst, Bits(0, nWays), db_rdata_reg.bitSet(way, wen))
-      when (db_array_wen) {
-        if (param.debug) {
-          printf("time: %d [L2Cache] write_db_array: idx: %d data: %d\n",
-            GTimer(), db_array_widx, db_array_wdata)
-        }
-        db_array.write(db_array_widx, db_array_wdata)
-      }
-
-      val tag_wen = state === s_update_meta
       when (state === s_update_meta) {
         // refill done
         when (ren) {
           state := s_data_resp
         } .otherwise {
           state := s_idle
-        }
-        when (!hit) {
-          if (param.debug) {
-            printf("update_tag: idx: %d tag: %x repl_way: %d\n", idx, tag, repl_way)
-          }
-          tag_array.write(idx, Vec.fill(nWays)(tag), Seq.tabulate(nWays)(repl_way === UInt(_)))
         }
       }
 
