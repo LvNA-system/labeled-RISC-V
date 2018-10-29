@@ -171,7 +171,7 @@ dtc -I dts -O dtb -o system.dtb top.dts
 ```
 sudo qemu-debootstrap --arch arm64 stable /mnt http://ftp.debian.org/debian
 # or for zynq
-sudo qemu-debootstrap --arch arm stable /mnt http://ftp.debian.org/debian
+sudo qemu-debootstrap --arch armhf stable /mnt http://ftp.debian.org/debian
 
 sudo chroot /mnt /bin/bash
 passwd
