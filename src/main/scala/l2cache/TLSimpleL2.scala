@@ -14,9 +14,6 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import freechips.rocketchip.tilelink._
 
-case object TLL2CacheCapacity extends Field[Int](2048)
-case object TLL2CacheWays extends Field[Int](16)
-
 case class TLL2CacheParams(
   debug: Boolean = false
 )
@@ -38,8 +35,8 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
   )
 
   lazy val module = new LazyModuleImp(this) {
-    val nWays = p(TLL2CacheWays)
-    val nSets = p(TLL2CacheCapacity) * 1024 / 64 / nWays
+    val nWays = p(NL2CacheWays)
+    val nSets = p(NL2CacheCapacity) * 1024 / 64 / nWays
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       require(isPow2(nSets))
       require(isPow2(nWays))
