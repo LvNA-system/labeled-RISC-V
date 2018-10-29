@@ -79,6 +79,22 @@ class WithNSmallCores(n: Int) extends Config((site, here, up) => {
   }
 })
 
+class WithNZedboardCores(n: Int) extends Config((site, here, up) => {
+  case RocketTilesKey => {
+    val big = RocketTileParams(
+      core   = RocketCoreParams(mulDiv = Some(MulDivParams(mulUnroll = 8))),
+      btb = None,
+      dcache = Some(DCacheParams(
+        rowBits = site(SystemBusKey).beatBits,
+        nMSHRs = 0,
+        blockBytes = site(CacheBlockBytes))),
+      icache = Some(ICacheParams(
+        rowBits = site(SystemBusKey).beatBits,
+        blockBytes = site(CacheBlockBytes))))
+    List.tabulate(n)(i => big.copy(hartId = i))
+  }
+})
+
 class With1TinyCore extends Config((site, here, up) => {
   case XLen => 32
   case RocketTilesKey => List(RocketTileParams(

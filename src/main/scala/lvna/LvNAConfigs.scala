@@ -25,10 +25,12 @@ class LvNAConfigemu extends Config(
   ++ new BaseConfig)
 
 class LvNAFPGAConfigzedboard extends Config(
-  new WithNBigCores(2)
-  ++ new WithoutFPU
-  ++ new WithRationalRocketTiles
-  ++ new WithExtMemSize(0x4000000L) // 64MB
+  new WithoutFPU
+  ++ new WithNonblockingL1(8)
+  ++ new WithNL2CacheCapacity(256)
+  ++ new WithNZedboardCores(2)
+  ++ new WithTimebase(BigInt(20000000)) // 20 MHz
+  ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
   ++ new BaseFPGAConfig)
