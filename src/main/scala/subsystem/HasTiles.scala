@@ -48,8 +48,8 @@ trait HasTiles { this: BaseSubsystem =>
     sbus.fromTile(tile.tileParams.name, crossing.master.buffers) {
         crossing.master.cork
           .map { u => LazyModule(new TokenBucketNode()).node := TLCacheCork(unsafe = u) }
-          .map { _ :=* tokenBucket.node := tile.crossMasterPort() }
-          .getOrElse { tokenBucket.node := tile.crossMasterPort() }
+          .map { _ :=* tile.crossMasterPort(tokenBucket) }
+          .getOrElse { tile.crossMasterPort(tokenBucket) }
     }
   }
 
