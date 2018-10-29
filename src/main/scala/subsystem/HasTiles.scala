@@ -44,12 +44,12 @@ trait HasTiles { this: BaseSubsystem =>
     case LookupByHartId => lookupByHartId
   }
 
-  protected def connectMasterPortsToSBus(tile: BaseTile, crossing: RocketCrossingParams)(implicit valName: ValName) {
+  protected def connectMasterPortsToSBus(tile: BaseTile, crossing: RocketCrossingParams, tokenBucket: TokenBucketNode)(implicit valName: ValName) {
     sbus.fromTile(tile.tileParams.name, crossing.master.buffers) {
         crossing.master.cork
           .map { u => LazyModule(new TokenBucketNode()).node := TLCacheCork(unsafe = u) }
-          .map { _ :=* tile.crossMasterPort() }
-          .getOrElse { tile.crossMasterPort() }
+          .map { _ :=* tokenBucket.node := tile.crossMasterPort() }
+          .getOrElse { tokenBucket.node := tile.crossMasterPort() }
     }
   }
 

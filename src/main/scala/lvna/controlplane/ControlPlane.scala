@@ -122,11 +122,12 @@ trait HasControlPlane extends HasRocketTiles {
 trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   val outer: HasControlPlane
 
-  outer.rocketTiles.zipWithIndex.foreach { case(tile, i) =>
+  (outer.rocketTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
     val cpio = outer.controlPlane.module.io
     tile.module.dsid := cpio.dsids(i.U)
     tile.module.memBase := cpio.memBases(i.U)
     tile.module.memMask := cpio.memMasks(i.U)
+    token.module.bucketParam := cpio.bucketParams(i.U)
   }
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp
