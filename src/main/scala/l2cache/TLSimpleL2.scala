@@ -13,6 +13,7 @@ import freechips.rocketchip.config.{Field,Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import freechips.rocketchip.tilelink._
+import lvna.HasControlPlaneParameters
 
 case class TLL2CacheParams(
   debug: Boolean = false
@@ -29,6 +30,7 @@ class MetadataEntry(tagBits: Int, dsidWidth: Int) extends Bundle {
 
 // ============================== DCache ==============================
 class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends LazyModule
+with HasControlPlaneParameters
 {
   val node = TLAdapterNode(
     clientFn = { c => c.copy(clients = c.clients map { c2 => c2.copy(sourceId = IdRange(0, 1))} )}
@@ -212,7 +214,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val addr = Reg(UInt(addrWidth.W))
       val id = Reg(UInt(innerIdWidth.W))
       val opcode = Reg(UInt(3.W))
-      val dsid = Reg(UInt(16.W))
+      val dsid = Reg(UInt(dsidWidth.W))
       val size_reg = Reg(UInt(width=in.a.bits.params.sizeBits))
       
       val ren = RegInit(N)
@@ -322,7 +324,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
       // 1. read req  2. read response  3. check hit, miss
 
       // metadata array
-      val meta_array = SeqMem(nSets, Vec(nWays, new MetadataEntry(tagBits, 16)))
+      val meta_array = SeqMem(nSets, Vec(nWays, new MetadataEntry(tagBits, dsidWidth)))
 
       val idx = addr(indexMSB, indexLSB)
 
@@ -346,7 +348,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val db_rdata_reg = Reg(Bits(width = nWays.W))
       val tag_rdata_reg = Reg(Vec(nWays, UInt(width = tagBits.W)))
       val curr_state_reg = Reg(Bits(width = nWays))
-      val set_dsids_reg = Reg(Vec(nWays, UInt(width = 16)))
+      val set_dsids_reg = Reg(Vec(nWays, UInt(width = dsidWidth.W)))
 
       when (state === s_tag_read_resp) {
         state := s_tag_read
