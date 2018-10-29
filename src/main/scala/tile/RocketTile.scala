@@ -12,9 +12,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.util._
-import freechips.rocketchip.pard.ControlledCrossing
-import lvna.TokenBucketNode
-import uncore.pard.BucketBundle
+import lvna.HasControlPlaneParameters
 
 case class RocketTileParams(
     core: RocketCoreParams = RocketCoreParams(),
@@ -67,9 +65,7 @@ class RocketTile(
 
   // TODO: this doesn't block other masters, e.g. RoCCs
   tlOtherMastersNode := tile_master_blocker.map { _.node := tlMasterXbar.node } getOrElse { tlMasterXbar.node }
-  val tokenBucket = LazyModule(new TokenBucketNode())
-  tokenBucket.node := tlOtherMastersNode
-  masterNode :=* tokenBucket.node
+  masterNode :=* tlOtherMastersNode
   DisableMonitors { implicit p => tlSlaveXbar.node :*= slaveNode }
 
   def findScratchpadFromICache: Option[AddressSet] = dtim_adapter.map { s =>
@@ -115,6 +111,7 @@ class RocketTile(
 class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
     with HasFpuOpt
     with HasLazyRoCCModule
+    with HasControlPlaneParameters
     with HasICacheFrontendModule {
   Annotated.params(this, outer.rocketParams)
 
@@ -157,16 +154,13 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
 
   // FIXME: currently we set the same dsid for all cores
   // take care the cache coherency flitering probe requests based on dsid
-  val dsid = IO(chisel3.core.Input(UInt(width=p(LDomDsidBits))))
+  val dsid = IO(chisel3.core.Input(UInt(width=ldomDSidWidth)))
   val (masterBundleOut, _) = outer.masterNode.out.unzip
   masterBundleOut.foreach { x => {
       x.a.bits.dsid := Cat(core.io.procdsid, dsid)
       x.c.bits.dsid := Cat(core.io.procdsid, dsid)
     }
   }
-
-  val bucketParam = IO(Input(new BucketBundle))
-  outer.tokenBucket.module.bucketParam := bucketParam
 
   val dcachePrefetcher = Module(new Prefetcher)
   dcachePrefetcher.io.enablePrefetch := core.io.prefetch_enable

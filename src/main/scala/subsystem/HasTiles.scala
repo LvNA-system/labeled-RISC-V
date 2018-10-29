@@ -12,6 +12,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tile.{BaseTile, LookupByHartId, LookupByHartIdImpl, TileKey, TileParams, SharedMemoryTLEdge, HasExternallyDrivenTileConstants}
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+import lvna.TokenBucketNode
 
 class ClockedTileInputs(implicit val p: Parameters) extends ParameterizedBundle
     with HasExternallyDrivenTileConstants
@@ -43,12 +44,12 @@ trait HasTiles { this: BaseSubsystem =>
     case LookupByHartId => lookupByHartId
   }
 
-  protected def connectMasterPortsToSBus(tile: BaseTile, crossing: RocketCrossingParams) {
+  protected def connectMasterPortsToSBus(tile: BaseTile, crossing: RocketCrossingParams, tokenBucket: TokenBucketNode)(implicit valName: ValName) {
     sbus.fromTile(tile.tileParams.name, crossing.master.buffers) {
         crossing.master.cork
           .map { u => TLCacheCork(unsafe = u) }
-          .map { _ :=* tile.crossMasterPort() }
-          .getOrElse { tile.crossMasterPort() }
+          .map { _ :=* tile.crossMasterPort(tokenBucket) }
+          .getOrElse { tile.crossMasterPort(tokenBucket) }
     }
   }
 

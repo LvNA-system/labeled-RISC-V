@@ -3,7 +3,6 @@
 package freechips.rocketchip.tile
 
 import Chisel._
-
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.diplomacy._
@@ -11,6 +10,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+import lvna.TokenBucketNode
 import util._
 
 case object SharedMemoryTLEdge extends Field[TLEdgeOut]
@@ -174,10 +174,10 @@ abstract class BaseTile(tileParams: TileParams, val crossing: ClockCrossingType)
   // The boundary buffering needed to cut feed-through paths is
   // microarchitecture specific, so these may need to be overridden
   protected def makeMasterBoundaryBuffers(implicit p: Parameters) = TLBuffer(BufferParams.none)
-  def crossMasterPort(): TLOutwardNode = {
+  def crossMasterPort(tokenBucket: TokenBucketNode): TLOutwardNode = {
     val tlMasterXing = this.crossOut(crossing match {
-      case RationalCrossing(_) => this { makeMasterBoundaryBuffers } :=* masterNode
-      case _ => masterNode
+      case RationalCrossing(_) => this { makeMasterBoundaryBuffers } :=* tokenBucket.node := masterNode
+      case _ => tokenBucket.node := masterNode
     })
     tlMasterXing(crossing)
   }

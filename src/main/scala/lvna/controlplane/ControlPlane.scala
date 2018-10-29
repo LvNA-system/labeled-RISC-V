@@ -1,70 +1,70 @@
 package lvna
 
-import chisel3._
-import chisel3.util.Cat
+import Chisel._
 import freechips.rocketchip.config.{Config, Field, Parameters}
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.subsystem.{BaseSubsystem, HasRocketTiles, HasRocketTilesModuleImp, NTiles}
 import freechips.rocketchip.tile.XLen
-import uncore.pard.{BucketBits, BucketBitsParams, BucketBundle}
 
-case object DsidWidth extends Field[Int](5)
+case object ProcDSidWidth extends Field[Int](3)
+
+trait HasControlPlaneParameters {
+  implicit val p: Parameters
+  val nTiles = p(NTiles)
+  val ldomDSidWidth = log2Up(nTiles)
+  val procDSidWidth = p(ProcDSidWidth)
+  val dsidWidth = ldomDSidWidth + procDSidWidth
+}
 
 /**
   * From ControlPlane's side of view.
   */
-class ControlPlaneIO(implicit val p: Parameters) extends Bundle {
-  private val dsidWidth = p(DsidWidth).W
-  private val indexWidth = 32.W
-  val dsid          = Output(UInt(dsidWidth))
-  val updateData    = Input(UInt(32.W))
-  val dsidWen       = Input(Bool())
-  val memBase       = Output(UInt(p(XLen).W))
-  val memBaseLoWen  = Input(Bool())
-  val memBaseHiWen  = Input(Bool())
-  val memMask       = Output(UInt(p(XLen).W))
-  val memMaskLoWen  = Input(Bool())
-  val memMaskHiWen  = Input(Bool())
-  val bucket        = Output(new BucketBundle)
-  val bktFreqWen    = Input(Bool())
-  val bktSizeWen    = Input(Bool())
-  val bktIncWen     = Input(Bool())
-  val sel           = Output(UInt(indexWidth))
-  val selUpdate     = Input(UInt(indexWidth))
-  val selWen        = Input(Bool())
-  val count         = Output(UInt(indexWidth))
+class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters {
+  private val indexWidth = 32
+  val dsid          = UInt(OUTPUT, ldomDSidWidth)
+  val updateData    = UInt(INPUT, 32)
+  val dsidWen       = Bool(INPUT)
+  val memBase       = UInt(OUTPUT, p(XLen))
+  val memBaseLoWen  = Bool(INPUT)
+  val memBaseHiWen  = Bool(INPUT)
+  val memMask       = UInt(OUTPUT, p(XLen))
+  val memMaskLoWen  = Bool(INPUT)
+  val memMaskHiWen  = Bool(INPUT)
+  val bucket        = new BucketBundle().asOutput
+  val bktFreqWen    = Bool(INPUT)
+  val bktSizeWen    = Bool(INPUT)
+  val bktIncWen     = Bool(INPUT)
+  val sel           = UInt(OUTPUT, indexWidth)
+  val selUpdate     = UInt(INPUT, indexWidth)
+  val selWen        = Bool(INPUT)
 }
 
 class ControlPlane()(implicit p: Parameters) extends LazyModule
+  with HasControlPlaneParameters
+  with HasTokenBucketParameters
 {
-  private val dsidWidth = p(DsidWidth)
   private val memAddrWidth = p(XLen)
 
   override lazy val module = new LazyModuleImp(this) {
-    private val nTiles = p(NTiles)
-
     val io = IO(new Bundle {
-      val dsids = Output(Vec(nTiles, UInt(dsidWidth.W)))
-      val memBases = Output(Vec(nTiles, UInt(memAddrWidth.W)))
-      val memMasks = Output(Vec(nTiles, UInt(memAddrWidth.W)))
-      val bucketParams = Output(Vec(nTiles, new BucketBundle()))
+      val dsids = Vec(nTiles, UInt(ldomDSidWidth.W)).asOutput
+      val memBases = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
+      val memMasks = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
+      val bucketParams = Vec(nTiles, new BucketBundle()).asOutput
       val cp = new ControlPlaneIO()
     })
 
-    val dsids = RegInit(VecInit(Seq.fill(nTiles)(1.U(dsidWidth.W))))
-    val dsidSel = RegInit(0.U(dsidWidth.W))
-    val memBases = RegInit(VecInit(Seq.fill(nTiles)(0.U(memAddrWidth.W))))
-    val memMasks = RegInit(VecInit(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
-    val bucketParams = RegInit(VecInit(Seq.fill(nTiles){
-      val bkt = p(BucketBits)
-      Cat(256.U(bkt.size.W), 0.U(bkt.freq.W), 256.U(bkt.size.W)).asTypeOf(new BucketBundle)
+    val dsids = RegInit(Vec(Seq.fill(nTiles)(1.U(ldomDSidWidth.W))))
+    val dsidSel = RegInit(0.U(ldomDSidWidth.W))
+    val memBases = RegInit(Vec(Seq.fill(nTiles)(0.U(memAddrWidth.W))))
+    val memMasks = RegInit(Vec(Seq.fill(nTiles)(~(0.U(memAddrWidth.W)))))
+    val bucketParams = RegInit(Vec(Seq.fill(nTiles){
+      Cat(256.U(tokenBucketSizeWidth.W), 0.U(tokenBucketFreqWidth.W), 256.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
     }))
-    val dsidCnt = WireInit(nTiles.U(dsidWidth.W))
-    val currDsid = WireInit(dsids(dsidSel))
+    val currDsid = dsids(dsidSel)
 
     io.cp.dsid := currDsid
     io.cp.sel := dsidSel
-    io.cp.count := dsidCnt
     io.cp.memBase := memBases(dsidSel)
     io.cp.memMask := memMasks(dsidSel)
     io.cp.bucket := bucketParams(dsidSel)
@@ -122,12 +122,12 @@ trait HasControlPlane extends HasRocketTiles {
 trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   val outer: HasControlPlane
 
-  outer.rocketTiles.zipWithIndex.foreach { case(tile, i) =>
+  (outer.rocketTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
     val cpio = outer.controlPlane.module.io
     tile.module.dsid := cpio.dsids(i.U)
     tile.module.memBase := cpio.memBases(i.U)
     tile.module.memMask := cpio.memMasks(i.U)
-    tile.module.bucketParam := cpio.bucketParams(i.U)
+    token.module.bucketParam := cpio.bucketParams(i.U)
   }
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp
