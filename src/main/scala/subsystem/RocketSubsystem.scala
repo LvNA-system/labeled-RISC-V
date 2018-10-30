@@ -12,13 +12,14 @@ import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.interrupts._
 import freechips.rocketchip.util._
+import lvna.TokenBucketNode
 
 // TODO: how specific are these to RocketTiles?
 case class TileMasterPortParams(buffers: Int = 0, cork: Option[Boolean] = None)
 case class TileSlavePortParams(buffers: Int = 0, blockerCtrlAddr: Option[BigInt] = None)
 
 case class RocketCrossingParams(
-    crossingType: SubsystemClockCrossing = SynchronousCrossing(),
+    crossingType: ClockCrossingType = SynchronousCrossing(),
     master: TileMasterPortParams = TileMasterPortParams(),
     slave: TileSlavePortParams = TileSlavePortParams()) {
   def knownRatio: Option[Int] = crossingType match {
@@ -43,11 +44,12 @@ trait HasRocketTiles extends HasTiles
   // according to the specified type of clock crossing.
   // Note that we also inject new nodes into the tile itself,
   // also based on the crossing type.
-  val rocketTiles = rocketTileParams.zip(crossings).map { case (tp, crossing) =>
+  val tokenBuckets = Seq.fill(p(NTiles)){ LazyModule(new TokenBucketNode()) }
+  val rocketTiles = rocketTileParams.zip(crossings).zip(tokenBuckets).map { case ((tp, crossing), tokenBucket) =>
     val rocket = LazyModule(new RocketTile(tp, crossing.crossingType)(augmentedTileParameters(tp)))
       .suggestName(tp.name)
 
-    connectMasterPortsToSBus(rocket, crossing)
+    connectMasterPortsToSBus(rocket, crossing, tokenBucket)
     connectSlavePortsToCBus(rocket, crossing)
     connectInterrupts(rocket, Some(debug), clintOpt, plicOpt)
 

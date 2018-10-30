@@ -44,6 +44,41 @@ object TLMessages
 
   def adResponse = Vec(AccessAck, AccessAck, AccessAckData, AccessAckData, AccessAckData, HintAck, Grant, Grant)
   def bcResponse = Vec(AccessAck, AccessAck, AccessAckData, AccessAckData, AccessAckData, HintAck, ProbeAck, ProbeAck)
+  
+  def a = Seq( ("PutFullData",TLPermissions.PermMsgReserved),
+               ("PutPartialData",TLPermissions.PermMsgReserved),
+               ("ArithmeticData",TLAtomics.ArithMsg),
+               ("LogicalData",TLAtomics.LogicMsg),
+               ("Get",TLPermissions.PermMsgReserved),
+               ("Hint",TLHints.HintsMsg),
+               ("AcquireBlock",TLPermissions.PermMsgGrow),
+               ("AcquirePerm",TLPermissions.PermMsgGrow))
+
+  def b = Seq( ("PutFullData",TLPermissions.PermMsgReserved),
+               ("PutPartialData",TLPermissions.PermMsgReserved),
+               ("ArithmeticData",TLAtomics.ArithMsg),
+               ("LogicalData",TLAtomics.LogicMsg),
+               ("Get",TLPermissions.PermMsgReserved),
+               ("Hint",TLHints.HintsMsg),
+               ("Probe",TLPermissions.PermMsgCap))
+
+  def c = Seq( ("AccessAck",TLPermissions.PermMsgReserved),
+               ("AccessAckData",TLPermissions.PermMsgReserved),
+               ("HintAck",TLPermissions.PermMsgReserved),
+               ("Invalid Opcode",TLPermissions.PermMsgReserved),
+               ("ProbeAck",TLPermissions.PermMsgReport),
+               ("ProbeAckData",TLPermissions.PermMsgReport),
+               ("Release",TLPermissions.PermMsgReport),
+               ("ReleaseData",TLPermissions.PermMsgReport))
+
+  def d = Seq( ("AccessAck",TLPermissions.PermMsgReserved),
+               ("AccessAckData",TLPermissions.PermMsgReserved),
+               ("HintAck",TLPermissions.PermMsgReserved),
+               ("Invalid Opcode",TLPermissions.PermMsgReserved),
+               ("Grant",TLPermissions.PermMsgCap),
+               ("GrantData",TLPermissions.PermMsgCap),
+               ("ReleaseAck",TLPermissions.PermMsgReserved))
+
 }
 
 /**
@@ -84,6 +119,11 @@ object TLPermissions
   def BtoB = UInt(4, cWidth)
   def NtoN = UInt(5, cWidth)
   def isReport(x: UInt) = x <= NtoN
+
+  def PermMsgGrow:Seq[String] = Seq("Grow NtoB", "Grow NtoT", "Grow BtoT")
+  def PermMsgCap:Seq[String] = Seq("Cap toT", "Cap toB", "Cap toN")
+  def PermMsgReport:Seq[String] = Seq("Shrink TtoB", "Shrink TtoN", "Shrink BtoN", "Report TotT", "Report BtoB", "Report NtoN")
+  def PermMsgReserved:Seq[String] = Seq("Reserved") 
 }
 
 object TLAtomics
@@ -104,7 +144,11 @@ object TLAtomics
   def AND  = UInt(2, width)
   def SWAP = UInt(3, width)
   def isLogical(x: UInt) = x <= SWAP
+
+  def ArithMsg:Seq[String] = Seq("MIN", "MAX", "MIN", "MAXU", "ADD")
+  def LogicMsg:Seq[String] = Seq("XOR", "OR", "AND", "SWAP")
 }
+ 
 
 object TLHints
 {
@@ -112,11 +156,14 @@ object TLHints
 
   def PREFETCH_READ  = UInt(0, width)
   def PREFETCH_WRITE = UInt(1, width)
+
+  def HintsMsg:Seq[String] = Seq("PrefetchRead", "PrefetchWrite")
 }
 
 sealed trait TLChannel extends TLBundleBase {
   val channelName: String
 }
+
 sealed trait TLDataChannel extends TLChannel
 sealed trait TLAddrChannel extends TLDataChannel
 
@@ -130,13 +177,13 @@ final class TLBundleA(params: TLBundleParameters)
   val size    = UInt(width = params.sizeBits)
   val source  = UInt(width = params.sourceBits) // from
   val address = UInt(width = params.addressBits) // to
-  val dsid = UInt(width = 16)
+  // FIXME: change to DSidWidth
+  val dsid = UInt(width = 5)
   // variable fields during multibeat:
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
   val corrupt = Bool() // only applies to *Data messages
 }
-
 final class TLBundleB(params: TLBundleParameters)
   extends TLBundleBase(params) with TLAddrChannel
 {
@@ -147,7 +194,8 @@ final class TLBundleB(params: TLBundleParameters)
   val size    = UInt(width = params.sizeBits)
   val source  = UInt(width = params.sourceBits) // to
   val address = UInt(width = params.addressBits) // from
-  val dsid = UInt(width = 16)
+  // FIXME: change to DSidWidth
+  val dsid = UInt(width = 5)
   // variable fields during multibeat:
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
@@ -164,7 +212,8 @@ final class TLBundleC(params: TLBundleParameters)
   val size    = UInt(width = params.sizeBits)
   val source  = UInt(width = params.sourceBits) // from
   val address = UInt(width = params.addressBits) // to
-  val dsid = UInt(width = 16)
+  // FIXME: change to DSidWidth
+  val dsid = UInt(width = 5)
   // variable fields during multibeat:
   val data    = UInt(width = params.dataBits)
   val corrupt = Bool() // only applies to *Data messages
@@ -190,7 +239,7 @@ final class TLBundleE(params: TLBundleParameters)
   extends TLBundleBase(params) with TLChannel
 {
   val channelName = "'E' channel"
-  val sink = UInt(width = params.sinkBits) // to
+  val sink = UInt(width = params.sinkBits) // to  
 }
 
 class TLBundle(params: TLBundleParameters) extends TLBundleBase(params)
@@ -272,11 +321,11 @@ class TLAsyncBundleBase(params: TLAsyncBundleParameters) extends GenericParamete
 
 class TLAsyncBundle(params: TLAsyncBundleParameters) extends TLAsyncBundleBase(params)
 {
-  val a = new AsyncBundle(params.depth, new TLBundleA(params.base))
-  val b = new AsyncBundle(params.depth, new TLBundleB(params.base)).flip
-  val c = new AsyncBundle(params.depth, new TLBundleC(params.base))
-  val d = new AsyncBundle(params.depth, new TLBundleD(params.base)).flip
-  val e = new AsyncBundle(params.depth, new TLBundleE(params.base))
+  val a = new AsyncBundle(new TLBundleA(params.base), params.async)
+  val b = new AsyncBundle(new TLBundleB(params.base), params.async).flip
+  val c = new AsyncBundle(new TLBundleC(params.base), params.async)
+  val d = new AsyncBundle(new TLBundleD(params.base), params.async).flip
+  val e = new AsyncBundle(new TLBundleE(params.base), params.async)
 }
 
 class TLRationalBundle(params: TLBundleParameters) extends TLBundleBase(params)

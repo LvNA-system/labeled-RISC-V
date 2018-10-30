@@ -3,12 +3,13 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import scala.math.{min,max}
+import lvna.HasControlPlaneParameters
 
-class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = false)(implicit p: Parameters) extends LazyModule
+class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = false)(implicit p: Parameters) extends LazyModule with HasControlPlaneParameters
 {
   require (lineBytes > 0 && isPow2(lineBytes))
   require (numTrackers > 0)
@@ -35,6 +36,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
               regionType         = RegionType.TRACKED,
               supportsAcquireB   = TransferSizes(lowerBound, lineBytes),
               supportsAcquireT   = if (m.supportsPutFull) TransferSizes(lowerBound, lineBytes) else TransferSizes.none,
+              alwaysGrantsT      = false,
               // truncate supported accesses to lineBytes (we only ever probe for one line)
               supportsPutFull    = TransferSizes(m.supportsPutFull   .min, min(m.supportsPutFull   .max, lineBytes)),
               supportsPutPartial = TransferSizes(m.supportsPutPartial.min, min(m.supportsPutPartial.max, lineBytes)),
@@ -169,9 +171,9 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
           dsid := in.a.bits.dsid
         }
       }
-
+      
       val dsid_mask = Vec(cache_dsids.map { dsid =>
-        Mux(dsid === UInt(0), Bool(true), dsid === in.a.bits.dsid)
+        Mux(dsid === UInt(0), Bool(true), dsid(ldomDSidWidth - 1, 0) === in.a.bits.dsid(ldomDSidWidth - 1, 0))
       }).asUInt
       val dsid_todo = (~a_cache) & dsid_mask
 

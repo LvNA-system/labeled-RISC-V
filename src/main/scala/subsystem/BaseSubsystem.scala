@@ -3,10 +3,12 @@
 package freechips.rocketchip.subsystem
 
 import Chisel._
-import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.config.{Parameters, Field}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+
+case object BuildSystemBus extends Field[Parameters => SystemBus](p => new SystemBus(p(SystemBusKey))(p))
 
 /** BareSubsystem is the root class for creating a subsystem */
 abstract class BareSubsystem(implicit p: Parameters) extends LazyModule with BindingScope {
@@ -31,22 +33,22 @@ abstract class BaseSubsystem(implicit p: Parameters) extends BareSubsystem {
   // These are wrappers around the standard buses available in all subsytems, where
   // peripherals, tiles, ports, and other masters and slaves can attach themselves.
   val ibus = new InterruptBusWrapper()
-  val sbus = LazyModule(new SystemBus(p(SystemBusKey)))
+  val sbus = LazyModule(p(BuildSystemBus)(p))
   val pbus = LazyModule(new PeripheryBus(p(PeripheryBusKey)))
   val fbus = LazyModule(new FrontBus(p(FrontBusKey)))
 
   // The sbus masters the pbus; here we convert TL-UH -> TL-UL
-  pbus.fromSystemBus { sbus.toPeripheryBus { pbus.crossTLIn } }
+  pbus.crossFromControlBus { sbus.control_bus.toSlaveBus("pbus") }
 
   // The fbus masters the sbus; both are TL-UH or TL-C
   FlipRendering { implicit p =>
-    fbus.toSystemBus { sbus.fromFrontBus { fbus.crossTLOut } }
+    fbus.crossToSystemBus { sbus.fromMasterBus("fbus") }
   }
 
   // The sbus masters the mbus; here we convert TL-C -> TL-UH
   private val mbusParams = p(MemoryBusKey)
   private val l2Params = p(BankedL2Key)
-  val MemoryBusParams(memBusBeatBytes, memBusBlockBytes) = mbusParams
+  val MemoryBusParams(memBusBeatBytes, memBusBlockBytes, _, _) = mbusParams
   val BankedL2Params(nMemoryChannels, nBanksPerChannel, coherenceManager) = l2Params
   val nBanks = l2Params.nBanks
   val cacheBlockBytes = memBusBlockBytes
@@ -59,21 +61,20 @@ abstract class BaseSubsystem(implicit p: Parameters) extends BareSubsystem {
   require (isPow2(nBanksPerChannel))
   require (isPow2(memBusBlockBytes))
 
-  private val mask = ~BigInt((nBanks-1) * memBusBlockBytes)
   val memBuses = Seq.tabulate(nMemoryChannels) { channel =>
-    val mbus = LazyModule(new MemoryBus(mbusParams)(p))
+    val mbus = LazyModule(new MemoryBus(mbusParams, channel, nMemoryChannels, nBanks)(p))
     for (bank <- 0 until nBanksPerChannel) {
-      val offset = (bank * nMemoryChannels) + channel
       ForceFanout(a = true) { implicit p => sbus.toMemoryBus { in } }
-      mbus.fromCoherenceManager(None) { TLFilter(TLFilter.Mmask(AddressSet(offset * memBusBlockBytes, mask))) } := out
+      mbus.coupleFrom(s"coherence_manager_bank_$bank") {
+        _ := TLFilter(TLFilter.mSelectIntersect(mbus.bankFilter(bank))) := out
+      }
     }
     mbus
   }
 
-  // Make topManagers an Option[] so as to avoid LM name reflection evaluating it...
-  lazy val topManagers = Some(ManagerUnification(sbus.busView.manager.managers))
+  lazy val topManagers = ManagerUnification(sbus.busView.manager.managers)
   ResourceBinding {
-    val managers = topManagers.get
+    val managers = topManagers
     val max = managers.flatMap(_.address).map(_.max).max
     val width = ResourceInt((log2Ceil(max)+31) / 32)
     val model = p(DTSModel)
@@ -114,7 +115,7 @@ abstract class BaseSubsystemModuleImp[+L <: BaseSubsystem](_outer: L) extends Ba
 
   // Confirm that all of memory was described by DTS
   private val dtsRanges = AddressRange.unify(mapping.map(_.range))
-  private val allRanges = AddressRange.unify(outer.topManagers.get.flatMap { m => AddressRange.fromSets(m.address) })
+  private val allRanges = AddressRange.unify(outer.topManagers.flatMap { m => AddressRange.fromSets(m.address) })
 
   if (dtsRanges != allRanges) {
     println("Address map described by DTS differs from physical implementation:")

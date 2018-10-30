@@ -4,7 +4,6 @@ import chisel3._
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
-import uncore.pard.{BucketBundle, TokenBucket}
 
 class TokenBucketNode(implicit p: Parameters) extends LazyModule {
   val node = TLIdentityNode()
@@ -22,7 +21,7 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   val enable = tokenBucket.io.enable
 
   val bucketParam = IO(Input(new BucketBundle))
-  val traffic = IO(Output(UInt(p(TrafficWidth).W)))
+  val traffic = IO(Output(UInt(32.W)))
   traffic := tokenBucket.io.traffic
   param := bucketParam
 

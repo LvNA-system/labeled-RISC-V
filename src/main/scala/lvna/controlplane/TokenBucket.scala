@@ -1,14 +1,18 @@
-package uncore.pard
+package lvna
 
 import chisel3._
 import freechips.rocketchip.config._
-import lvna.TrafficWidth
 
+trait HasTokenBucketParameters {
+  val tokenBucketSizeWidth = 32
+  val tokenBucketFreqWidth = 32
+  val tokenBucketDataWidth = 32
+}
 
-class BucketBundle(implicit p: Parameters) extends Bundle {
-  val size = UInt(p(BucketBits).size.W)
-  val freq = UInt(p(BucketBits).freq.W)
-  val inc = UInt(p(BucketBits).size.W)
+class BucketBundle(implicit p: Parameters) extends Bundle with HasTokenBucketParameters {
+  val size = UInt(tokenBucketSizeWidth.W)
+  val freq = UInt(tokenBucketFreqWidth.W)
+  val inc  = UInt(tokenBucketSizeWidth.W)
 
   override def cloneType = (new BucketBundle).asInstanceOf[this.type]
 }
@@ -24,13 +28,13 @@ class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
 }
 
 
-class TokenBucket(implicit p: Parameters) extends Module {
+class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketParameters {
   val io = IO(new Bundle {
-    val read  = new ReadyValidMonitor(UInt(p(BucketBits).data.W))
-    val write = new ReadyValidMonitor(UInt(p(BucketBits).data.W))
+    val read  = new ReadyValidMonitor(UInt(tokenBucketDataWidth.W))
+    val write = new ReadyValidMonitor(UInt(tokenBucketDataWidth.W))
     val bucket = Input(new BucketBundle)
     val enable = Output(Bool())
-    val traffic = Output(UInt(p(TrafficWidth).W))
+    val traffic = Output(UInt(32.W))
   })
 
   val bucketSize = io.bucket.size
@@ -45,10 +49,10 @@ class TokenBucket(implicit p: Parameters) extends Module {
   val nTokens = RegNext(
     Mux(nTokensNext < bucketSize, nTokensNext, bucketSize),
     bucketSize)
-  val traffic = RegInit(0.U(p(TrafficWidth).W))
+  val traffic = RegInit(0.U(32.W))
 
   val counterNext = Wire(UInt())
-  val counter = RegNext(counterNext, 0.U(p(BucketBits).freq.W))
+  val counter = RegNext(counterNext, 0.U(tokenBucketFreqWidth.W))
   counterNext := Mux(counter >= bucketFreq, 1.U, counter + 1.U)
 
   val tokenAdd = Mux(counter === 1.U, bucketInc, 0.U)

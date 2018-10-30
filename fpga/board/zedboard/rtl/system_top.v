@@ -103,8 +103,7 @@ module system_top (
     .jtag_TDO(jtag_TDO),
     .jtag_TRST(~pardcore_corerstn),
 
-    .intr0(mm2s_introut),
-    .intr1(s2mm_introut),
+    .intrs({s2mm_introut, mm2s_introut}),
 
     .led(led[7]),
 
