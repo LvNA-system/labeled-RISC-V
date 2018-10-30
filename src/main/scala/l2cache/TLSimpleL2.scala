@@ -333,8 +333,9 @@ time: %d [L2Cache] out.a.opcode  = %x,
 
       val idx = addr(indexMSB, indexLSB)
 
-      val read_tag_req = state === s_tag_read_req
-      val meta_rdata = meta_array.read(idx, read_tag_req)
+      val meta_array_wen = rst || state === s_tag_read
+      val read_tag_req = (state === s_tag_read_req)
+      val meta_rdata = meta_array.read(idx, read_tag_req && !meta_array_wen)
 
       def wayMap[T <: Data](f: Int => T) = Vec((0 until nWays).map(f))
 
@@ -478,7 +479,6 @@ time: %d [L2Cache] out.a.opcode  = %x,
         metadata.rr_state := next_state(i)
       }
 
-      val meta_array_wen = rst || state === s_tag_read
       val meta_array_widx = Mux(rst, rst_cnt, idx)
       val meta_array_wdata = Mux(rst, rst_metadata, update_metadata)
 
@@ -517,7 +517,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
           }
           data_array.write(data_write_idx, Vec.fill(nWays)(din(i)), (0 until nWays).map(data_write_way === UInt(_)))
         }
-        dout(i) := data_array.read(data_read_idx, data_read_valid)(data_read_way)
+        dout(i) := data_array.read(data_read_idx, data_read_valid && !data_write_valid)(data_read_way)
         if (param.debug) {
           when (RegNext(data_read_valid, N)) {
             printf("time: %d [L2 Cache] read data array: %d idx: %d way: %d data: %x\n",
