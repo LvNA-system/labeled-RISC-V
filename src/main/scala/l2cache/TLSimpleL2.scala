@@ -324,7 +324,12 @@ time: %d [L2Cache] out.a.opcode  = %x,
       // 1. read req  2. read response  3. check hit, miss
 
       // metadata array
-      val meta_array = SeqMem(nSets, Vec(nWays, new MetadataEntry(tagBits, dsidWidth)))
+      val meta_array = DescribedSRAM(
+        name = "L2_meta_array",
+        desc = "L2 cache metadata array",
+        size = nSets,
+        data = Vec(nWays, new MetadataEntry(tagBits, dsidWidth))
+      )
 
       val idx = addr(indexMSB, indexLSB)
 
@@ -497,7 +502,13 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val data_write_idx = idx << log2Ceil(innerDataBeats) | data_write_cnt
       val din = Wire(Vec(split, UInt(outerBeatSize.W)))
 
-      val data_arrays = Seq.fill(split) { SeqMem(nSets * innerDataBeats, Vec(nWays, UInt(width = outerBeatSize.W))) }
+      val data_arrays = Seq.fill(split) {
+        DescribedSRAM(
+          name = "L2_data_array",
+          desc = "L2 data array",
+          size = nSets * innerDataBeats,
+          data = Vec(nWays, UInt(width = outerBeatSize.W))
+        ) }
       for ((data_array, i) <- data_arrays zipWithIndex) {
         when (data_write_valid) {
           if (param.debug) {
