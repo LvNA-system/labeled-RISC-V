@@ -86,7 +86,7 @@ the configures of RISC-V subsystem are different among boards.
 
 | Board | # RISC-V cores | Frequency | # BTB entries | L2 cache size | Memory size |
 | --- | --- | --- | --- | --- | --- |
-| zedboard | 2 | 30 MHz | 40 | 256 KB | 128 MB |
+| zedboard | 2 | 50 MHz | 0 | 256 KB | 128 MB |
 | zcu102 | 4 | 100 MHz | 40 | 2 MB | 2 GB |
 | sidewinder | 4 | 100 MHz | 40 | 2 MB | 2 GB |
 | ultraZ | 2 | 100 MHz | 0 | 256 KB | 1 GB |
@@ -94,35 +94,32 @@ the configures of RISC-V subsystem are different among boards.
 For details, please read [LvNAConfigs.scala](../src/main/scala/lvna/LvNAConfigs.scala).
 
 To boot the RISC-V subsystem
+* Clone the [prm-sw repo](https://github.com/LvNA-system/prm-sw).
+`prm-sw` contains tools to boot and control the RISC-V subsystem.
+For details, please refer to the README.md under the `prm-sw` directory.
 * Send the `prm-sw` directory to PRM.
 This can be achieved by either copying the file to SD card,
 or by sending the file with `scp` if you have your board connected to your host by network.
-`prm-sw` contains tools to boot and control the RISC-V subsystem.
-For details, please refer to the [README.md under the prm-sw directory](prm-sw/README.md).
-* If the target board is zynq, change the macro definition in `path-to-prm-sw/platform/platform-fpga/src/map.h` as following
-```
-#define GPIO_RESET_BASE_ADDR 0x41200000
-#define JTAG_BASE_ADDR 0x43C00000
-```
 * Compile the tools on PRM.
 ```
-cd path-to-prm-sw/app/axi-loader && make PLATFORM=fpga
-cd path-to-prm-sw/app/pardctl && make PLATFORM=fpga
-cd path-to-prm-sw/app/stab && make PLATFORM=fpga
+cd path-to-prm-sw/apps/axi-loader && make PLATFORM=fpga [BOARD=zynq]
+cd path-to-prm-sw/apps/pardctl && make PLATFORM=fpga [BOARD=zynq]
+cd path-to-prm-sw/apps/stab && make PLATFORM=fpga [BOARD=zynq]
 ```
+If the target board is zynq, add the `BOARD=zynq` argument specified above.
 
 #### Build RISC-V image for FPGA
 
 ```
 cd path-to-labeled-RISC-V/../sw/riscv-linux
-make ARCH=riscv fpga_defconfig
+make ARCH=riscv CROSS_COMPILE=riscv64-unknown-linux-gnu- fpga_defconfig
 cd path-to-labeled-RISC-V/fpga
 make -j16 sw
 ```
 
 This will generator `linux.bin` under `build/`.
 This is a rootfs containing busybox to use in FPGA.
-Then put `linux.bin` under `path-to-prm-sw/app/axi-loader/` on PRM.
+Then put `linux.bin` under `path-to-prm-sw/apps/axi-loader/` on PRM.
 
 #### SMP Boot
 
@@ -136,16 +133,20 @@ minicom -D /dev/ttyUL1
 ```
 * Run the script to boot RISC-V subsystem in SMP mode.
 ```
-cd path-to-prm-sw/app/axi-loader
+cd path-to-prm-sw/apps/axi-loader
 bash runme-smp.sh [board]
+bash hard-reset.sh  # this is a temporary fix to the reset system
 ```
-It may cost about 100s for zedboard to boot the RISC-V subsystem. Most of the time is spent in unpacking ramdisk image.
+It may cost about 50s for zedboard to boot the RISC-V subsystem. Most of the time is spent in unpacking ramdisk image.
 
 NOTE: Currently the process-level label machenism in the SMP OS does not work well.
 To use label, please use NoHype mode below.
 
 #### NoHype Boot
 
+Currently we are working on this part.
+
+<!--
 NoHype boot allows running multiple OSes on multiple cores.
 This is a new virtualization method provided by LvNA.
 
@@ -191,6 +192,8 @@ ls cp-config/?core/
 Currently we provide the configure files to adjust the LLC way partition
 and the memory bandwidth allocation before LLC.
 For details, please refer to the [README.md about pardctl](prm-sw/app/pardctl/README.md).
+
+-->
 
 ## TODO
 
