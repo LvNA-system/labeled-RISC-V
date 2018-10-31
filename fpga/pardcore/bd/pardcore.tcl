@@ -50,8 +50,8 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 
 set list_projs [get_projects -quiet]
 if { $list_projs eq "" } {
-   create_project project_1 myproj -part xczu9eg-ffvb1156-2-i
-   set_property BOARD_PART xilinx.com:zcu102:part0:3.0 [current_project]
+   create_project project_1 myproj -part xczu9eg-ffvb1156-2-e
+   set_property BOARD_PART xilinx.com:zcu102:part0:3.1 [current_project]
 }
 
 
@@ -131,6 +131,7 @@ set bCheckIPsPassed 1
 set bCheckIPs 1
 if { $bCheckIPs == 1 } {
    set list_check_ips "\ 
+xilinx.com:ip:axi_crossbar:2.1\
 xilinx.com:ip:axi_dwidth_converter:2.1\
 xilinx.com:ip:axi_protocol_converter:2.1\
 xilinx.com:ip:c_shift_ram:12.0\
@@ -278,6 +279,37 @@ proc create_root_design { parentCell } {
    CONFIG.WUSER_BITS_PER_BYTE {0} \
    CONFIG.WUSER_WIDTH {5} \
    ] $S_AXI_DMA
+  set S_AXI_SBUS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 S_AXI_SBUS ]
+  set_property -dict [ list \
+   CONFIG.ADDR_WIDTH {40} \
+   CONFIG.ARUSER_WIDTH {5} \
+   CONFIG.AWUSER_WIDTH {5} \
+   CONFIG.BUSER_WIDTH {5} \
+   CONFIG.DATA_WIDTH {64} \
+   CONFIG.FREQ_HZ {50000000} \
+   CONFIG.HAS_BRESP {1} \
+   CONFIG.HAS_BURST {1} \
+   CONFIG.HAS_CACHE {1} \
+   CONFIG.HAS_LOCK {1} \
+   CONFIG.HAS_PROT {1} \
+   CONFIG.HAS_QOS {1} \
+   CONFIG.HAS_REGION {0} \
+   CONFIG.HAS_RRESP {1} \
+   CONFIG.HAS_WSTRB {1} \
+   CONFIG.ID_WIDTH {1} \
+   CONFIG.MAX_BURST_LENGTH {256} \
+   CONFIG.NUM_READ_OUTSTANDING {2} \
+   CONFIG.NUM_READ_THREADS {1} \
+   CONFIG.NUM_WRITE_OUTSTANDING {2} \
+   CONFIG.NUM_WRITE_THREADS {1} \
+   CONFIG.PROTOCOL {AXI4} \
+   CONFIG.READ_WRITE_MODE {READ_WRITE} \
+   CONFIG.RUSER_BITS_PER_BYTE {0} \
+   CONFIG.RUSER_WIDTH {5} \
+   CONFIG.SUPPORTS_NARROW_BURST {1} \
+   CONFIG.WUSER_BITS_PER_BYTE {0} \
+   CONFIG.WUSER_WIDTH {5} \
+   ] $S_AXI_SBUS
 
   # Create ports
   set coreclk [ create_bd_port -dir I coreclk ]
@@ -324,6 +356,29 @@ proc create_root_design { parentCell } {
    CONFIG.NUM_WRITE_OUTSTANDING {2} \
    CONFIG.MAX_BURST_LENGTH {256} \
  ] [get_bd_intf_pins /LvNAFPGATop_0/mmio_axi4_0]
+
+  # Create instance: axi_crossbar_0, and set properties
+  set axi_crossbar_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_crossbar:2.1 axi_crossbar_0 ]
+  set_property -dict [ list \
+   CONFIG.ID_WIDTH {1} \
+   CONFIG.NUM_MI {1} \
+   CONFIG.NUM_SI {2} \
+   CONFIG.S01_BASE_ID {0x00000001} \
+   CONFIG.S02_BASE_ID {0x00000002} \
+   CONFIG.S03_BASE_ID {0x00000003} \
+   CONFIG.S04_BASE_ID {0x00000004} \
+   CONFIG.S05_BASE_ID {0x00000005} \
+   CONFIG.S06_BASE_ID {0x00000006} \
+   CONFIG.S07_BASE_ID {0x00000007} \
+   CONFIG.S08_BASE_ID {0x00000008} \
+   CONFIG.S09_BASE_ID {0x00000009} \
+   CONFIG.S10_BASE_ID {0x0000000a} \
+   CONFIG.S11_BASE_ID {0x0000000b} \
+   CONFIG.S12_BASE_ID {0x0000000c} \
+   CONFIG.S13_BASE_ID {0x0000000d} \
+   CONFIG.S14_BASE_ID {0x0000000e} \
+   CONFIG.S15_BASE_ID {0x0000000f} \
+ ] $axi_crossbar_0
 
   # Create instance: axi_dwidth_converter_0, and set properties
   set axi_dwidth_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0 ]
@@ -376,7 +431,9 @@ proc create_root_design { parentCell } {
   # Create interface connections
   connect_bd_intf_net -intf_net LvNAFPGATop_0_mem_axi4_0 [get_bd_intf_ports M_AXI_MEM] [get_bd_intf_pins LvNAFPGATop_0/mem_axi4_0]
   connect_bd_intf_net -intf_net LvNAFPGATop_0_mmio_axi4_0 [get_bd_intf_pins LvNAFPGATop_0/mmio_axi4_0] [get_bd_intf_pins axi_dwidth_converter_0/S_AXI]
-  connect_bd_intf_net -intf_net S_AXI_DMA_1 [get_bd_intf_ports S_AXI_DMA] [get_bd_intf_pins LvNAFPGATop_0/l2_frontend_bus_axi4_0]
+  connect_bd_intf_net -intf_net S_AXI_DMA_1 [get_bd_intf_ports S_AXI_DMA] [get_bd_intf_pins axi_crossbar_0/S00_AXI]
+  connect_bd_intf_net -intf_net S_AXI_SBUS_1 [get_bd_intf_ports S_AXI_SBUS] [get_bd_intf_pins axi_crossbar_0/S01_AXI]
+  connect_bd_intf_net -intf_net axi_crossbar_0_M00_AXI [get_bd_intf_pins LvNAFPGATop_0/l2_frontend_bus_axi4_0] [get_bd_intf_pins axi_crossbar_0/M00_AXI]
   connect_bd_intf_net -intf_net axi_dwidth_converter_0_M_AXI [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins axi_protocol_converter_0/S_AXI]
   connect_bd_intf_net -intf_net axi_protocol_converter_0_M_AXI [get_bd_intf_ports M_AXILITE_MMIO] [get_bd_intf_pins axi_protocol_converter_0/M_AXI]
 
@@ -385,22 +442,24 @@ proc create_root_design { parentCell } {
   connect_bd_net -net LvNAFPGATop_0_io_nasti_error [get_bd_ports led] [get_bd_pins LvNAFPGATop_0/debug_dmactive]
   connect_bd_net -net c_shift_ram_0_Q [get_bd_pins c_shift_ram_0/Q] [get_bd_pins c_shift_ram_1/D]
   connect_bd_net -net c_shift_ram_1_Q [get_bd_pins LvNAFPGATop_0/corerst] [get_bd_pins c_shift_ram_1/Q]
-  connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins LvNAFPGATop_0/clock] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
+  connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins LvNAFPGATop_0/clock] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
   connect_bd_net -net coreclk_1 [get_bd_ports coreclk] [get_bd_pins LvNAFPGATop_0/coreclk] [get_bd_pins c_shift_ram_0/CLK] [get_bd_pins c_shift_ram_1/CLK]
-  connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins LvNAFPGATop_0/reset] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
+  connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
   connect_bd_net -net intrs_1 [get_bd_ports intrs] [get_bd_pins LvNAFPGATop_0/interrupts]
   connect_bd_net -net io_jtag_TDI_1 [get_bd_ports jtag_TDI] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TDI]
   connect_bd_net -net io_jtag_TRST_1 [get_bd_ports jtag_TRST] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_reset]
   connect_bd_net -net jtag_TCK_1 [get_bd_ports jtag_TCK] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TCK]
   connect_bd_net -net jtag_TMS_1 [get_bd_ports jtag_TMS] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TMS]
-  connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
+  connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
   connect_bd_net -net uncore_rstn_1 [get_bd_ports uncore_rstn] [get_bd_pins proc_sys_reset_0/ext_reset_in]
   connect_bd_net -net xlslice_0_Dout [get_bd_pins c_shift_ram_0/D] [get_bd_pins xlslice_0/Dout]
+  connect_bd_net -net xlslice_1_Dout [get_bd_pins LvNAFPGATop_0/reset] [get_bd_pins xlslice_1/Dout]
 
   # Create address segments
   create_bd_addr_seg -range 0x20000000 -offset 0x60000000 [get_bd_addr_spaces LvNAFPGATop_0/mmio_axi4_0] [get_bd_addr_segs M_AXILITE_MMIO/Reg] SEG_M_AXILITE_MMIO_Reg
   create_bd_addr_seg -range 0x000200000000 -offset 0x00000000 [get_bd_addr_spaces LvNAFPGATop_0/mem_axi4_0] [get_bd_addr_segs M_AXI_MEM/Reg] SEG_M_AXI_MEM_Reg
-  create_bd_addr_seg -range 0x010000000000 -offset 0x00000000 [get_bd_addr_spaces S_AXI_DMA] [get_bd_addr_segs LvNAFPGATop_0/l2_frontend_bus_axi4_0/reg0] SEG_LvNAFPGATop_0_reg0
+  create_bd_addr_seg -range 0x000200000000 -offset 0x00000000 [get_bd_addr_spaces S_AXI_DMA] [get_bd_addr_segs LvNAFPGATop_0/l2_frontend_bus_axi4_0/reg0] SEG_LvNAFPGATop_0_reg0
+  create_bd_addr_seg -range 0x000200000000 -offset 0x00000000 [get_bd_addr_spaces S_AXI_SBUS] [get_bd_addr_segs LvNAFPGATop_0/l2_frontend_bus_axi4_0/reg0] SEG_LvNAFPGATop_0_reg0
 
 
   # Restore current instance
