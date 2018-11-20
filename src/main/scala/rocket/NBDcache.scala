@@ -726,27 +726,39 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   dtlb.io.sfence.bits.rs2 := s1_req.typ(1)
   dtlb.io.sfence.bits.addr := s1_req.addr
   dtlb.io.sfence.bits.asid := io.cpu.s1_data.data
-  
+
   when (io.cpu.req.valid) {
     s1_req := io.cpu.req.bits
+    s1_req.probing := Bool(false)
   }
   when (wb.io.meta_read.valid) {
     s1_req.addr := Cat(wb.io.meta_read.bits.tag, wb.io.meta_read.bits.idx) << blockOffBits
     s1_req.phys := Bool(true)
+    s1_req.probing := Bool(false)
   }
   when (prober.io.meta_read.valid) {
     s1_req.addr := Cat(prober.io.meta_read.bits.tag, prober.io.meta_read.bits.idx) << blockOffBits
     s1_req.phys := Bool(true)
+    s1_req.probing := Bool(true)
   }
+  /**
+    * [Nohype] We do not need to unmap the address here. As mshr replay uses physical addresses, and these request will
+    * get passthroughed by dltb.
+    */
   when (mshrs.io.replay.valid) {
     s1_req := mshrs.io.replay.bits
+    s1_req.probing := Bool(false)
   }
+  /**
+    * [Nohype] s2 recycle need to unmap if necessary. But this functionality is only enabled when ECC is configured.
+    */
   when (s2_recycle) {
     s1_req := s2_req
+    s1_req.probing := Bool(false)
   }
-  val isMMIO = dtlb.io.resp.paddr < 0x100000000L.U
+  val isMMIO = dtlb.io.resp.paddr < 0x100000000L.U  // TODO Query memory bse from parameters.
   val mappedAddr = (dtlb.io.resp.paddr & memMask) | memBase
-  val s1_addr = Mux(isMMIO, dtlb.io.resp.paddr, mappedAddr)
+  val s1_addr = Mux(isMMIO || s1_req.probing, dtlb.io.resp.paddr, mappedAddr)
   when (s1_clk_en) {
     s2_req.typ := s1_req.typ
     s2_req.phys := s1_req.phys
