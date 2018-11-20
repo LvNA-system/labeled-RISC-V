@@ -8,6 +8,11 @@ import freechips.rocketchip.devices.debug.Debug
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.amba.axi4._
 
+class SimFront()(implicit p: Parameters) extends Module {
+  val io = new Bundle {
+  }
+}
+
 class TestHarness()(implicit p: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
@@ -26,44 +31,58 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dut.connectSimAXIMMIO()
   Debug.connectDebug(dut.debug, clock, reset, io.success)
 
-  dut.l2_frontend_bus_axi4.foreach(_.tieoff)
-  /*
-  val axi = dut.l2_frontend_bus_axi4(0)
-  axi.r.ready := Bool(true)
-  axi.b.ready := Bool(true)
+  val enableFrontBusTraffic = false
+  val frontBusAccessAddr = 0x10000fc00L
 
-  //axi.ar.valid := Bool(false)
-  axi.ar.valid := Bool(true)
-  axi.ar.bits.id := UInt(0)
-  val cnt = Counter(axi.ar.fire(), 0xff)._1
-  axi.ar.bits.addr := (cnt << UInt(3))+ UInt(0x100700000L)
-  when (axi.ar.fire()) {
-    printf("cnt = %d\n", cnt)
+  if (!enableFrontBusTraffic) {
+    dut.l2_frontend_bus_axi4.foreach(_.tieoff)
   }
-  axi.ar.bits.len := UInt(7)
-  axi.ar.bits.size := UInt(3)
-  axi.ar.bits.burst := AXI4Parameters.BURST_INCR
-  axi.ar.bits.lock  := UInt(0)
-  axi.ar.bits.cache := UInt(0)
-  axi.ar.bits.prot  := AXI4Parameters.PROT_PRIVILEDGED
-  axi.ar.bits.qos   := UInt(0)
+  else {
+    val axi = dut.l2_frontend_bus_axi4.head
+    axi.r.ready := Bool(true)
+    axi.b.ready := Bool(true)
+    axi.ar.valid := Bool(false)
 
-  axi.w.valid := Bool(false)
-  axi.aw.valid := Bool(false)
-  //axi.aw.valid := Bool(true)
-  //axi.aw.bits.id := UInt(0)
-  //axi.aw.bits.addr := ((Counter(axi.aw.fire(), 0xff)._1) << UInt(3))+ UInt(0x100700000L)
-  //axi.aw.bits.len := UInt(0)
-  //axi.aw.bits.size := UInt(3)
-  //axi.aw.bits.burst := AXI4Parameters.BURST_INCR
-  //axi.aw.bits.lock  := UInt(0)
-  //axi.aw.bits.cache := UInt(0)
-  //axi.aw.bits.prot  := AXI4Parameters.PROT_PRIVILEDGED
-  //axi.aw.bits.qos   := UInt(0)
+    val IDLE = 0
+    val WADDR = 1
+    val state = RegInit(IDLE.U)
+    val awvalid = RegInit(false.B)
+    val wvalid = RegInit(false.B)
+    val wlast = RegInit(false.B)
+    val next_state = Wire(state.cloneType)
+    state := next_state
+    val (value, timeout) = Counter(state === IDLE.U, 300)
+    when(state === IDLE.U) {
+      next_state := Mux(timeout, WADDR.U, IDLE.U)
+    }.elsewhen(state === WADDR.U) {
+      awvalid := true.B
+      wvalid := true.B
+      wlast := true.B
+      when(axi.aw.fire()) {
+        awvalid := false.B
+        wvalid := false.B
+        wlast := false.B
+        next_state := IDLE.U
+      }.otherwise {
+        next_state := WADDR.U
+      }
+    }.otherwise {
+      printf("Unexpected frontend axi state: %d", state)
+    }
 
-  //axi.w.valid := Bool(true)
-  //axi.w.bits.data := UInt(0xdeadbeefL)
-  //axi.w.bits.strb := UInt(0xff)
-  //axi.w.bits.last := (Counter(axi.w.fire(), 0x4)._2)
-  */
+    axi.w.valid := wvalid
+    axi.aw.valid := awvalid
+    axi.w.bits.last := wlast
+    axi.aw.bits.id := 111.U
+    axi.aw.bits.addr := frontBusAccessAddr.U
+    axi.aw.bits.len := 0.U // Curr cycle data?
+    axi.aw.bits.size := 2.U // 2^2 = 4 bytes
+    axi.aw.bits.burst := AXI4Parameters.BURST_INCR
+    axi.aw.bits.lock := UInt(0)
+    axi.aw.bits.cache := UInt(0)
+    axi.aw.bits.prot := AXI4Parameters.PROT_PRIVILEDGED
+    axi.aw.bits.qos := UInt(0)
+    axi.w.bits.data := UInt(0xdeadbeefL)
+    axi.w.bits.strb := UInt(0xf) // only lower 4 bits is allowed to be 1.
+  }
 }
