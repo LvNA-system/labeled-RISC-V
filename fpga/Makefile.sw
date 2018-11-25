@@ -26,7 +26,7 @@ RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .
 #--------------------------------------------------------------------
 
 BBL_REPO_PATH = $(SW_PATH)/riscv-pk
-BBL_BUILD_COMMIT = dd3148e5ade718191c371c771e7f328cf02a003a
+BBL_BUILD_COMMIT = e4230fe249c91bd917899c483184afe19158b3f4
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
@@ -63,7 +63,7 @@ $(BBL_ELF): $(BBL_ELF_BUILD)
 
 $(BBL_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone https://github.com/LvNA-system/riscv-pk.git $@
+	git clone git@10.30.7.141:pard/riscv_bbl.git $@
 
 $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 	mkdir -p $@
