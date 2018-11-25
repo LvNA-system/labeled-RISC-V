@@ -40,7 +40,7 @@ _entry:
         // We keep checking both whether there is something the debugger wants
         // us to do, or whether we should resume.
 entry_loop:
-        csrr s0, CSR_MHARTID
+        csrr s0, 0x810
         sw   s0, HALTED(zero)
         lbu  s0, FLAGS(s0) // 1 byte flag per hart. Only one hart advances here.
         andi s0, s0, (1 << FLAG_GO) | (1 << FLAG_RESUME)
@@ -56,7 +56,7 @@ entry_loop:
                                        // remainder of the variable instructions will be what Debug Module
                                        // intends.
 _resume:
-        csrr s0, CSR_MHARTID
+        csrr s0, 0x810
         sw   s0, RESUMING(zero) // When Debug Module sees this write, the RESUME flag is reset.
         csrr s0, CSR_DSCRATCH   // Restore s0
         dret
