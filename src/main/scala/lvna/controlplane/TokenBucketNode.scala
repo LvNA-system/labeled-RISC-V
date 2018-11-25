@@ -21,6 +21,8 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   val enable = tokenBucket.io.enable
 
   val bucketParam = IO(Input(new BucketBundle))
+  val traffic = IO(Output(UInt(32.W)))
+  traffic := tokenBucket.io.traffic
   param := bucketParam
 
   // require(bundleIn.size == 1, s"[TokenBucket] Only expect one link for a hart, current link count is ${bundleIn.size}")

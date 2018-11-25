@@ -4,7 +4,7 @@
 package freechips.rocketchip.tile
 
 import Chisel._
-import chisel3.core.Input
+import chisel3.core.{Input, Output}
 import freechips.rocketchip.config._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.diplomacy._

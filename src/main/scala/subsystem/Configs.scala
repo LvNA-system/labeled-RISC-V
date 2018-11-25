@@ -347,7 +347,7 @@ class WithNoMMIOPort extends Config((site, here, up) => {
 })
 
 class WithDefaultSlavePort extends Config((site, here, up) => {
-  case ExtIn  => Some(SlavePortParams(beatBytes = 8, idBits = 1, sourceBits = 3))
+  case ExtIn  => Some(SlavePortParams(beatBytes = 8, idBits = 17, sourceBits = 3))
 })
 
 class WithNoSlavePort extends Config((site, here, up) => {

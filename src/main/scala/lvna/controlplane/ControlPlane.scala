@@ -23,6 +23,7 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   private val indexWidth = 32
   val dsid          = UInt(OUTPUT, ldomDSidWidth)
   val updateData    = UInt(INPUT, 32)
+  val traffic       = UInt(OUTPUT, 32)
   val dsidWen       = Bool(INPUT)
   val memBase       = UInt(OUTPUT, p(XLen))
   val memBaseLoWen  = Bool(INPUT)
@@ -51,6 +52,7 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val memBases = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
       val memMasks = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
       val bucketParams = Vec(nTiles, new BucketBundle()).asOutput
+      val traffics = Vec(nTiles, UInt(32.W)).asInput
       val cp = new ControlPlaneIO()
     })
 
@@ -62,6 +64,8 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       Cat(256.U(tokenBucketSizeWidth.W), 0.U(tokenBucketFreqWidth.W), 256.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
     }))
     val currDsid = dsids(dsidSel)
+
+    io.cp.traffic := io.traffics(dsidSel)
 
     io.cp.dsid := currDsid
     io.cp.sel := dsidSel
@@ -128,6 +132,7 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
     tile.module.memBase := cpio.memBases(i.U)
     tile.module.memMask := cpio.memMasks(i.U)
     token.module.bucketParam := cpio.bucketParams(i.U)
+    cpio.traffics(i) := token.module.traffic
   }
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp

@@ -386,7 +386,8 @@ class CSRFile(
     CSRs.mepc -> readEPC(reg_mepc).sextTo(xLen),
     CSRs.mbadaddr -> reg_mbadaddr.sextTo(xLen),
     CSRs.mcause -> reg_mcause,
-    CSRs.mhartid -> io.hartid)
+    //CSRs.mhartid -> io.hartid)
+    CSRs.mhartid -> 0.U(hartIdLen.W))
 
   val debug_csrs = LinkedHashMap[Int,Bits](
     CSRs.dcsr -> reg_dcsr.asUInt,
@@ -427,6 +428,7 @@ class CSRFile(
 
     read_mapping += CSRs.simlog -> reg_simlog
     read_mapping += CSRs.procdsid -> reg_procdsid
+    read_mapping += CSRs.realHartId -> io.hartid
 
     if (xLen == 32) {
       read_mapping += CSRs.mcycleh -> (reg_cycle >> 32)

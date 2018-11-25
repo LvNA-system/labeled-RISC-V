@@ -28,6 +28,7 @@ class SFenceReq(implicit p: Parameters) extends CoreBundle()(p) {
 class TLBReq(lgMaxSize: Int)(implicit p: Parameters) extends CoreBundle()(p) {
   val vaddr = UInt(width = vaddrBitsExtended)
   val passthrough = Bool()
+  val probing = Bool()
   val size = UInt(width = log2Ceil(lgMaxSize + 1))
   val cmd  = Bits(width = M_SZ)
 
