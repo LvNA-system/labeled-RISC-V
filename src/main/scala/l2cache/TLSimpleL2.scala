@@ -9,11 +9,11 @@ package freechips.rocketchip.subsystem
 
 import Chisel._
 import chisel3.util.IrrevocableIO
-import freechips.rocketchip.config.{Field,Parameters}
+import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import freechips.rocketchip.tilelink._
-import lvna.HasControlPlaneParameters
+import lvna.{HasControlPlaneParameters, WayMaskIO}
 
 case class TLL2CacheParams(
   debug: Boolean = false
@@ -39,6 +39,7 @@ with HasControlPlaneParameters
   lazy val module = new LazyModuleImp(this) {
     val nWays = p(NL2CacheWays)
     val nSets = p(NL2CacheCapacity) * 1024 / 64 / nWays
+    val cp = IO(new WayMaskIO().flip())
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       require(isPow2(nSets))
       require(isPow2(nWays))
@@ -378,7 +379,8 @@ time: %d [L2Cache] out.a.opcode  = %x,
       hit_way := Bits(0)
       (0 until nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
 
-      val curr_mask = UInt((BigInt(1) << nWays) - 1)
+      cp.dsid := dsid
+      val curr_mask = cp.waymask
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
 
@@ -727,5 +729,13 @@ object TLSimpleL2Cache
       val tlsimpleL2cache = LazyModule(new TLBuffer(BufferParams.none))
       tlsimpleL2cache.node
     }
+  }
+}
+
+object TLSimpleL2CacheRef
+{
+  def apply()(implicit p: Parameters): TLSimpleL2Cache = {
+    val tlsimpleL2cache = LazyModule(new TLSimpleL2Cache(TLL2CacheParams()))
+    tlsimpleL2cache
   }
 }

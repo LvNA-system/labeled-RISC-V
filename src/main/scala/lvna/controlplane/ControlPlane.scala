@@ -1,9 +1,11 @@
 package lvna
 
 import Chisel._
+import chisel3.core.{Input, Output}
 import freechips.rocketchip.config.{Config, Field, Parameters}
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
-import freechips.rocketchip.subsystem.{BaseSubsystem, HasRocketTiles, HasRocketTilesModuleImp, NTiles}
+import freechips.rocketchip.subsystem._
+import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp}
 import freechips.rocketchip.tile.XLen
 
 case object ProcDSidWidth extends Field[Int](3)
@@ -35,9 +37,17 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val bktFreqWen    = Bool(INPUT)
   val bktSizeWen    = Bool(INPUT)
   val bktIncWen     = Bool(INPUT)
+  val waymask       = UInt(OUTPUT, p(NL2CacheWays))
+  val waymaskWen    = Bool(INPUT)
   val sel           = UInt(OUTPUT, indexWidth)
   val selUpdate     = UInt(INPUT, indexWidth)
   val selWen        = Bool(INPUT)
+}
+
+/* From ControlPlane's View */
+class WayMaskIO(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters {
+  val waymask = Output(UInt(p(NL2CacheWays).W))  // waymask returned to L2cache (1 cycle delayed)
+  val dsid = Input(UInt(dsidWidth.W))  // DSID from requests L2 cache received
 }
 
 class ControlPlane()(implicit p: Parameters) extends LazyModule
@@ -53,9 +63,11 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val memMasks = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
       val bucketParams = Vec(nTiles, new BucketBundle()).asOutput
       val traffics = Vec(nTiles, UInt(32.W)).asInput
+      val l2 = new WayMaskIO()
       val cp = new ControlPlaneIO()
     })
 
+    def gen_table[T <: Data](init: => T): Vec[T] = RegInit(Vec(Seq.fill(nTiles){ init }))
     val dsids = RegInit(Vec(Seq.fill(nTiles)(1.U(ldomDSidWidth.W))))
     val dsidSel = RegInit(0.U(ldomDSidWidth.W))
     val memBases = RegInit(Vec(Seq.fill(nTiles)(0.U(memAddrWidth.W))))
@@ -63,6 +75,12 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     val bucketParams = RegInit(Vec(Seq.fill(nTiles){
       Cat(256.U(tokenBucketSizeWidth.W), 0.U(tokenBucketFreqWidth.W), 256.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
     }))
+    //val waymasks = gen_table(((1L << p(NL2CacheWays)) - 1).U)
+    val waymasks = gen_table(1.U)
+    io.cp.waymask := waymasks(dsidSel)
+    val l2dsid_reg = RegNext(io.l2.dsid)  // 1 cycle delay
+    io.l2.waymask := waymasks(l2dsid_reg)
+
     val currDsid = dsids(dsidSel)
 
     io.cp.traffic := io.traffics(dsidSel)
@@ -115,6 +133,10 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     when (io.cp.bktIncWen) {
       bucketParams(dsidSel).inc := io.cp.updateData
     }
+
+    when (io.cp.waymaskWen) {
+      waymasks(dsidSel) := io.cp.updateData
+    }
   }
 }
 
@@ -136,4 +158,15 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   }
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp
+}
+
+trait BindL2WayMask extends HasRocketTiles {
+  this: BaseSubsystem with HasControlPlane with CanHaveMasterAXI4MemPort =>
+  val _cp = controlPlane
+  val _l2 = l2cache
+}
+
+trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
+  val outer: BindL2WayMask
+  outer._l2.module.cp <> outer._cp.module.io.l2
 }
