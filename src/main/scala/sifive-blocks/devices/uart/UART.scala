@@ -248,7 +248,7 @@ trait HasUARTTopModuleContents extends HasUARTParameters with HasRegMap {
     UARTCtrlRegs.stat -> Seq(
       RegField.r(1, rxq.io.count =/= UInt(0)),
       RegField.r(1, rxq.io.count === UInt(uartNRxEntries)),
-      RegField.r(1, txq.io.count =/= UInt(0)),
+      RegField.r(1, txq.io.count === UInt(0)),
       RegField.r(1, txq.io.count === UInt(uartNTxEntries)),
       RegField.r(1, UInt(0)),
       RegField.r(1, UInt(0)),
