@@ -68,15 +68,14 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     })
 
     def gen_table[T <: Data](init: => T): Vec[T] = RegInit(Vec(Seq.fill(nTiles){ init }))
-    val dsids = RegInit(Vec(Seq.fill(nTiles)(1.U(ldomDSidWidth.W))))
+    val dsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
     val dsidSel = RegInit(0.U(ldomDSidWidth.W))
     val memBases = RegInit(Vec(Seq.fill(nTiles)(0.U(memAddrWidth.W))))
     val memMasks = RegInit(Vec(Seq.fill(nTiles)(~(0.U(memAddrWidth.W)))))
     val bucketParams = RegInit(Vec(Seq.fill(nTiles){
       Cat(256.U(tokenBucketSizeWidth.W), 0.U(tokenBucketFreqWidth.W), 256.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
     }))
-    //val waymasks = gen_table(((1L << p(NL2CacheWays)) - 1).U)
-    val waymasks = gen_table(1.U)
+    val waymasks = gen_table(((1L << p(NL2CacheWays)) - 1).U)
     io.cp.waymask := waymasks(dsidSel)
     val l2dsid_reg = RegNext(io.l2.dsid)  // 1 cycle delay
     io.l2.waymask := waymasks(l2dsid_reg)
