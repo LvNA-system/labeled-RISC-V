@@ -39,6 +39,7 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   read.ready := out.a.ready
   read.valid := in.a.valid && (op_a === TLMessages.Get || op_a === TLMessages.AcquireBlock)
   read.bits := size_a
+  read.address := in.a.bits.address
 
   // Both channel A and channel C can write data.
   // We give channel C a higher priority.
@@ -47,4 +48,6 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   write.ready := Mux(is_c_write, out.c.ready, out.a.ready)
   write.valid := is_c_write || is_a_write
   write.bits := Mux(is_c_write, size_c, size_a)
+  write.address := Mux(is_c_write, in.c.bits.address, in.a.bits.address)
+
 }
