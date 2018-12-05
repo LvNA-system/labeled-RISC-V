@@ -505,11 +505,6 @@ with HasControlPlaneParameters
         din(i) := data_buf(idx)
       }
       when (state === s_data_write && write_done) {
-        state := s_update_meta
-      }
-
-      when (state === s_update_meta) {
-        // refill done
         when (ren) {
           state := s_data_resp
         } .otherwise {
