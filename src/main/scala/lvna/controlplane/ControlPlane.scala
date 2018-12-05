@@ -16,6 +16,7 @@ trait HasControlPlaneParameters {
   val ldomDSidWidth = log2Up(nTiles)
   val procDSidWidth = p(ProcDSidWidth)
   val dsidWidth = ldomDSidWidth + procDSidWidth
+  val cacheCapacityWidth = log2Ceil(p(NL2CacheCapacity) * 1024 / 64)
 }
 
 /**
@@ -26,6 +27,7 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val dsid          = UInt(OUTPUT, ldomDSidWidth)
   val updateData    = UInt(INPUT, 32)
   val traffic       = UInt(OUTPUT, 32)
+  val capacity      = UInt(OUTPUT, cacheCapacityWidth)
   val dsidWen       = Bool(INPUT)
   val memBase       = UInt(OUTPUT, p(XLen))
   val memBaseLoWen  = Bool(INPUT)
@@ -45,9 +47,11 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
 }
 
 /* From ControlPlane's View */
-class WayMaskIO(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters {
+class CPToL2CacheIO(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters {
   val waymask = Output(UInt(p(NL2CacheWays).W))  // waymask returned to L2cache (1 cycle delayed)
   val dsid = Input(UInt(dsidWidth.W))  // DSID from requests L2 cache received
+  val capacity = Input(UInt(cacheCapacityWidth.W))  // Count on way numbers
+  val capacity_dsid = Output(UInt(dsidWidth.W))  // Capacity query dsid
 }
 
 class ControlPlane()(implicit p: Parameters) extends LazyModule
@@ -63,7 +67,7 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val memMasks = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
       val bucketParams = Vec(nTiles, new BucketBundle()).asOutput
       val traffics = Vec(nTiles, UInt(32.W)).asInput
-      val l2 = new WayMaskIO()
+      val l2 = new CPToL2CacheIO()
       val cp = new ControlPlaneIO()
     })
 
@@ -83,6 +87,8 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     val currDsid = dsids(dsidSel)
 
     io.cp.traffic := io.traffics(dsidSel)
+    io.cp.capacity := io.l2.capacity
+    io.l2.capacity_dsid := currDsid
 
     io.cp.dsid := currDsid
     io.cp.sel := dsidSel

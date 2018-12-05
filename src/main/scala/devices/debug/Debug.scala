@@ -740,6 +740,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_BUCKET_SIZE << 2) -> Seq(RWNotify(32, io.cp.bucket.size, io.cp.updateData, WireInit(false.B), io.cp.bktSizeWen, Some(RegFieldDesc("bucket-freq", "Token Bucket size for the current hart")))),
       (CP_BUCKET_INC  << 2) -> Seq(RWNotify(32, io.cp.bucket.inc,  io.cp.updateData, WireInit(false.B), io.cp.bktIncWen,  Some(RegFieldDesc("bucket-freq", "Token Bucket regain step size for the current hart")))),
       (CP_WAYMASK     << 2) -> Seq(RWNotify(p(NL2CacheWays), io.cp.waymask, io.cp.updateData, WireInit(false.B), io.cp.waymaskWen, None)),
+      (CP_L2_CAPACITY << 2) -> Seq(RegField.r(cacheCapacityWidth, io.cp.capacity, RegFieldDesc("cache-capacity", "Current dsid's L2 cache capacity"))),
       (CP_TRAFFIC     << 2) -> Seq(RegField.r(32, io.cp.traffic, RegFieldDesc("traffic", "The L1 cache line r/w request counter for the selected hart")))
     )
 

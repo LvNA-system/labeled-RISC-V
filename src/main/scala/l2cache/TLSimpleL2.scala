@@ -13,7 +13,7 @@ import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import freechips.rocketchip.tilelink._
-import lvna.{HasControlPlaneParameters, WayMaskIO}
+import lvna.{HasControlPlaneParameters, CPToL2CacheIO}
 
 case class TLL2CacheParams(
   debug: Boolean = false
@@ -39,7 +39,7 @@ with HasControlPlaneParameters
   lazy val module = new LazyModuleImp(this) {
     val nWays = p(NL2CacheWays)
     val nSets = p(NL2CacheCapacity) * 1024 / 64 / nWays
-    val cp = IO(new WayMaskIO().flip())
+    val cp = IO(new CPToL2CacheIO().flip())
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       require(isPow2(nSets))
       require(isPow2(nWays))
@@ -337,6 +337,8 @@ with HasControlPlaneParameters
       when (state === s_tag_read) {
         log("req_dsid %d occ %d repl_dsid %d occ %d way %d", dsid, requester_occupacy, repl_dsid, victim_occupacy, repl_way)
       }
+
+      cp.capacity := dsid_occupacy(cp.capacity_dsid)
 
 
       // valid and dirty

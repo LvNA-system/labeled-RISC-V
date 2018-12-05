@@ -344,6 +344,8 @@ object DMI_RegAddrs {
   def CP_TRAFFIC = 0x4b
 
   def CP_WAYMASK = 0x4c
+
+  def CP_L2_CAPACITY = 0x4d
 }
 
 class DMSTATUSFields extends Bundle {
