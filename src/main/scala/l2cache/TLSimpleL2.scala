@@ -101,98 +101,45 @@ with HasControlPlaneParameters
       //                                  -> s_merge_put_data -> s_data_write -> s_update_meta -> s_idle
       // write miss writeback : s_idle -> s_gather_write_data ->  s_send_bresp -> s_tag_read -> s_data_read -> s_wait_ram_awready -> s_do_ram_write -> s_wait_ram_bresp
       //                               -> s_wait_ram_arready -> s_do_ram_read -> s_merge_put_data -> s_data_write -> s_update_meta -> s_idle
-      if (param.debug) {
-        printf("time: %d [L2Cache] state = %x\n", GTimer(), state)
-        when (in.a.fire()) {
-        printf("""
-time: %d [L2Cache] in.a.opcode  = %x, 
-                   in.a.dsid   = %x,
-                   in.a.param   = %x,
-                   in.a.size    = %x, 
-                   in.a.source  = %x,
-                   in.a.address = %x,
-                   in.a.mask    = %x,
-                   in.a.data    = %x,
-                   in.a.valid   = %x,
-                   in.a.ready   = %x
-                   
-                   in.d.opcode  = %x, 
-                   in.d.param   = %x,
-                   in.d.size    = %x, 
-                   in.d.source  = %x,
-                   in.d.sink    = %x,
-                   in.d.data    = %x,
-                   in.d.valid   = %x,
-                   in.d.ready   = %x
-""", 
-                   GTimer(), 
-                   in.a.bits.opcode,
-                   in.a.bits.dsid,
-                   in.a.bits.param, 
-                   in.a.bits.size, 
-                   in.a.bits.source, 
-                   in.a.bits.address, 
-                   in.a.bits.mask, 
-                   in.a.bits.data, 
-                   in.a.valid, 
-                   in.a.ready, 
-
-                   in.d.bits.opcode, 
-                   in.d.bits.param, 
-                   in.d.bits.size, 
-                   in.d.bits.source, 
-                   in.d.bits.sink, 
-                   in.d.bits.data, 
-                   in.d.valid, 
-                   in.d.ready
-                   )
-        }
-
-        when (out.a.fire()) {
-        printf("""
-time: %d [L2Cache] out.a.opcode  = %x, 
-                   out.a.dsid   = %x,
-                   out.a.param   = %x,
-                   out.a.size    = %x, 
-                   out.a.source  = %x,
-                   out.a.address = %x,
-                   out.a.mask    = %x,
-                   out.a.data    = %x,
-                   out.a.valid   = %x,
-                   out.a.ready   = %x
-                   
-                   out.d.opcode  = %x, 
-                   out.d.param   = %x,
-                   out.d.size    = %x, 
-                   out.d.source  = %x,
-                   out.d.sink    = %x,
-                   out.d.data    = %x,
-                   out.d.valid   = %x,
-                   out.d.ready   = %x
-""", 
-                   GTimer(), 
-                   out.a.bits.opcode,
-                   out.a.bits.dsid,
-                   out.a.bits.param, 
-                   out.a.bits.size, 
-                   out.a.bits.source, 
-                   out.a.bits.address, 
-                   out.a.bits.mask, 
-                   out.a.bits.data, 
-                   out.a.valid, 
-                   out.a.ready, 
-
-                   out.d.bits.opcode, 
-                   out.d.bits.param, 
-                   out.d.bits.size, 
-                   out.d.bits.source, 
-                   out.d.bits.sink, 
-                   out.d.bits.data, 
-                   out.d.valid, 
-                   out.d.ready
-                   )
+      val timer = GTimer()
+      val log_prefix = "cycle: %d [L2Cache] state %x "
+      def log_raw(prefix: String, fmt: String, tail: String, args: Bits*) = {
+        if (param.debug) {
+          printf(prefix + fmt + tail, args:_*)
         }
       }
+
+      /** Single log */
+      def log(fmt: String, args: Bits*) = log_raw(log_prefix, fmt, "\n", timer +: state +: args:_*)
+      /** Log with line continued */
+      def log_part(fmt: String, args: Bits*) = log_raw(log_prefix, fmt, "", timer +: state +: args:_*)
+      /** Log with nothing added */
+      def log_plain(fmt: String, args: Bits*) = log_raw("", fmt, "", args:_*)
+
+      when (in.a.fire()) {
+        log("in.a opcode %x, dsid %x, param %x, size %x, source %x, address %x, mask %x, data %x",
+          in.a.bits.opcode,
+          in.a.bits.dsid,
+          in.a.bits.param,
+          in.a.bits.size,
+          in.a.bits.source,
+          in.a.bits.address,
+          in.a.bits.mask,
+          in.a.bits.data)
+      }
+
+      when (out.a.fire()) {
+        log("out.a.opcode %x, dsid %x, param %x, size %x, source %x, address %x, mask %x, data %x",
+          out.a.bits.opcode,
+          out.a.bits.dsid,
+          out.a.bits.param,
+          out.a.bits.size,
+          out.a.bits.source,
+          out.a.bits.address,
+          out.a.bits.mask,
+          out.a.bits.data)
+      }
+
 
       val in_opcode = in.a.bits.opcode
       val in_dsid = in.a.bits.dsid
@@ -310,10 +257,6 @@ time: %d [L2Cache] out.a.opcode  = %x,
       // s_send_bresp:
       // send bresp, end write transaction
       val in_write_ok = state === s_send_bresp
-      if (param.debug) {
-          printf("time: %d [L2Cache] edgeIn.d id: %x size_reg: %x gather_curr_beat %x inner_end_beat %x\n",
-            GTimer(), id, size_reg, gather_curr_beat, inner_end_beat)
-      }
 
       when (state === s_send_bresp && in_send_ok) {
         state := s_tag_read_req
@@ -397,31 +340,22 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val need_data_read = read_hit || write_hit || read_miss_writeback || write_miss_writeback
 
       when (state === s_tag_read) {
-        if (param.debug) {
-          printf("time: %d [Update] hit: %d idx: %x curr_state_reg: %x hit_way: %x repl_way: %x\n",
-            GTimer(), hit, idx, curr_state_reg, hit_way, repl_way)
-          when (ren) {
-            printf("time: %d [L2] read addr: %x idx: %d tag: %x hit: %d ",
-              GTimer(), addr, idx, tag, hit)
-          }
-          when (wen) {
-            printf("time: %d [L2] write addr: %x idx: %d tag: %x hit: %d ",
-              GTimer(), addr, idx, tag, hit)
-          }
-          when (hit) {
-            printf("hit_way: %d\n", hit_way)
-          } .elsewhen (need_writeback) {
-            printf("repl_way: %d wb_addr: %x\n", repl_way, writeback_addr)
-          } .otherwise {
-            printf("repl_way: %d repl_addr: %x\n", repl_way, writeback_addr)
-          }
-          printf("time: %d [L2Cache] s1 tags: ", GTimer())
-          for (i <- 0 until nWays) {
-            printf("%x ", tag_rdata_reg(i))
-          }
-          printf("\n")
-          printf("time: %d [L2Cache] s1 vb: %x db: %x\n", GTimer(), vb_rdata_reg, db_rdata_reg)
+        log("hit: %d idx: %x curr_state_reg: %x hit_way: %x repl_way: %x", hit, idx, curr_state_reg, hit_way, repl_way)
+        when (ren) {
+          log_part("read addr: %x idx: %d tag: %x hit: %d ", addr, idx, tag, hit)
         }
+        when (wen) {
+          log_part("write addr: %x idx: %d tag: %x hit: %d ", addr, idx, tag, hit)
+        }
+        when (hit) {
+          log_plain("hit_way: %d\n", hit_way)
+        } .elsewhen (need_writeback) {
+          log_plain("repl_way: %d wb_addr: %x\n", repl_way, writeback_addr)
+        } .otherwise {
+          log_plain("repl_way: %d repl_addr: %x\n", repl_way, writeback_addr)
+        }
+        log("s1 tags: " + Seq.fill(tag_rdata_reg.size)("%x").mkString(" "), tag_rdata_reg:_*)
+        log("s1 vb: %x db: %x", vb_rdata_reg, db_rdata_reg)
 
         // check for cross cache line bursts
         assert(inner_end_beat < innerDataBeats.U, "cross cache line bursts detected")
@@ -456,10 +390,8 @@ time: %d [L2Cache] out.a.opcode  = %x,
         } .otherwise {
           next_state := curr_state_reg.bitSet(update_way, Bool(false))
         }
-        if (param.debug) {
-          printf("time: %d dsid: %d set: %d hit: %d rw: %d update_way: %d curr_state: %x next_state: %x\n",
-            GTimer(), dsid, idx, hit, ren, update_way, curr_state, next_state)
-        }
+        log("dsid: %d set: %d hit: %d rw: %d update_way: %d curr_state: %x next_state: %x",
+          dsid, idx, hit, ren, update_way, curr_state_reg, next_state)
       }
 
       val update_metadata = Wire(Vec(nWays, new MetadataEntry(tagBits, 16)))
@@ -513,18 +445,13 @@ time: %d [L2Cache] out.a.opcode  = %x,
         ) }
       for ((data_array, i) <- data_arrays zipWithIndex) {
         when (data_write_valid) {
-          if (param.debug) {
-            printf("time: %d [L2 Cache] write data array: %d idx: %d way: %d data: %x\n",
-              GTimer(), i.U, data_write_idx, data_write_way, din(i))
-          }
+          log("write data array: %d idx: %d way: %d data: %x", i.U, data_write_idx, data_write_way, din(i))
           data_array.write(data_write_idx, Vec.fill(nWays)(din(i)), (0 until nWays).map(data_write_way === UInt(_)))
         }
         dout(i) := data_array.read(data_read_idx, data_read_valid && !data_write_valid)(data_read_way)
-        if (param.debug) {
-          when (RegNext(data_read_valid, N)) {
-            printf("time: %d [L2 Cache] read data array: %d idx: %d way: %d data: %x\n",
-              GTimer(), i.U, RegNext(data_read_idx), RegNext(data_read_way), dout(i))
-          }
+        when (RegNext(data_read_valid, N)) {
+          log("read data array: %d idx: %d way: %d data: %x",
+            i.U, RegNext(data_read_idx), RegNext(data_read_way), dout(i))
         }
       }
 
@@ -687,10 +614,6 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val in_read_ok = state === s_data_resp
 
       in.d.valid := in_write_ok || in_read_ok
-      if (param.debug) {
-          printf("time: %d [L2Cache] edgeIn.d id: %x size_reg: %x resp_curr_beat %x data: %x\n",
-            GTimer(), id, size_reg, resp_curr_beat, resp_data(resp_curr_beat))
-      }
       in.d.bits.opcode  := Mux(in_read_ok, TLMessages.AccessAckData, TLMessages.AccessAck)
       in.d.bits.param   := UInt(0)
       in.d.bits.size    := size_reg
