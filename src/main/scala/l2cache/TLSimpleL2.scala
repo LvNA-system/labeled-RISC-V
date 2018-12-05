@@ -162,7 +162,7 @@ with HasControlPlaneParameters
       val addr = Reg(UInt(addrWidth.W))
       val id = Reg(UInt(innerIdWidth.W))
       val opcode = Reg(UInt(3.W))
-      val dsid = Reg(UInt(dsidWidth.W))
+      val dsid = RegInit(((1 << dsidWidth) - 1).U(dsidWidth.W))
       val size_reg = Reg(UInt(width=in.a.bits.params.sizeBits))
       
       val ren = RegInit(N)
@@ -330,6 +330,14 @@ with HasControlPlaneParameters
       val curr_mask = cp.waymask
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
+      val repl_dsid = set_dsids_reg(repl_way)
+      val dsid_occupacy = RegInit(Vec(Seq.fill(1 << dsidWidth){ 0.U(log2Ceil(p(NL2CacheCapacity) * 1024 / blockBytes).W) }))
+      val requester_occupacy = dsid_occupacy(dsid)
+      val victim_occupacy = dsid_occupacy(repl_dsid)
+      when (state === s_tag_read) {
+        log("req_dsid %d occ %d repl_dsid %d occ %d way %d", dsid, requester_occupacy, repl_dsid, victim_occupacy, repl_way)
+      }
+
 
       // valid and dirty
       val need_writeback = vb_rdata_reg(repl_way) && db_rdata_reg(repl_way)
@@ -417,11 +425,32 @@ with HasControlPlaneParameters
         metadata.rr_state := next_state(i)
       }
 
+      when (state === s_tag_read) {
+        val fmt_part = Seq.tabulate(dsid_occupacy.size) { _ + ": %d" }.mkString(", ")
+        log("dsid_occ = " + fmt_part, dsid_occupacy: _*)
+      }
+
       val meta_array_widx = Mux(rst, rst_cnt, idx)
       val meta_array_wdata = Mux(rst, rst_metadata, update_metadata)
 
       when (meta_array_wen) {
         meta_array.write(meta_array_widx, meta_array_wdata)
+        // Update dsid occupacy stat
+        when (!hit) {
+          assert(update_way === repl_way, "update must = repl way when decrease a dsid's occupacy")
+          val victim_valid = Wire(vb_rdata_reg(repl_dsid))
+          dsid_occupacy.zipWithIndex foreach { case (dsid_occ, i) =>
+              when (i.U === dsid && (!victim_valid || i.U =/= repl_dsid)) {
+                dsid_occ := requester_occupacy + 1.U
+              }.elsewhen(i.U =/= dsid && i.U === repl_dsid && victim_valid) {
+                dsid_occ := victim_occupacy - 1.U
+              }
+          }
+          when (victim_valid) {
+            log("victim dsid %d dec way %d old_value %d", repl_dsid, repl_way, victim_occupacy)
+          }
+          log("dsid %d inc way %d old_value %d", dsid, update_way, requester_occupacy)
+        }
       }
 
       // ###############################################################
