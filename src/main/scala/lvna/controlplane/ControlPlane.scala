@@ -5,7 +5,7 @@ import chisel3.core.{Input, Output}
 import freechips.rocketchip.config.{Config, Field, Parameters}
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.subsystem._
-import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp}
+import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, UseEmu}
 import freechips.rocketchip.tile.XLen
 
 case object ProcDSidWidth extends Field[Int](3)
@@ -74,8 +74,15 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     def gen_table[T <: Data](init: => T): Vec[T] = RegInit(Vec(Seq.fill(nTiles){ init }))
     val dsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
     val dsidSel = RegInit(0.U(ldomDSidWidth.W))
-    val memBases = RegInit(Vec(Seq.fill(nTiles)(0.U(memAddrWidth.W))))
-    val memMasks = RegInit(Vec(Seq.fill(nTiles)(~(0.U(memAddrWidth.W)))))
+    val memBases = RegInit(Vec(Seq.tabulate(nTiles){ i =>
+      if (p(UseEmu)) {
+        val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
+        (i * memSize / nTiles).U(memAddrWidth.W)
+      } else {
+        0.U(memAddrWidth.W)
+      }
+    }))
+    val memMasks = RegInit(Vec(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
     val bucketParams = RegInit(Vec(Seq.fill(nTiles){
       Cat(256.U(tokenBucketSizeWidth.W), 0.U(tokenBucketFreqWidth.W), 256.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
     }))
