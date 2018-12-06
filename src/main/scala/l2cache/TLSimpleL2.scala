@@ -38,7 +38,9 @@ with HasControlPlaneParameters
 
   lazy val module = new LazyModuleImp(this) {
     val nWays = p(NL2CacheWays)
+    println(s"nWays = $nWays")
     val nSets = p(NL2CacheCapacity) * 1024 / 64 / nWays
+    println(s"nSets = $nSets")
     val cp = IO(new CPToL2CacheIO().flip())
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       require(isPow2(nSets))
@@ -354,7 +356,7 @@ with HasControlPlaneParameters
       val need_data_read = read_hit || write_hit || read_miss_writeback || write_miss_writeback
 
       when (state === s_tag_read) {
-        log("hit: %d idx: %x curr_state_reg: %x hit_way: %x repl_way: %x", hit, idx, curr_state_reg, hit_way, repl_way)
+        log("hit: %d idx: %x curr_state_reg: %x waymask: %x hit_way: %x repl_way: %x", hit, idx, curr_state_reg, curr_mask, hit_way, repl_way)
         when (ren) {
           log_part("read addr: %x idx: %d tag: %x hit: %d ", addr, idx, tag, hit)
         }
@@ -438,9 +440,9 @@ with HasControlPlaneParameters
       when (meta_array_wen) {
         meta_array.write(meta_array_widx, meta_array_wdata)
         // Update dsid occupacy stat
-        when (!hit) {
+        when (!hit && !rst) {
           assert(update_way === repl_way, "update must = repl way when decrease a dsid's occupacy")
-          val victim_valid = Wire(vb_rdata_reg(repl_dsid))
+          val victim_valid = vb_rdata_reg(repl_way)
           dsid_occupacy.zipWithIndex foreach { case (dsid_occ, i) =>
               when (i.U === dsid && (!victim_valid || i.U =/= repl_dsid)) {
                 dsid_occ := requester_occupacy + 1.U
