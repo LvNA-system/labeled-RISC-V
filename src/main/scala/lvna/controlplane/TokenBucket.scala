@@ -87,9 +87,9 @@ class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketPara
   val write_req = io.write.fire && io.write.counted
 
   when (read_req && write_req) {
-      traffic := traffic + 2.U
+      traffic := traffic + 9.U
   }.elsewhen (read_req || write_req) {
-      traffic := traffic + 1.U
+      traffic := traffic + Mux(read_req, 8.U, 1.U)
   }
   /*when (io.read.fire && io.write.fire) {
     traffic := traffic + 2.U
