@@ -23,7 +23,7 @@ class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
   val valid = Input(Bool())
   val ready = Input(Bool())
   val bits  = Input(gen.cloneType)
-  val address = Input(UInt(64.W))
+  val counted = Input(Bool())
 
   def fire = valid && ready
 }
@@ -83,13 +83,13 @@ class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketPara
   }
   io.enable := enable
   
-  val read_req = io.read.fire && (io.read.address >= 0x100000000L.U)
-  val write_req = io.write.fire && (io.write.address >= 0x100000000L.U)
+  val read_req = io.read.fire && io.read.counted
+  val write_req = io.write.fire && io.write.counted
 
   when (read_req && write_req) {
-      traffic := traffic + 2.U
+      traffic := traffic + 9.U
   }.elsewhen (read_req || write_req) {
-      traffic := traffic + 1.U
+      traffic := traffic + Mux(read_req, 8.U, 1.U)
   }
   /*when (io.read.fire && io.write.fire) {
     traffic := traffic + 2.U
