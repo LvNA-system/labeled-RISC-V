@@ -115,6 +115,54 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     when (io.cp.bktIncWen) {
       bucketParams(dsidSel).inc := io.cp.updateData
     }
+
+
+    // AutoMBA goes here
+    val regulationCycles = 1000000
+    val samplingCycles = 1000
+    val startTraffic = RegInit(0.asUInt(32.W))
+    val samplingCounter = RegInit(0.asUInt(32.W))
+    val regulationCounter = RegInit(0.asUInt(32.W))
+
+    val s_sample :: s_regulate :: Nil = Enum(UInt(), 2)
+    val state = Reg(init = s_sample)
+
+    // during s_sample state, high priority app runs alone
+    // all others' memory requests are blocked
+    when (state === s_sample) {
+      samplingCounter := samplingCounter + 1.U
+      when (samplingCounter >= samplingCycles.U) {
+        // estimate high priority app's memory bandwidth demand
+        // set low priority app's bucket accordingly
+        val bandwidthUsage = io.traffics(0) - startTraffic
+        startTraffic := io.traffics(0)
+        val estimatedBandwidth = startTraffic << 4
+        // assume NTiles = 4
+        val newFreq = (regulationCycles.U - estimatedBandwidth) >> 4
+
+        for (i <- 1 until nTiles) {
+          bucketParams(i).freq := newFreq
+          bucketParams(i).block := false.B
+        }
+
+
+        regulationCounter := 0.U
+        state := s_regulate
+      }
+    }
+
+    when (state === s_regulate) {
+      regulationCounter := regulationCounter + 1.U
+      when (regulationCounter >= regulationCycles.U) {
+        // temporarily disable all others' memory requests
+        // let high priority app runs solo
+        for (i <- 1 until nTiles) {
+          bucketParams(i).block := true.B
+        }
+        samplingCounter := 0.U
+        state := s_sample
+      }
+    }
   }
 }
 

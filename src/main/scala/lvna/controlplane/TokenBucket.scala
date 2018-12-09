@@ -13,6 +13,8 @@ class BucketBundle(implicit p: Parameters) extends Bundle with HasTokenBucketPar
   val size = UInt(tokenBucketSizeWidth.W)
   val freq = UInt(tokenBucketFreqWidth.W)
   val inc  = UInt(tokenBucketSizeWidth.W)
+  // allow controller to directly block a bucket
+  val block = Bool()
 
   override def cloneType = (new BucketBundle).asInstanceOf[this.type]
 }
@@ -80,7 +82,7 @@ class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketPara
     enable := true.B
     threshold := 0.U
   }
-  io.enable := enable
+  io.enable := enable && !io.bucket.block
 
   when (io.read.fire && io.write.fire) {
     traffic := traffic + 2.U
