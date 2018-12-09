@@ -179,6 +179,7 @@ final class TLBundleA(params: TLBundleParameters)
   val address = UInt(width = params.addressBits) // to
   // FIXME: change to DSidWidth
   val dsid = UInt(width = 5)
+  val instret = UInt(width = 64)
   // variable fields during multibeat:
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
@@ -196,6 +197,7 @@ final class TLBundleB(params: TLBundleParameters)
   val address = UInt(width = params.addressBits) // from
   // FIXME: change to DSidWidth
   val dsid = UInt(width = 5)
+  val instret = UInt(width = 64)
   // variable fields during multibeat:
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
@@ -214,6 +216,7 @@ final class TLBundleC(params: TLBundleParameters)
   val address = UInt(width = params.addressBits) // to
   // FIXME: change to DSidWidth
   val dsid = UInt(width = 5)
+  val instret = UInt(width = 64)
   // variable fields during multibeat:
   val data    = UInt(width = params.dataBits)
   val corrupt = Bool() // only applies to *Data messages

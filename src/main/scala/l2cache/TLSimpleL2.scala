@@ -106,6 +106,7 @@ with HasControlPlaneParameters
         printf("""
 time: %d [L2Cache] in.a.opcode  = %x, 
                    in.a.dsid   = %x,
+                   in.a.instret   = %x,
                    in.a.param   = %x,
                    in.a.size    = %x, 
                    in.a.source  = %x,
@@ -127,6 +128,7 @@ time: %d [L2Cache] in.a.opcode  = %x,
                    GTimer(), 
                    in.a.bits.opcode,
                    in.a.bits.dsid,
+                   in.a.bits.instret,
                    in.a.bits.param, 
                    in.a.bits.size, 
                    in.a.bits.source, 
@@ -151,6 +153,7 @@ time: %d [L2Cache] in.a.opcode  = %x,
         printf("""
 time: %d [L2Cache] out.a.opcode  = %x, 
                    out.a.dsid   = %x,
+                   out.a.instret = %x,
                    out.a.param   = %x,
                    out.a.size    = %x, 
                    out.a.source  = %x,
@@ -172,6 +175,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
                    GTimer(), 
                    out.a.bits.opcode,
                    out.a.bits.dsid,
+                   out.a.bits.instret,
                    out.a.bits.param, 
                    out.a.bits.size, 
                    out.a.bits.source, 
@@ -195,6 +199,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
 
       val in_opcode = in.a.bits.opcode
       val in_dsid = in.a.bits.dsid
+      val in_instret = in.a.bits.instret
       val in_addr = in.a.bits.address
       val in_id   = in.a.bits.source
       val in_len_shift = in.a.bits.size >= innerBeatBits.U
@@ -215,6 +220,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
       val id = Reg(UInt(innerIdWidth.W))
       val opcode = Reg(UInt(3.W))
       val dsid = Reg(UInt(dsidWidth.W))
+      val instret = Reg(UInt(64.W))
       val size_reg = Reg(UInt(width=in.a.bits.params.sizeBits))
       
       val ren = RegInit(N)
@@ -244,6 +250,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
           id := in_id
           opcode := in_opcode
           dsid := in_dsid
+          instret := in_instret
           size_reg := in.a.bits.size
 
           // gather_curr_beat_reg := start_beat
@@ -259,6 +266,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
           id := in_id
           opcode := in_opcode
           dsid := in_dsid
+          instret := in_instret
           size_reg := in.a.bits.size
 
           // gather_curr_beat_reg := start_beat
@@ -653,6 +661,7 @@ time: %d [L2Cache] out.a.opcode  = %x,
 
       out.a.bits.opcode  := out_opcode
       out.a.bits.dsid    := dsid
+      out.a.bits.instret := instret
       out.a.bits.param   := UInt(0)
       out.a.bits.size    := outerBurstLen.U
       out.a.bits.source  := 0.asUInt(outerIdWidth.W)

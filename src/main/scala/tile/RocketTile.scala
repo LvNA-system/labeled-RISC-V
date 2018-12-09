@@ -158,7 +158,9 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
   val (masterBundleOut, _) = outer.masterNode.out.unzip
   masterBundleOut.foreach { x => {
       x.a.bits.dsid := Cat(core.io.procdsid, dsid)
+      x.a.bits.instret := core.io.instret
       x.c.bits.dsid := Cat(core.io.procdsid, dsid)
+      x.c.bits.instret := core.io.instret
     }
   }
 

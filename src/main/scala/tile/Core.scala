@@ -107,6 +107,7 @@ trait HasCoreIO extends HasTileParameters with HasControlPlaneParameters {
     val fpu = new FPUCoreIO().flip
     val rocc = new RoCCCoreIO().flip
     val procdsid = UInt(OUTPUT, procDSidWidth)
+    val instret = UInt(OUTPUT, 64)
 
     val ila = new ILABundle()
     val prefetch_enable = Bool(OUTPUT)

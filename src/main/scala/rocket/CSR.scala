@@ -224,6 +224,7 @@ class CSRFileIO(implicit p: Parameters) extends CoreBundle
   val simlog = Bool(OUTPUT)
   val prefetch_enable = Bool(OUTPUT)
   val procdsid = UInt(OUTPUT, p(ProcDSidWidth))
+  val instret = UInt(OUTPUT, 64.W)
 }
 
 class CSRFile(
@@ -322,6 +323,7 @@ class CSRFile(
   val reg_frm = Reg(UInt(width = 3))
 
   val reg_instret = WideCounter(64, io.retire)
+  io.instret := reg_instret
   val reg_cycle = if (enableCommitLog) reg_instret else withClock(io.ungated_clock) { WideCounter(64, !reg_wfi) }
   val reg_hpmevent = io.counters.map(c => Reg(init = UInt(0, xLen)))
   (io.counters zip reg_hpmevent) foreach { case (c, e) => c.eventSel := e }
