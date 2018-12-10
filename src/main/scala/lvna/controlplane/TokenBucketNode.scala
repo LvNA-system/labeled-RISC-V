@@ -35,10 +35,13 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
 
   val (op_a, op_c) = (in.a.bits.opcode, in.c.bits.opcode)
   val (size_a, size_c) = (in.a.bits.size, in.c.bits.size)
+  val a_counted = (in.a.bits.address >= 0x100000000L.U)
+  val c_counted = (in.c.bits.address >= 0x100000000L.U)
 
   read.ready := out.a.ready
   read.valid := in.a.valid && (op_a === TLMessages.Get || op_a === TLMessages.AcquireBlock)
   read.bits := size_a
+  read.counted := a_counted
 
   // Both channel A and channel C can write data.
   // We give channel C a higher priority.
@@ -47,4 +50,6 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   write.ready := Mux(is_c_write, out.c.ready, out.a.ready)
   write.valid := is_c_write || is_a_write
   write.bits := Mux(is_c_write, size_c, size_a)
+  write.counted := Mux(is_c_write, c_counted, a_counted)
+
 }
