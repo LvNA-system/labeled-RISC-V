@@ -160,6 +160,9 @@ trait CanHaveMasterAXI4MemPort { this: BaseSubsystem =>
       beatBytes = params.beatBytes)
   })
 
+  val l2cache: TLSimpleL2Cache = if (p(NL2CacheCapacity) != 0) TLSimpleL2CacheRef() else null
+  private val l2node = if (p(NL2CacheCapacity) != 0) l2cache.node else TLSimpleL2Cache()
+
   memPortParamsOpt.foreach { params =>
     memBuses.map { m =>
        memAXI4Node := m.toDRAMController(Some(portName)) {
@@ -179,7 +182,16 @@ trait CanHaveMasterAXI4MemPortModuleImp extends LazyModuleImp {
   def connectSimAXIMem() {
     (mem_axi4 zip outer.memAXI4Node.in).foreach { case (io, (_, edge)) =>
       val mem = LazyModule(new SimAXIMem(edge, size = p(ExtMem).get.size))
-      Module(mem.module).io.axi4.head <> io
+      // constrain memory bandwidth 
+      val (counterValue, counterWrap) = Counter(true.B, 4)
+      val mem_io = Module(mem.module).io.axi4.head
+      mem_io <> io
+      /*
+      mem_io.ar.valid := io.ar.valid && counterWrap
+      mem_io.aw.valid := io.aw.valid && counterWrap
+      io.ar.ready := mem_io.ar.ready && counterWrap
+      io.aw.ready := mem_io.aw.ready && counterWrap
+      */
     }
   }
 }

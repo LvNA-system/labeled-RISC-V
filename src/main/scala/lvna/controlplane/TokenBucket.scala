@@ -2,6 +2,8 @@ package lvna
 
 import chisel3._
 import freechips.rocketchip.config._
+import freechips.rocketchip.util._
+
 
 trait HasTokenBucketParameters {
   val tokenBucketSizeWidth = 32
@@ -25,6 +27,7 @@ class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
   val valid = Input(Bool())
   val ready = Input(Bool())
   val bits  = Input(gen.cloneType)
+  val counted = Input(Bool())
 
   def fire = valid && ready
 }
@@ -78,26 +81,43 @@ class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketPara
   when (channelEnables.reduce(_ || _) && consumeUp) {
     enable := false.B
     threshold := tokenSub
-  } .elsewhen((nTokens >= threshold || nTokens === bucketSize) && nTokens =/= 0.U) {
-    enable := true.B
-    threshold := 0.U
-  }
-  io.enable := enable && !io.bucket.block
-
-  when (io.read.fire && io.write.fire) {
-    traffic := traffic + 2.U
-  }.elsewhen (io.read.fire || io.write.fire) {
-    traffic := traffic + 1.U
-  }
-
-  io.traffic := traffic
-
-  val logToken = false
-  if (logToken) {
-    when(counter === 1.U) {
-      printf("tokenAdd inc %d nTokens %d, enable %d r(%d,%d), w(%d,%d)\n", bucketInc, RegNext(nTokens), RegNext(enable),
-        RegNext(io.read.ready), RegNext(io.read.valid), RegNext(io.write.ready), RegNext(io.write.valid)
-      )
+    } .elsewhen((nTokens >= threshold || nTokens === bucketSize) && nTokens =/= 0.U) {
+      enable := true.B
+      threshold := 0.U
     }
-  }
+    io.enable := enable && !io.bucket.block
+
+    val accountingCycle = 10000
+    val cycleCounter = RegInit(0.asUInt(64.W))
+
+    when (GTimer() >= cycleCounter) {
+      printf("enable: %d block: %d size: %d freq: %d inc: %d\n", enable, io.bucket.block, bucketSize, bucketFreq, bucketInc)
+      cycleCounter := cycleCounter + accountingCycle.U
+    }
+
+
+    val read_req = io.read.fire && io.read.counted
+    val write_req = io.write.fire && io.write.counted
+
+    when (read_req && write_req) {
+      traffic := traffic + 9.U
+      }.elsewhen (read_req || write_req) {
+        traffic := traffic + Mux(read_req, 8.U, 1.U)
+      }
+      /*when (io.read.fire && io.write.fire) {
+        traffic := traffic + 2.U
+        }.elsewhen (io.read.fire || io.write.fire) {
+          traffic := traffic + 1.U
+        }*/
+
+       io.traffic := traffic
+
+       val logToken = false
+       if (logToken) {
+         when(counter === 1.U) {
+           printf("tokenAdd inc %d nTokens %d, enable %d r(%d,%d), w(%d,%d)\n", bucketInc, RegNext(nTokens), RegNext(enable),
+             RegNext(io.read.ready), RegNext(io.read.valid), RegNext(io.write.ready), RegNext(io.write.valid)
+             )
+         }
+       }
 }

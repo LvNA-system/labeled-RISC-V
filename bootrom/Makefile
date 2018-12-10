@@ -13,3 +13,4 @@ all: $(bootrom_img)
 
 %.elf: %.S linker.ld
 	$(GCC) -Tlinker.ld $< -nostdlib -static -Wl,--no-gc-sections -o $@
+	riscv64-unknown-elf-objdump -d $@ >bootrom.txt

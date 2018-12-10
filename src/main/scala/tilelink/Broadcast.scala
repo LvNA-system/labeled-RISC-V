@@ -3,11 +3,17 @@
 package freechips.rocketchip.tilelink
 
 import Chisel._
-import freechips.rocketchip.config.{Field, Parameters}
+import freechips.rocketchip.config.{Config, Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import scala.math.{min,max}
 import lvna.HasControlPlaneParameters
+
+case object COHonDSID extends Field[Boolean](false)
+
+class WithCOHonDSID extends Config((site, here, up) => {
+  case COHonDSID => true
+})
 
 class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = false)(implicit p: Parameters) extends LazyModule with HasControlPlaneParameters
 {
@@ -68,7 +74,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
       val cache_targets = caches.map(c => UInt(c.start))
 
       // Records cache's dsid
-      val cache_dsids = Seq.fill(caches.size){ RegInit(UInt(0)) }
+      val optional_cache_dsids = if (p(COHonDSID)) Some(Seq.fill(caches.size){ RegInit(UInt(0)) }) else None
 
       // Create the request tracker queues
       val trackers = Seq.tabulate(numTrackers) { id =>
@@ -167,16 +173,21 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
       val a_first = edgeIn.first(in.a)
 
       // Update cache_dsids by incoming requests
-      (cache_dsids zip a_cache.toBools) foreach { case (dsid, is_requestor) =>
-        when (is_requestor) {
-          dsid := in.a.bits.dsid
+      optional_cache_dsids foreach { cache_dsids =>
+        (cache_dsids zip a_cache.toBools) foreach { case (dsid, is_requestor) =>
+          when(is_requestor) {
+            dsid := in.a.bits.dsid
+          }
         }
       }
-      
-      val dsid_mask = Vec(cache_dsids.map { dsid =>
-        Mux(dsid === UInt(0), Bool(true), dsid(ldomDSidWidth - 1, 0) === in.a.bits.dsid(ldomDSidWidth - 1, 0))
-      }).asUInt
-      val dsid_todo = (~a_cache) & dsid_mask
+
+      val dsid_mask = optional_cache_dsids.map { cache_dsids =>
+        Vec(cache_dsids.map { dsid =>
+          Mux(dsid === UInt(0), Bool(true), dsid(ldomDSidWidth - 1, 0) === in.a.bits.dsid(ldomDSidWidth - 1, 0))
+        }).asUInt()
+      }
+      def dsid_bypass = ((1 << a_cache.getWidth) - 1).U
+      val dsid_todo = (~a_cache).asUInt & dsid_mask.getOrElse(dsid_bypass)
 
       // To accept a request from A, the probe FSM must be idle and there must be a matching tracker
       val freeTrackers = Vec(trackers.map { t => t.idle }).asUInt

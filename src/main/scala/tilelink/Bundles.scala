@@ -36,7 +36,7 @@ object TLMessages
   def GrantData      = UInt(5) //                    .         => GrantAck
   def ReleaseAck     = UInt(6) //                    .
   def GrantAck       = UInt(0) //                         .
- 
+
   def isA(x: UInt) = x <= AcquirePerm
   def isB(x: UInt) = x <= Probe
   def isC(x: UInt) = x <= ReleaseData
@@ -44,52 +44,52 @@ object TLMessages
 
   def adResponse = Vec(AccessAck, AccessAck, AccessAckData, AccessAckData, AccessAckData, HintAck, Grant, Grant)
   def bcResponse = Vec(AccessAck, AccessAck, AccessAckData, AccessAckData, AccessAckData, HintAck, ProbeAck, ProbeAck)
-  
+
   def a = Seq( ("PutFullData",TLPermissions.PermMsgReserved),
-               ("PutPartialData",TLPermissions.PermMsgReserved),
-               ("ArithmeticData",TLAtomics.ArithMsg),
-               ("LogicalData",TLAtomics.LogicMsg),
-               ("Get",TLPermissions.PermMsgReserved),
-               ("Hint",TLHints.HintsMsg),
-               ("AcquireBlock",TLPermissions.PermMsgGrow),
-               ("AcquirePerm",TLPermissions.PermMsgGrow))
+    ("PutPartialData",TLPermissions.PermMsgReserved),
+    ("ArithmeticData",TLAtomics.ArithMsg),
+    ("LogicalData",TLAtomics.LogicMsg),
+    ("Get",TLPermissions.PermMsgReserved),
+    ("Hint",TLHints.HintsMsg),
+    ("AcquireBlock",TLPermissions.PermMsgGrow),
+    ("AcquirePerm",TLPermissions.PermMsgGrow))
 
   def b = Seq( ("PutFullData",TLPermissions.PermMsgReserved),
-               ("PutPartialData",TLPermissions.PermMsgReserved),
-               ("ArithmeticData",TLAtomics.ArithMsg),
-               ("LogicalData",TLAtomics.LogicMsg),
-               ("Get",TLPermissions.PermMsgReserved),
-               ("Hint",TLHints.HintsMsg),
-               ("Probe",TLPermissions.PermMsgCap))
+    ("PutPartialData",TLPermissions.PermMsgReserved),
+    ("ArithmeticData",TLAtomics.ArithMsg),
+    ("LogicalData",TLAtomics.LogicMsg),
+    ("Get",TLPermissions.PermMsgReserved),
+    ("Hint",TLHints.HintsMsg),
+    ("Probe",TLPermissions.PermMsgCap))
 
   def c = Seq( ("AccessAck",TLPermissions.PermMsgReserved),
-               ("AccessAckData",TLPermissions.PermMsgReserved),
-               ("HintAck",TLPermissions.PermMsgReserved),
-               ("Invalid Opcode",TLPermissions.PermMsgReserved),
-               ("ProbeAck",TLPermissions.PermMsgReport),
-               ("ProbeAckData",TLPermissions.PermMsgReport),
-               ("Release",TLPermissions.PermMsgReport),
-               ("ReleaseData",TLPermissions.PermMsgReport))
+    ("AccessAckData",TLPermissions.PermMsgReserved),
+    ("HintAck",TLPermissions.PermMsgReserved),
+    ("Invalid Opcode",TLPermissions.PermMsgReserved),
+    ("ProbeAck",TLPermissions.PermMsgReport),
+    ("ProbeAckData",TLPermissions.PermMsgReport),
+    ("Release",TLPermissions.PermMsgReport),
+    ("ReleaseData",TLPermissions.PermMsgReport))
 
   def d = Seq( ("AccessAck",TLPermissions.PermMsgReserved),
-               ("AccessAckData",TLPermissions.PermMsgReserved),
-               ("HintAck",TLPermissions.PermMsgReserved),
-               ("Invalid Opcode",TLPermissions.PermMsgReserved),
-               ("Grant",TLPermissions.PermMsgCap),
-               ("GrantData",TLPermissions.PermMsgCap),
-               ("ReleaseAck",TLPermissions.PermMsgReserved))
+    ("AccessAckData",TLPermissions.PermMsgReserved),
+    ("HintAck",TLPermissions.PermMsgReserved),
+    ("Invalid Opcode",TLPermissions.PermMsgReserved),
+    ("Grant",TLPermissions.PermMsgCap),
+    ("GrantData",TLPermissions.PermMsgCap),
+    ("ReleaseAck",TLPermissions.PermMsgReserved))
 
 }
 
 /**
-  * The three primary TileLink permissions are:
-  *   (T)runk: the agent is (or is on inwards path to) the global point of serialization.
-  *   (B)ranch: the agent is on an outwards path to
-  *   (N)one: 
-  * These permissions are permuted by transfer operations in various ways.
-  * Operations can cap permissions, request for them to be grown or shrunk,
-  * or for a report on their current status.
-  */
+ * The three primary TileLink permissions are:
+ *   (T)runk: the agent is (or is on inwards path to) the global point of serialization.
+ *   (B)ranch: the agent is on an outwards path to
+ *   (N)one: 
+ * These permissions are permuted by transfer operations in various ways.
+ * Operations can cap permissions, request for them to be grown or shrunk,
+ * or for a report on their current status.
+ */
 object TLPermissions
 {
   val aWidth = 2
@@ -148,7 +148,7 @@ object TLAtomics
   def ArithMsg:Seq[String] = Seq("MIN", "MAX", "MIN", "MAXU", "ADD")
   def LogicMsg:Seq[String] = Seq("XOR", "OR", "AND", "SWAP")
 }
- 
+
 
 object TLHints
 {
@@ -168,7 +168,7 @@ sealed trait TLDataChannel extends TLChannel
 sealed trait TLAddrChannel extends TLDataChannel
 
 final class TLBundleA(params: TLBundleParameters)
-  extends TLBundleBase(params) with TLAddrChannel
+extends TLBundleBase(params) with TLAddrChannel
 {
   val channelName = "'A' channel"
   // fixed fields during multibeat:
@@ -184,9 +184,16 @@ final class TLBundleA(params: TLBundleParameters)
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
   val corrupt = Bool() // only applies to *Data messages
+
+  def dump() = {
+    printf("time %d: Channel A addr %x, dsid = %d, instret: %d\n",
+      GTimer(), address, dsid, instret)
+    printf("\n")
+  }
+
 }
 final class TLBundleB(params: TLBundleParameters)
-  extends TLBundleBase(params) with TLAddrChannel
+extends TLBundleBase(params) with TLAddrChannel
 {
   val channelName = "'B' channel"
   // fixed fields during multibeat:
@@ -202,10 +209,16 @@ final class TLBundleB(params: TLBundleParameters)
   val mask    = UInt(width = params.dataBits/8)
   val data    = UInt(width = params.dataBits)
   val corrupt = Bool() // only applies to *Data messages
+
+  def dump() = {
+    printf("time %d: Channel B addr %x, dsid = %d, instret: %d\n",
+      GTimer(), address, dsid, instret)
+    printf("\n")
+  }
 }
 
 final class TLBundleC(params: TLBundleParameters)
-  extends TLBundleBase(params) with TLAddrChannel
+extends TLBundleBase(params) with TLAddrChannel
 {
   val channelName = "'C' channel"
   // fixed fields during multibeat:
@@ -220,10 +233,16 @@ final class TLBundleC(params: TLBundleParameters)
   // variable fields during multibeat:
   val data    = UInt(width = params.dataBits)
   val corrupt = Bool() // only applies to *Data messages
+
+  def dump() = {
+    printf("time %d: Channel C addr %x, dsid = %d, instret: %d\n",
+      GTimer(), address, dsid, instret)
+    printf("\n")
+  }
 }
 
 final class TLBundleD(params: TLBundleParameters)
-  extends TLBundleBase(params) with TLDataChannel
+extends TLBundleBase(params) with TLDataChannel
 {
   val channelName = "'D' channel"
   // fixed fields during multibeat:
@@ -236,13 +255,24 @@ final class TLBundleD(params: TLBundleParameters)
   // variable fields during multibeat:
   val data    = UInt(width = params.dataBits)
   val corrupt = Bool() // only applies to *Data messages
+
+  def dump() = {
+    printf("time %d: Channel D data %x\n",
+      GTimer(), data)
+    printf("\n")
+  }
 }
 
 final class TLBundleE(params: TLBundleParameters)
-  extends TLBundleBase(params) with TLChannel
+extends TLBundleBase(params) with TLChannel
 {
   val channelName = "'E' channel"
   val sink = UInt(width = params.sinkBits) // to  
+  def dump() = {
+    printf("time %d: Channel E\n",
+      GTimer())
+    printf("\n")
+  }
 }
 
 class TLBundle(params: TLBundleParameters) extends TLBundleBase(params)
@@ -253,6 +283,38 @@ class TLBundle(params: TLBundleParameters) extends TLBundleBase(params)
   val d = Decoupled(new TLBundleD(params)).flip
   val e = Decoupled(new TLBundleE(params))
 
+  def dump(s: String = "") = {
+    a match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    b match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    c match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    d match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+    e match { case x => {
+      when (x.fire()) {
+        printf(s)
+        x.bits.dump()
+      }
+    }}
+  }
   def tieoff() {
     a.ready.dir match {
       case INPUT =>
@@ -338,4 +400,5 @@ class TLRationalBundle(params: TLBundleParameters) extends TLBundleBase(params)
   val c = RationalIO(new TLBundleC(params))
   val d = RationalIO(new TLBundleD(params)).flip
   val e = RationalIO(new TLBundleE(params))
+
 }

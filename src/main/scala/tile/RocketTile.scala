@@ -161,6 +161,7 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
       x.a.bits.instret := core.io.instret
       x.c.bits.dsid := Cat(core.io.procdsid, dsid)
       x.c.bits.instret := core.io.instret
+      x.b.bits.dsid := Cat(core.io.procdsid, dsid)
     }
   }
 
