@@ -11,5 +11,5 @@ BUILD_ROOT=$(dirname $SCRIPT)/../build
 DTS=$BUILD_ROOT/$1.dts
 DTB=$BUILD_ROOT/$1.dtb
 TXT=$DTB.txt
-dtc $DTS -o $DTB
+dtc $DTS -O dtb -o $DTB
 sh gen_bin.sh $DTB $TXT
