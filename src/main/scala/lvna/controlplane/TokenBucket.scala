@@ -90,11 +90,6 @@ class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketPara
     val accountingCycle = 10000
     val cycleCounter = RegInit(0.asUInt(64.W))
 
-    when (GTimer() >= cycleCounter) {
-      printf("enable: %d block: %d size: %d freq: %d inc: %d\n", enable, io.bucket.block, bucketSize, bucketFreq, bucketInc)
-      cycleCounter := cycleCounter + accountingCycle.U
-    }
-
 
     val read_req = io.read.fire && io.read.counted
     val write_req = io.write.fire && io.write.counted

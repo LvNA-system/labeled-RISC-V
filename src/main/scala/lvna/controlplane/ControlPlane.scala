@@ -156,10 +156,13 @@ with HasTokenBucketParameters
     val accountingCycle = 10000
     val cycleCounter = RegInit(0.asUInt(64.W))
     val lastTraffic = RegInit(Vec(Seq.fill(nTiles){ 0.U(32.W) }))
-  
+
     when (GTimer() >= cycleCounter) {
       for (i <- 0 until nTiles) {
-        printf("Traffic time: %d dsid: %d traffic: %d\n", cycleCounter, i.U, io.traffics(i) - lastTraffic(i))
+        // 输出每段时间内，产生了多少流量，用于精细观察流量控制策略
+        // printf("Traffic time: %d dsid: %d traffic: %d\n", cycleCounter, i.U, io.traffics(i) - lastTraffic(i))
+        // 输出到了每个时间点后的CDF，用于看整体的流量曲线，观察流量控制效果
+        printf("Traffic time: %d dsid: %d traffic: %d\n", cycleCounter, i.U, io.traffics(i))
         lastTraffic(i) := io.traffics(i)
       }
       cycleCounter := cycleCounter + accountingCycle.U
@@ -178,32 +181,51 @@ with HasTokenBucketParameters
     // all others' memory requests are blocked
     when (state === s_sample) {
       samplingCounter := samplingCounter + 1.U
-        for (i <- 1 until nTiles) {
-          bucketParams(i).freq := 32.U
-          bucketParams(i).inc := 8.U
-          bucketParams(i).block := false.B
-        }
-      /*
+      for (i <- 1 until nTiles) {
+        bucketParams(i).freq := 3200.U
+        bucketParams(i).inc := 1.U
+        bucketParams(i).block := true.B
+      }
       when (samplingCounter >= samplingCycles.U) {
         // estimate high priority app's memory bandwidth demand
         // set low priority app's bucket accordingly
         val bandwidthUsage = io.traffics(0) - startTraffic
         startTraffic := io.traffics(0)
-        val estimatedBandwidth = startTraffic << 4
+        // val estimatedBandwidth = startTraffic << 4
+        // 经验数据，仿真时，一万个周期，两个核最多往下面推了1000个beat
+        // val totalBandwidth = regulationCycles / 10
+        // 假设统计出来1000个周期内高优先级用了x beat，则在接下来的16000个周期里
+        // 低优先级最多可以传输的beat数为 1600 - 16x
+        // 相应地，其freq应该为 16000 / (1600 - 16x)
+        // 由于这个无法简单表示，所以，我们手动将其分段表示
         // assume NTiles = 4
         // val newFreq = (regulationCycles.U - estimatedBandwidth) >> 4
-        val newFreq = 320
+        // 不那么激进的参数，这个是按照公式算的freq
+        /*
+        val newFreq = Mux(bandwidthUsage >= 90.U, 100.U,
+          Mux(bandwidthUsage >= 80.U, 50.U,
+            Mux(bandwidthUsage >= 70.U, 33.U,
+              Mux(bandwidthUsage >= 60.U, 25.U,
+                Mux(bandwidthUsage >= 50.U, 20.U, 10.U)))))
+        */
+
+        // 激进的参数，把上面根据freq算的数据，手动扩大几倍，把低优先级限制得更加死
+        val newFreq = Mux(bandwidthUsage >= 90.U, 400.U,
+          Mux(bandwidthUsage >= 80.U, 300.U,
+            Mux(bandwidthUsage >= 70.U, 200.U,
+              Mux(bandwidthUsage >= 60.U, 100.U,
+                Mux(bandwidthUsage >= 50.U, 100.U, 10.U)))))
+
 
         for (i <- 1 until nTiles) {
-          bucketParams(i).freq := newFreq.U
-          bucketParams(i).inc := 8.U
+          bucketParams(i).freq := newFreq
+          bucketParams(i).inc := 1.U
           bucketParams(i).block := false.B
         }
 
         regulationCounter := 0.U
         state := s_regulate
       }
-      */
     }
 
     when (state === s_regulate) {
