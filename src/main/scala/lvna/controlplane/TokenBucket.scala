@@ -19,10 +19,10 @@ class BucketBundle(implicit p: Parameters) extends Bundle with HasTokenBucketPar
 
 
 /** Only view the ReadyValidIO protocol */
-class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
+class ReadyValidMonitor extends Bundle {
   val valid = Input(Bool())
   val ready = Input(Bool())
-  val bits  = Input(gen.cloneType)
+  val size  = Input(UInt(4.W)) // #beat
   val counted = Input(Bool())
 
   def fire = valid && ready
@@ -31,8 +31,8 @@ class ReadyValidMonitor[+T <: Data](gen: T) extends Bundle {
 
 class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketParameters {
   val io = IO(new Bundle {
-    val read  = new ReadyValidMonitor(UInt(tokenBucketDataWidth.W))
-    val write = new ReadyValidMonitor(UInt(tokenBucketDataWidth.W))
+    val read  = new ReadyValidMonitor()
+    val write = new ReadyValidMonitor()
     val bucket = Input(new BucketBundle)
     val enable = Output(Bool())
     val traffic = Output(UInt(32.W))
@@ -59,9 +59,14 @@ class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketPara
   val tokenAdd = Mux(counter === 1.U, bucketInc, 0.U)
 
   val bypass = bucketFreq === 0.U
-  val channelEnables = List(io.read, io.write).map { ch => ch.valid && ch.ready }
+  val channelEnables = List(io.read, io.write).map { ch => ch.valid && ch.ready && ch.counted }
   val rTokenSub :: wTokenSub :: _ = List(io.read, io.write).zip(channelEnables).map {
-    case (ch, en) => Mux(en && !bypass, ch.bits, 0.U)
+      case (ch, en) => {
+          val num_beats = Mux(ch.size === 0.U, 0.U, 
+                          Mux(ch.size <= 3.U, 1.U, 
+                              (1.U << ch.size) >> 3.U))
+          Mux(en && !bypass, num_beats, 0.U)
+      }
   }
   val tokenSub = rTokenSub + wTokenSub
   val consumeUp = (rTokenSub + wTokenSub) >= nTokens
