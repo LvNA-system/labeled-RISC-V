@@ -2,12 +2,14 @@ package lvna
 
 import Chisel._
 import chisel3.core.{Input, Output}
+import chisel3.VecInit
 import freechips.rocketchip.config.{Config, Field, Parameters}
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, UseEmu}
 import freechips.rocketchip.tile.XLen
 import freechips.rocketchip.util._
+import scala.math.round
 
 case object ProcDSidWidth extends Field[Int](3)
 
@@ -168,78 +170,140 @@ with HasTokenBucketParameters
       cycleCounter := cycleCounter + accountingCycle.U
     }
 
-    val regulationCycles = 16000
-    val samplingCycles = 1000
     val startTraffic = RegInit(0.asUInt(32.W))
-    val samplingCounter = RegInit(0.asUInt(32.W))
-    val regulationCounter = RegInit(0.asUInt(32.W))
+    val windowCounter = RegInit(0.asUInt(16.W))
 
-    val s_sample :: s_regulate :: Nil = Enum(UInt(), 2)
-    val state = Reg(init = s_sample)
+    val windowSize = 1000
+    val totalBW = 100
 
-    // during s_sample state, high priority app runs alone
-    // all others' memory requests are blocked
-    when (state === s_sample) {
-      samplingCounter := samplingCounter + 1.U
-      for (i <- 1 until nTiles) {
-        bucketParams(i).freq := 3200.U
-        bucketParams(i).inc := 1.U
-        bucketParams(i).block := true.B
-      }
-      when (samplingCounter >= samplingCycles.U) {
-        // estimate high priority app's memory bandwidth demand
-        // set low priority app's bucket accordingly
-        val bandwidthUsage = io.traffics(0) - startTraffic
-        startTraffic := io.traffics(0)
-        // val estimatedBandwidth = startTraffic << 4
-        // 经验数据，仿真时，一万个周期，两个核最多往下面推了1000个beat
-        // val totalBandwidth = regulationCycles / 10
-        // 假设统计出来1000个周期内高优先级用了x beat，则在接下来的16000个周期里
-        // 低优先级最多可以传输的beat数为 1600 - 16x
-        // 相应地，其freq应该为 16000 / (1600 - 16x)
-        // 由于这个无法简单表示，所以，我们手动将其分段表示
-        // assume NTiles = 4
-        // val newFreq = (regulationCycles.U - estimatedBandwidth) >> 4
-        // 不那么激进的参数，这个是按照公式算的freq
-        /*
-        val newFreq = Mux(bandwidthUsage >= 90.U, 100.U,
-          Mux(bandwidthUsage >= 80.U, 50.U,
-            Mux(bandwidthUsage >= 70.U, 33.U,
-              Mux(bandwidthUsage >= 60.U, 25.U,
-                Mux(bandwidthUsage >= 50.U, 20.U, 10.U)))))
-        */
-
-        // 激进的参数，把上面根据freq算的数据，手动扩大几倍，把低优先级限制得更加死
-        val newFreq = Mux(bandwidthUsage >= 90.U, 400.U,
-          Mux(bandwidthUsage >= 80.U, 300.U,
-            Mux(bandwidthUsage >= 70.U, 200.U,
-              Mux(bandwidthUsage >= 60.U, 100.U,
-                Mux(bandwidthUsage >= 50.U, 100.U, 10.U)))))
+    val quota = RegInit(50.asUInt(8.W))
+    val curLevel = RegInit(4.asUInt(4.W))
 
 
-        for (i <- 1 until nTiles) {
-          bucketParams(i).freq := newFreq
-          bucketParams(i).inc := 1.U
-          bucketParams(i).block := false.B
-        }
-
-        regulationCounter := 0.U
-        state := s_regulate
-      }
+    def freqTable() = {
+      val inits = (1 until 10).map(t => round(totalBW/t.toDouble).asUInt(8.W))
+      VecInit(inits)
+    }
+    def limitFreqTable() = {
+      val inits2 = (1 until 10).map(
+        t => round(windowSize.toDouble/(totalBW - totalBW/10*t.toDouble)).asUInt(8.W))
+      VecInit(inits2)
     }
 
-    when (state === s_regulate) {
-      regulationCounter := regulationCounter + 1.U
-      when (regulationCounter >= regulationCycles.U) {
-        // temporarily disable all others' memory requests
-        // let high priority app runs solo
-        for (i <- 1 until nTiles) {
-          bucketParams(i).block := true.B
-        }
-        samplingCounter := 0.U
-        state := s_sample
+    val levelToFreq = freqTable()
+    val levelToLimitFreq = limitFreqTable()
+
+    // bucketParams(0).freq := levelToFreq(curLevel)
+    // bucketParams(1).freq := levelToFreq(10.U - curLevel)
+
+    when (windowCounter >= windowSize.U) {
+      windowCounter := 0.U
+
+      val bandwidthUsage = io.traffics(0) - startTraffic
+      startTraffic := io.traffics(0)
+      printf("limit level: %d;quota: %d; traffic: %d\n", curLevel, quota, bandwidthUsage)
+      printf("freq 0: %d; freq 1: %d\n", bucketParams(0).freq, bucketParams(1).freq)
+
+      val nextLevel = Wire(UInt(4.W))
+      val nextQuota = Wire(UInt(8.W))
+
+      when (bandwidthUsage >= ((quota<<4) + (quota<<5) + (quota<<6) >> 7) ) {
+        // usage >= quota * 87.5%
+        nextLevel := Mux(curLevel === 8.U, 8.U, curLevel + 1.U)
+        nextQuota := Mux(quota === 90.U, 90.U, quota + 10.U)
+
+      } .elsewhen (bandwidthUsage < (quota >> 1) ) {
+        // usage < quota * 50%
+        nextLevel := Mux(curLevel === 0.U, 0.U, curLevel - 1.U)
+        nextQuota := Mux(quota === 10.U, 10.U, quota - 10.U)
       }
+
+      bucketParams(0).freq := levelToFreq(nextLevel)
+      bucketParams(1).freq := levelToLimitFreq(nextLevel)
+      bucketParams(0).inc := 1.U
+      bucketParams(1).inc := 1.U
+      curLevel := nextLevel
+      quota := nextQuota
+
+      printf("next level: %d;next quota: %d\n", nextLevel, nextQuota)
     }
+    when (windowCounter < windowSize.U) {
+      windowCounter := windowCounter + 1.U
+    }
+
+    // val regulationCycles = 16000
+    // val samplingCycles = 1000
+    // val startTraffic = RegInit(0.asUInt(32.W))
+
+    // val samplingCounter = RegInit(0.asUInt(32.W))
+    // val regulationCounter = RegInit(0.asUInt(32.W))
+
+    // val s_sample :: s_regulate :: Nil = Enum(UInt(), 2)
+    // val state = Reg(init = s_sample)
+
+    // // during s_sample state, high priority app runs alone
+    // // all others' memory requests are blocked
+    // when (state === s_sample) {
+    //   samplingCounter := samplingCounter + 1.U
+    //   for (i <- 1 until nTiles) {
+    //     bucketParams(i).freq := 3200.U
+    //     bucketParams(i).inc := 1.U
+    //     bucketParams(i).block := true.B
+    //   }
+    //   when (samplingCounter >= samplingCycles.U) {
+    //     // estimate high priority app's memory bandwidth demand
+    //     // set low priority app's bucket accordingly
+    //     val bandwidthUsage = io.traffics(0) - startTraffic
+    //     startTraffic := io.traffics(0)
+    //     // val estimatedBandwidth = startTraffic << 4
+    //     // 经验数据，仿真时，一万个周期，两个核最多往下面推了1000个beat
+    //     // val totalBandwidth = regulationCycles / 10
+    //     // 假设统计出来1000个周期内高优先级用了x beat，则在接下来的16000个周期里
+    //     // 低优先级最多可以传输的beat数为 1600 - 16x
+    //     // 相应地，其freq应该为 16000 / (1600 - 16x)
+    //     // 由于这个无法简单表示，所以，我们手动将其分段表示
+    //     // assume NTiles = 4
+    //     // val newFreq = (regulationCycles.U - estimatedBandwidth) >> 4
+    //     // 不那么激进的参数，这个是按照公式算的freq
+    //     /*
+    //     val newFreq = Mux(bandwidthUsage >= 90.U, 100.U,
+    //       Mux(bandwidthUsage >= 80.U, 50.U,
+    //         Mux(bandwidthUsage >= 70.U, 33.U,
+    //           Mux(bandwidthUsage >= 60.U, 25.U,
+    //             Mux(bandwidthUsage >= 50.U, 20.U, 10.U)))))
+    //     */
+
+    //     // 激进的参数，把上面根据freq算的数据，手动扩大几倍，把低优先级限制得更加死
+    //     val newFreq = Mux(bandwidthUsage >= 90.U, 400.U,
+    //       Mux(bandwidthUsage >= 80.U, 300.U,
+    //         Mux(bandwidthUsage >= 70.U, 200.U,
+    //           Mux(bandwidthUsage >= 60.U, 100.U,
+    //             Mux(bandwidthUsage >= 50.U, 100.U, 10.U)))))
+
+
+    //     for (i <- 1 until nTiles) {
+    //       bucketParams(i).freq := newFreq
+    //       bucketParams(i).inc := 1.U
+    //       bucketParams(i).block := false.B
+    //     }
+
+    //     regulationCounter := 0.U
+    //     state := s_regulate
+    //   }
+    // }
+
+    // when (state === s_regulate) {
+    //   regulationCounter := regulationCounter + 1.U
+    //   when (regulationCounter >= regulationCycles.U) {
+    //     // temporarily disable all others' memory requests
+    //     // let high priority app runs solo
+    //     for (i <- 1 until nTiles) {
+    //       bucketParams(i).block := true.B
+    //     }
+    //     samplingCounter := 0.U
+    //     state := s_sample
+    //   }
+    // }
   }
 }
 
