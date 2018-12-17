@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+import socket
+import itertools
+import sys
+
+from dm_reg import *
+from dm_utils import *
+from openocd import *
+
+def check_busy(ocd):
+    sbcs.bits = int(ocd.dmi_read(sbcs.addr), 16)
+    return sbcs.sbbusy == 1
+
+if __name__ == "__main__":
+    addr = int(sys.argv[1], 16)
+    with OpenOcd(verbose=False) as ocd:
+        sbcs.bits = int(ocd.dmi_read(sbcs.addr), 16)
+        print_fields(sbcs)
+
+        sbcs.sbaccess = 2 # 32-bit
+        sbcs.sbreadonaddr = 1
+        sbaddress0.bits = addr & 0xffffffff
+        sbaddress1.bits = addr >> 32
+
+        ocd.dmi_write(sbcs.addr, sbcs.bits)
+        ocd.dmi_write(sbaddress1.addr, sbaddress1.bits)
+        ocd.dmi_write(sbaddress0.addr, sbaddress0.bits)
+
+        while check_busy(ocd):
+            print("waiting")
+            pass
+
+        if sbcs.sberror or sbcs.sbbusyerror:
+            print("Error:")
+            print_fields(sbcs)
+            sys.exit(-1)
+
+        data = ocd.dmi_read(sbdata0.addr)
+        print("{:x}: {}".format(addr, data))

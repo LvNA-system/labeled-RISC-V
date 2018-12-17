@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+import socket
+import itertools
+import sys
+
+from dm_reg import *
+from dm_utils import *
+from openocd import *
+
+if __name__ == "__main__":
+    if sys.argv[1] == 'enable':
+        asm = [ 0x8000d073 ]
+    elif sys.argv[1] == 'disable':
+        asm = [ 0x80005073 ]
+    else:
+        print("Unexpected command: " + sys.argv[1])
+        sys.exit(-1)
+
+    asm += [
+            0x00100073  # ebreak
+            ]
+
+    print(asm)
+
+    progbuf_cmds = [(i + 0x20, data) for i, data in enumerate(asm)]
+    with OpenOcd(verbose=False) as ocd:
+        # Progbuf
+        for reg, data in progbuf_cmds:
+            ocd.send("riscv dmi_write {} {}".format(reg, data))
+        # Access Register
+        ocd.send("riscv dmi_write 0x17 0x361001") # regno = sp, postexec, transfer, 64-bit
+        ret = ocd.send("riscv dmi_read 0x16")
+        if ret != "0x10000002":
+            print("Exec error: abstracts " + ret)
+            set_reg(abstractcs, ret)
+            print_fields(abstractcs)
