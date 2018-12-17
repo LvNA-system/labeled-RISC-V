@@ -26,26 +26,28 @@ trait HasControlPlaneParameters {
   */
 class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters {
   private val indexWidth = 32
-  val dsid          = UInt(OUTPUT, ldomDSidWidth)
-  val updateData    = UInt(INPUT, 32)
-  val traffic       = UInt(OUTPUT, 32)
-  val capacity      = UInt(OUTPUT, cacheCapacityWidth)
-  val dsidWen       = Bool(INPUT)
-  val memBase       = UInt(OUTPUT, p(XLen))
-  val memBaseLoWen  = Bool(INPUT)
-  val memBaseHiWen  = Bool(INPUT)
-  val memMask       = UInt(OUTPUT, p(XLen))
-  val memMaskLoWen  = Bool(INPUT)
-  val memMaskHiWen  = Bool(INPUT)
-  val bucket        = new BucketBundle().asOutput
-  val bktFreqWen    = Bool(INPUT)
-  val bktSizeWen    = Bool(INPUT)
-  val bktIncWen     = Bool(INPUT)
-  val waymask       = UInt(OUTPUT, p(NL2CacheWays))
-  val waymaskWen    = Bool(INPUT)
-  val sel           = UInt(OUTPUT, indexWidth)
-  val selUpdate     = UInt(INPUT, indexWidth)
-  val selWen        = Bool(INPUT)
+  val updateData   = UInt(INPUT, 32)
+  val traffic      = UInt(OUTPUT, 32)
+  val cycle        = UInt(OUTPUT, 32)
+  val capacity     = UInt(OUTPUT, cacheCapacityWidth)
+  val hartDsid     = UInt(OUTPUT, ldomDSidWidth)
+  val hartDsidWen  = Bool(INPUT)
+  val memBase      = UInt(OUTPUT, p(XLen))
+  val memBaseLoWen = Bool(INPUT)
+  val memBaseHiWen = Bool(INPUT)
+  val memMask      = UInt(OUTPUT, p(XLen))
+  val memMaskLoWen = Bool(INPUT)
+  val memMaskHiWen = Bool(INPUT)
+  val bucket       = new BucketBundle().asOutput
+  val bktFreqWen   = Bool(INPUT)
+  val bktSizeWen   = Bool(INPUT)
+  val bktIncWen    = Bool(INPUT)
+  val waymask      = UInt(OUTPUT, p(NL2CacheWays))
+  val waymaskWen   = Bool(INPUT)
+  val hartSel      = UInt(OUTPUT, indexWidth)
+  val hartSelWen   = Bool(INPUT)
+  val dsidSel      = UInt(OUTPUT, dsidWidth)
+  val dsidSelWen   = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -123,17 +125,16 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
 
   override lazy val module = new LazyModuleImp(this) with HasTokenBucketPlane {
     val io = IO(new Bundle {
-      val dsids = Vec(nTiles, UInt(ldomDSidWidth.W)).asOutput
-      val memBases = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
-      val memMasks = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
-      val l2 = new CPToL2CacheIO()
-      val cp = new ControlPlaneIO()
+      val hartDsids = Vec(nTiles, UInt(ldomDSidWidth.W)).asOutput
+      val memBases  = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
+      val memMasks  = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
+      val l2        = new CPToL2CacheIO()
+      val cp        = new ControlPlaneIO()
     })
 
-    def gen_table[T <: Data](init: => T): Vec[T] = RegInit(Vec(Seq.fill(nTiles){ init }))
-    val dsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
-    val dsidSel = RegInit(0.U(ldomDSidWidth.W))
-    val memBases = RegInit(Vec(Seq.tabulate(nTiles){ i =>
+    val hartSel   = RegInit(0.U(ldomDSidWidth.W))
+    val hartDsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
+    val memBases  = RegInit(Vec(Seq.tabulate(nTiles){ i =>
       if (p(UseEmu)) {
         val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
         (i * memSize / nTiles).U(memAddrWidth.W)
@@ -141,33 +142,34 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
         0.U(memAddrWidth.W)
       }
     }))
-    val memMasks = RegInit(Vec(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
-    val waymasks = gen_table(((1L << p(NL2CacheWays)) - 1).U)
-    io.cp.waymask := waymasks(dsidSel)
+    val memMasks  = RegInit(Vec(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
+    val waymasks  = RegInit(Vec(Seq.fill(nTiles){ ((1L << p(NL2CacheWays)) - 1).U }))
     val l2dsid_reg = RegNext(io.l2.dsid)  // 1 cycle delay
     io.l2.waymask := waymasks(l2dsid_reg)
 
-    val currDsid = dsids(dsidSel)
-
+    val currDsid = RegEnable(io.cp.updateData, 0.U, io.cp.dsidSelWen)
+    io.cp.dsidSel := currDsid
+    io.cp.waymask := waymasks(currDsid)
     io.cp.traffic := bucketState(currDsid).traffic
+    io.cp.cycle := timer
     io.cp.capacity := io.l2.capacity
     io.l2.capacity_dsid := currDsid
 
-    io.cp.dsid := currDsid
-    io.cp.sel := dsidSel
-    io.cp.memBase := memBases(dsidSel)
-    io.cp.memMask := memMasks(dsidSel)
-    io.cp.bucket := bucketParams(dsidSel)
-    io.dsids := dsids
+    io.cp.hartDsid := hartDsids(hartSel)
+    io.cp.hartSel := hartSel
+    io.cp.memBase := memBases(hartSel)
+    io.cp.memMask := memMasks(hartSel)
+    io.cp.bucket := bucketParams(currDsid)
+    io.hartDsids := hartDsids
     io.memBases := memBases
     io.memMasks := memMasks
 
-    when (io.cp.selWen) {
-      dsidSel := io.cp.selUpdate
+    when (io.cp.hartSelWen) {
+      hartSel := io.cp.updateData
     }
 
-    when (io.cp.dsidWen) {
-      dsids(dsidSel) := io.cp.updateData
+    when (io.cp.hartDsidWen) {
+      hartDsids(hartSel) := io.cp.updateData
     }
 
     val mem_base_lo_tmp = RegInit(0.U(32.W))
@@ -178,7 +180,7 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     }
 
     when (io.cp.memBaseHiWen) {
-      memBases(dsidSel) := Cat(io.cp.updateData, mem_base_lo_tmp)
+      memBases(hartSel) := Cat(io.cp.updateData, mem_base_lo_tmp)
     }
 
     when (io.cp.memMaskLoWen) {
@@ -186,23 +188,23 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     }
 
     when (io.cp.memMaskHiWen) {
-      memMasks(dsidSel) := Cat(io.cp.updateData, mem_mask_lo_tmp)
+      memMasks(hartSel) := Cat(io.cp.updateData, mem_mask_lo_tmp)
     }
 
     when (io.cp.bktFreqWen) {
-      bucketParams(dsidSel).freq := io.cp.updateData
+      bucketParams(currDsid).freq := io.cp.updateData
     }
 
     when (io.cp.bktSizeWen) {
-      bucketParams(dsidSel).size := io.cp.updateData
+      bucketParams(currDsid).size := io.cp.updateData
     }
 
     when (io.cp.bktIncWen) {
-      bucketParams(dsidSel).inc := io.cp.updateData
+      bucketParams(currDsid).inc := io.cp.updateData
     }
 
     when (io.cp.waymaskWen) {
-      waymasks(dsidSel) := io.cp.updateData
+      waymasks(currDsid) := io.cp.updateData
     }
   }
 }
@@ -217,7 +219,7 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
 
   (outer.rocketTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
     val cpio = outer.controlPlane.module.io
-    tile.module.dsid := cpio.dsids(i.U)
+    tile.module.dsid := cpio.hartDsids(i.U)
     tile.module.memBase := cpio.memBases(i.U)
     tile.module.memMask := cpio.memMasks(i.U)
     token.module.bucketIO <> outer.controlPlane.module.bucketIO(i)
