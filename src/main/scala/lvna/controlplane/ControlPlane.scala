@@ -170,6 +170,14 @@ with HasTokenBucketParameters
       cycleCounter := cycleCounter + accountingCycle.U
     }
 
+    //////////////////////////////////////////////
+    // c0 Solo:
+    // when (true.B) {
+    //   bucketParams(1).block := true.B
+    // }
+
+    //////////////////////////////////////////////
+    // Yu Zihao:
     val startTraffic = RegInit(0.asUInt(32.W))
     val windowCounter = RegInit(0.asUInt(16.W))
 
@@ -180,21 +188,19 @@ with HasTokenBucketParameters
     val curLevel = RegInit(4.asUInt(4.W))
 
 
-    def freqTable() = {
+    private def freqTable() = {
       val inits = (1 until 10).map(t => round(totalBW/t.toDouble).asUInt(8.W))
       VecInit(inits)
     }
-    def limitFreqTable() = {
+    private def limitFreqTable() = {
+      // 这里的3是假设4个核心，剩下3个核心共享余下带宽
       val inits2 = (1 until 10).map(
-        t => round(windowSize.toDouble/(totalBW - totalBW/10*t.toDouble)).asUInt(8.W))
+        t => round(windowSize.toDouble/(totalBW - totalBW/10*t.toDouble)*3).asUInt(8.W))
       VecInit(inits2)
     }
 
-    val levelToFreq = freqTable()
-    val levelToLimitFreq = limitFreqTable()
-
-    // bucketParams(0).freq := levelToFreq(curLevel)
-    // bucketParams(1).freq := levelToFreq(10.U - curLevel)
+    private val levelToFreq = freqTable()
+    private val levelToLimitFreq = limitFreqTable()
 
     when (windowCounter >= windowSize.U) {
       windowCounter := 0.U
@@ -207,21 +213,26 @@ with HasTokenBucketParameters
       val nextLevel = Wire(UInt(4.W))
       val nextQuota = Wire(UInt(8.W))
 
-      when (bandwidthUsage >= ((quota<<4) + (quota<<5) + (quota<<6) >> 7) ) {
-        // usage >= quota * 87.5%
+      nextLevel := curLevel
+      nextQuota := quota
+
+      when (bandwidthUsage >= (((quota<<5) + (quota<<6)) >> 7) ) {
+        // usage >= quota * 75%
         nextLevel := Mux(curLevel === 8.U, 8.U, curLevel + 1.U)
         nextQuota := Mux(quota === 90.U, 90.U, quota + 10.U)
 
-      } .elsewhen (bandwidthUsage < (quota >> 1) ) {
-        // usage < quota * 50%
+      } .elsewhen (bandwidthUsage < (((quota<<4) + (quota<<5)) >> 7) ) {
+        // usage < quota * 37.5%
         nextLevel := Mux(curLevel === 0.U, 0.U, curLevel - 1.U)
         nextQuota := Mux(quota === 10.U, 10.U, quota - 10.U)
       }
 
-      bucketParams(0).freq := levelToFreq(nextLevel)
-      bucketParams(1).freq := levelToLimitFreq(nextLevel)
-      bucketParams(0).inc := 1.U
-      bucketParams(1).inc := 1.U
+      // bucketParams(0).freq := levelToFreq(nextLevel)
+      // bucketParams(0).inc := 1.U
+      for (i <- 1 until nTiles) {
+        bucketParams(i).freq := levelToLimitFreq(nextLevel)
+        bucketParams(i).inc := 1.U
+      }
       curLevel := nextLevel
       quota := nextQuota
 
@@ -231,6 +242,8 @@ with HasTokenBucketParameters
       windowCounter := windowCounter + 1.U
     }
 
+    ////////////////////////////////////////////////
+    // Liu Zhigang:
     // val regulationCycles = 16000
     // val samplingCycles = 1000
     // val startTraffic = RegInit(0.asUInt(32.W))
@@ -264,14 +277,13 @@ with HasTokenBucketParameters
     //     // 由于这个无法简单表示，所以，我们手动将其分段表示
     //     // assume NTiles = 4
     //     // val newFreq = (regulationCycles.U - estimatedBandwidth) >> 4
+
     //     // 不那么激进的参数，这个是按照公式算的freq
-    //     /*
-    //     val newFreq = Mux(bandwidthUsage >= 90.U, 100.U,
-    //       Mux(bandwidthUsage >= 80.U, 50.U,
-    //         Mux(bandwidthUsage >= 70.U, 33.U,
-    //           Mux(bandwidthUsage >= 60.U, 25.U,
-    //             Mux(bandwidthUsage >= 50.U, 20.U, 10.U)))))
-    //     */
+    //     // val newFreq = Mux(bandwidthUsage >= 90.U, 100.U,
+    //     //   Mux(bandwidthUsage >= 80.U, 50.U,
+    //     //     Mux(bandwidthUsage >= 70.U, 33.U,
+    //     //       Mux(bandwidthUsage >= 60.U, 25.U,
+    //     //         Mux(bandwidthUsage >= 50.U, 20.U, 10.U)))))
 
     //     // 激进的参数，把上面根据freq算的数据，手动扩大几倍，把低优先级限制得更加死
     //     val newFreq = Mux(bandwidthUsage >= 90.U, 400.U,
