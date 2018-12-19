@@ -17,6 +17,8 @@ emu = $(build_dir)/emu
 emu_bin_file = $(build_dir)/linux.bin
 emu_gen_script = gen_bin.sh
 emu_bin_hex_file = $(build_dir)/bin.txt
+nohype_dtb = $(build_dir)/c0.dtb
+nohype_dtb_hex_file = $(build_dir)/c0.dtb.txt
 
 $(emu): $(original_emu)
 	ln -sf $< $@
@@ -24,6 +26,14 @@ $(emu): $(original_emu)
 $(original_emu):
 	$(MAKE) all -C $(base_dir)/emulator CONFIG=$(CONFIG) \
 		generated_dir=$(generated_dir)
+
+$(nohype_dtb): $(build_dir)/generated-src/freechips.rocketchip.system.$(CONFIG).dts
+	dtc $^ -O dtb -o emu.dtb
+	./gen_nohype_dtb emu.dtb $(build_dir) || echo "Please install python module 'pyfdt'"
+	rm emu.dtb
+
+$(nohype_dtb_hex_file): $(nohype_dtb)
+	./gen_dtb_bin.sh $(build_dir)
 
 $(emu_bin_hex_file): $(emu_bin_file)
 	mkdir -p $(@D)
@@ -35,8 +45,11 @@ ifdef DEBUG
 DEBUG_ARGS = +jtag_rbb_enable=1 -r 4040
 endif
 
-run-emu: $(emu) $(emu_bin_hex_file)
-	cd $(dir $(emu)) && $< $(DEBUG_ARGS) +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
+run-emu: $(emu) $(emu_bin_hex_file) $(nohype_dtb_hex_file)
+	cd $(dir $(emu)) && $(emu) $(DEBUG_ARGS) +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
+
+dtb-clean:
+	-rm -f $(build_dir)/c*.dtb{,.txt}
 
 emu-clean:
 	-rm $(emu)
