@@ -317,10 +317,10 @@ object DMI_RegAddrs {
   def DMI_SBDATA3 =  0x3f
 
   /* Access current dsid */
-  def CP_DSID = 0x41
+  def CP_HART_DSID = 0x41
 
   /* Access dsid selector */
-  def CP_DSID_SEL = 0x42
+  def CP_HARD_SEL = 0x42
 
   /* Read total dsid count */
   def CP_DSID_COUNT = 0x43
@@ -346,6 +346,8 @@ object DMI_RegAddrs {
   def CP_WAYMASK = 0x4c
 
   def CP_L2_CAPACITY = 0x4d
+
+  def CP_DSID_SEL = 0x4e
 }
 
 class DMSTATUSFields extends Bundle {

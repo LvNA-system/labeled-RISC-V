@@ -16,7 +16,7 @@ class BucketBundle(implicit p: Parameters) extends Bundle with HasTokenBucketPar
   val freq = UInt(tokenBucketFreqWidth.W)
   val inc  = UInt(tokenBucketSizeWidth.W)
   // allow controller to directly block a bucket
-  val block = Bool()
+  // val block = Bool()
 
   override def cloneType = (new BucketBundle).asInstanceOf[this.type]
 }
@@ -90,7 +90,7 @@ class TokenBucket(implicit p: Parameters) extends Module with HasTokenBucketPara
       enable := true.B
       threshold := 0.U
     }
-    io.enable := enable && !io.bucket.block
+    io.enable := enable
 
     val accountingCycle = 10000
     val cycleCounter = RegInit(0.asUInt(64.W))
