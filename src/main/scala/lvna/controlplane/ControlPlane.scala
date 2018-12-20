@@ -76,7 +76,7 @@ class BucketIO(implicit val p: Parameters) extends Bundle with HasControlPlanePa
 }
 
 trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketParameters {
-  private val bucket_debug = false
+  private val bucket_debug = true
 
   val bucketParams = RegInit(Vec(Seq.fill(nDSID){
     Cat(100.U(tokenBucketSizeWidth.W), 5.U(tokenBucketFreqWidth.W), 1.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
@@ -110,8 +110,9 @@ trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketP
       state.enable := enable_next
     }
 
-    if (bucket_debug) {
-      printf(s"cycle: %d bucket %d req_all %d tokens %d inc %d enable_next %b counter %d traffic %d\n", GTimer(), i.U(dsidWidth.W), req_all, state.nToken, inc_size, enable_next, state.counter, state.traffic)
+    if (bucket_debug && i <= 1) {
+      printf(s"cycle: %d bucket %d req_all %d tokens %d inc %d enable_next %b counter %d traffic %d\n",
+        GTimer(), i.U(dsidWidth.W), req_all, state.nToken, inc_size, enable_next, state.counter, state.traffic)
     }
   }
 
@@ -236,6 +237,10 @@ with HasTokenBucketParameters
     if (policy == "solo") {
       ///////////////////////////////////////////
       // c0 Solo:
+      for (i <- startIndex until nTiles) {
+        bucketParams(i).inc := 0.U
+      }
+
     } else if (policy == "yzh") {
       //////////////////////////////////////////////
       // Yu Zihao:
@@ -248,16 +253,22 @@ with HasTokenBucketParameters
       val quota = RegInit(50.asUInt(8.W))
       val curLevel = RegInit(4.asUInt(4.W))
 
+      val maxQuota = (totalBW/10*9).U
+      val minQuota = (totalBW/10).U
+      val quotaStep = (totalBW/10).U
 
       def freqTable() = {
-        val inits = (1 until 10).map(t => round(totalBW/t.toDouble).asUInt(8.W))
-        VecInit(inits)
+        val allocatedBW = (1 until 10).map{totalBW.toDouble/10*_}
+        val freqs = allocatedBW.map(bw => round(windowSize.toDouble/bw))
+        println(freqs)
+        VecInit(freqs.map(_.asUInt(8.W)))
       }
       def limitFreqTable() = {
         // 这里的3是假设4个核心，剩下3个核心共享余下带宽
-        val inits2 = (1 until 10).map(
-          t => round(windowSize.toDouble/(totalBW - totalBW/10*t.toDouble)*limitScaleIndex).asUInt(8.W))
-        VecInit(inits2)
+        val allocatedBW = (1 until 10).map{totalBW - totalBW.toDouble/10*_}
+        val freqs = allocatedBW.map(bw => round(windowSize.toDouble/(bw/limitScaleIndex)))
+        println(freqs)
+        VecInit(freqs.map(_.asUInt(8.W)))
       }
 
       val levelToFreq = freqTable()
@@ -269,8 +280,9 @@ with HasTokenBucketParameters
 
         val bandwidthUsage = bucketState(highPriorIndex).traffic - startTraffic
         startTraffic := bucketState(highPriorIndex).traffic
-        printf("limit level: %d;quota: %d; traffic: %d\n", curLevel, quota, bandwidthUsage)
+        printf("limit level: %d;quota: %d/%d; traffic: %d\n", curLevel, quota, totalBW.U, bandwidthUsage)
         printf("freq 0: %d; freq 1: %d\n", bucketParams(0).freq, bucketParams(1).freq)
+        printf("inc 0: %d; inc 1: %d\n", bucketParams(0).inc , bucketParams(1).inc)
 
         val nextLevel = Wire(UInt(4.W))
         val nextQuota = Wire(UInt(8.W))
@@ -281,12 +293,12 @@ with HasTokenBucketParameters
         when (bandwidthUsage >= (((quota<<5) + (quota<<6)) >> 7) ) {
           // usage >= quota * 75%
           nextLevel := Mux(curLevel === 8.U, 8.U, curLevel + 1.U)
-          nextQuota := Mux(quota === 90.U, 90.U, quota + 10.U)
+          nextQuota := Mux(quota === maxQuota, maxQuota, quota + quotaStep)
 
         } .elsewhen (bandwidthUsage < (((quota<<4) + (quota<<5)) >> 7) ) {
           // usage < quota * 37.5%
           nextLevel := Mux(curLevel === 0.U, 0.U, curLevel - 1.U)
-          nextQuota := Mux(quota === 10.U, 10.U, quota - 10.U)
+          nextQuota := Mux(quota === minQuota, minQuota, quota - quotaStep)
         }
 
         // bucketParams(0).freq := levelToFreq(nextLevel)
