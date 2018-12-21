@@ -62,7 +62,7 @@ class CPToL2CacheIO(implicit val p: Parameters) extends Bundle with HasControlPl
 }
 
 class BucketState(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters with HasTokenBucketParameters {
-  val nToken = UInt(tokenBucketSizeWidth.W)
+  val nToken = SInt(tokenBucketSizeWidth.W)
   val traffic = UInt(tokenBucketSizeWidth.W)
   val counter = UInt(32.W)
   val enable = Bool()
@@ -76,10 +76,10 @@ class BucketIO(implicit val p: Parameters) extends Bundle with HasControlPlanePa
 }
 
 trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketParameters {
-  private val bucket_debug = true
+  private val bucket_debug = false
 
   val bucketParams = RegInit(Vec(Seq.fill(nDSID){
-    Cat(100.U(tokenBucketSizeWidth.W), 5.U(tokenBucketFreqWidth.W), 1.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
+    Cat(24.U(tokenBucketSizeWidth.W), 5.U(tokenBucketFreqWidth.W), 1.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
   }))
 
   val bucketState = RegInit(Vec(Seq.fill(nDSID){
@@ -93,21 +93,22 @@ trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketP
   bucketState.zipWithIndex.foreach { case (state, i) =>
     state.counter := Mux(state.counter >= bucketParams(i).freq, 0.U, state.counter + 1.U)
     val req_sizes = bucketIO.map{bio => Mux(bio.dsid === i.U && bio.fire, bio.size, 0.U) }
-    val req_all = req_sizes.reduce(_ + _)
+    val req_all = req_sizes.reduce(_ + _) >> 3
     val updating = state.counter >= bucketParams(i).freq
-    val inc_size = Mux(updating, bucketParams(i).inc, 0.U)
-    val enable_next = state.nToken + inc_size > req_all
-    val calc_next = state.nToken + inc_size - req_all
-    val limit_next = Mux(calc_next < bucketParams(i).size, calc_next, bucketParams(i).size)
+    val inc_size = Mux(updating, bucketParams(i).inc.asSInt(), 0.S)
+    val enable_next = state.nToken + inc_size > req_all.asSInt
+    val calc_next = state.nToken + inc_size - req_all.asSInt
+    val limit_next = Mux(calc_next < bucketParams(i).size.asSInt, calc_next, bucketParams(i).size.asSInt)
 
     val has_requester = bucketIO.map{bio => bio.dsid === i.U && bio.fire}.reduce(_ || _)
     when (has_requester) {
-      state.traffic := state.traffic + (req_all >> 3).asUInt
+      state.traffic := state.traffic + req_all.asUInt
     }
 
     when (has_requester || updating) {
-      state.nToken := Mux(enable_next, limit_next, 0.U)
-      state.enable := enable_next
+//      state.nToken := Mux(enable_next, limit_next, 0.U)
+      state.nToken := limit_next
+      state.enable := enable_next || (bucketParams(i).freq === 0.U)
     }
 
     if (bucket_debug && i <= 1) {
@@ -240,6 +241,7 @@ with HasTokenBucketParameters
       for (i <- startIndex until nTiles) {
         bucketParams(i).inc := 0.U
       }
+      bucketParams(highPriorIndex).freq := 0.U
 
     } else if (policy == "yzh") {
       //////////////////////////////////////////////
@@ -248,7 +250,7 @@ with HasTokenBucketParameters
       val windowCounter = RegInit(0.asUInt(16.W))
 
       val windowSize = 1000
-      val totalBW = 100
+      val totalBW = 55
 
       val quota = RegInit(50.asUInt(8.W))
       val curLevel = RegInit(4.asUInt(4.W))
@@ -276,7 +278,7 @@ with HasTokenBucketParameters
 
 
       when (windowCounter >= windowSize.U) {
-        windowCounter := 0.U
+        windowCounter := 1.U
 
         val bandwidthUsage = bucketState(highPriorIndex).traffic - startTraffic
         startTraffic := bucketState(highPriorIndex).traffic
@@ -290,19 +292,19 @@ with HasTokenBucketParameters
         nextLevel := curLevel
         nextQuota := quota
 
-        when (bandwidthUsage >= (((quota<<5) + (quota<<6)) >> 7) ) {
-          // usage >= quota * 75%
+        when (bandwidthUsage >= (((quota<<4) + (quota<<5) + (quota<<6)) >> 7) ) {
+          // usage >= quota * 87.5%
           nextLevel := Mux(curLevel === 8.U, 8.U, curLevel + 1.U)
           nextQuota := Mux(quota === maxQuota, maxQuota, quota + quotaStep)
 
-        } .elsewhen (bandwidthUsage < (((quota<<4) + (quota<<5)) >> 7) ) {
-          // usage < quota * 37.5%
+        } .elsewhen (bandwidthUsage < ((quota<<6) >> 7) ) {
+          // usage < quota * 50%
           nextLevel := Mux(curLevel === 0.U, 0.U, curLevel - 1.U)
           nextQuota := Mux(quota === minQuota, minQuota, quota - quotaStep)
         }
 
-        // bucketParams(0).freq := levelToFreq(nextLevel)
-        // bucketParams(0).inc := 1.U
+        bucketParams(highPriorIndex).freq := 0.U
+//        bucketParams(highPriorIndex).inc := 1.U
         for (i <- startIndex until nTiles) {
           bucketParams(i).freq := levelToLimitFreq(nextLevel)
           bucketParams(i).inc := 1.U
