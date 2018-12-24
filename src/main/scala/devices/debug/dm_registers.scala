@@ -348,6 +348,14 @@ object DMI_RegAddrs {
   def CP_L2_CAPACITY = 0x4d
 
   def CP_DSID_SEL = 0x4e
+
+  def CP_LIMIT_INDEX = 0x4f
+
+  def CP_LIMIT = 0x50
+
+  def CP_LOW_THRESHOLD = 0x51
+
+  def CP_HIGH_THRESHOLD = 0x52
 }
 
 class DMSTATUSFields extends Bundle {
