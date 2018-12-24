@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+import socket
+import itertools
+import sys
+
+from dm_reg import *
+from dm_utils import *
+from openocd import *
+
+# set_cp <hartid>(in dec) [property=value(in hex)]
+#   property: waymask bkt_freq bkt_size bkt_inc
+#   no space around '='!
+VERBOSE     = False
+
+DSID        = 0x41
+DSID_SEL    = 0x42
+DSID_COUNT  = 0x43
+MEM_BASE_LO = 0x44
+MEM_BASE_HI = 0x45
+MEM_MASK_LO = 0x46
+MEM_MASK_HI = 0x47
+BUCKET_FREQ = 0x48
+BUCKET_SIZE = 0x49
+BUCKET_INC  = 0x4a
+TRAFFIC     = 0x4b
+WAYMASK     = 0x4c
+L2_CAPACITY = 0x4d
+
+CP = {
+        'bkt_freq': BUCKET_FREQ,
+        'bkt_size': BUCKET_SIZE,
+        'bkt_inc' : BUCKET_INC,
+        'waymask' : WAYMASK
+     }
+
+if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        print("set_cp.py <hartid> [<property>=<value>] ...")
+        print("NOTE: no space around '='")
+        print("Properties:")
+        print(CP.keys())
+        sys.exit(0)
+
+    hartid = int(sys.argv[1])
+    with OpenOcd(verbose=VERBOSE) as ocd:
+        ocd.dmi_write(DSID_SEL, hartid)
+        for pair in sys.argv[2:]:
+            dst, val = pair.split('=')
+            addr = CP[dst]
+            if not addr:
+                print("Invalid control plane property: {}".format(dst))
+                continue
+            ocd.dmi_write(addr, val)
