@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+from pyfdt.pyfdt import *
+from sys import *
+import os
+
+int_dev = ['clint@2000000', 'debug-controller@0', 'interrupt-controller@c000000']
+
+def remove_cpus(fdt, nTiles):
+    cpus = fdt.resolve_path('/cpus')
+    for i in range(1, nTiles):
+        cpus.remove('cpu@' + str(i))
+
+def split_memory(fdt, nTiles):
+    mem = fdt.resolve_path('/memory@100000000/reg')
+    mem.words[-1] = mem.words[-1] / nTiles
+
+def remove_serial(fdt, nTiles, hartid):
+    soc = fdt.resolve_path('/soc')
+    for i in range(0, nTiles):
+        if i != hartid:
+            soc.remove('serial@' + '{:x}'.format(0x60000000 + i * 0x1000))
+
+def remove_interrupt(fdt, nTiles):
+    for dev in int_dev:
+        prop = fdt.resolve_path('/soc/' + dev + '/interrupts-extended')
+        prop.words = prop.words[:len(prop.words)/nTiles]
+
+def insert_nohype_index(fdt, hartid):
+    for dev in int_dev:
+        dev = fdt.resolve_path('/soc/' + dev)
+        dev.append(FdtPropertyWords('nohype-index', [hartid]))
+
+
+if __name__ == '__main__':
+    try:
+        emu_dtb = argv[1]
+        out_dir = argv[2]
+    except:
+        print("Usage: gen_nohype_dtb.py <some.dtb> <output_dir>")
+        exit(-1)
+
+    with open(emu_dtb, 'rb') as f:
+        try:
+            dtb = FdtBlobParse(f)
+        except:
+            print(emu_dtb + "is not a valid dtb file")
+            exit(-1)
+
+    fdt = dtb.to_fdt()
+    nTiles = 0
+    while fdt.resolve_path('/cpus/cpu@'+str(nTiles)):
+        nTiles += 1
+    print("nTiles = " + str(nTiles))
+
+    for hartid in range(0, nTiles):
+        with open(emu_dtb, 'rb') as f:
+            dtb = FdtBlobParse(f)
+        fdt = dtb.to_fdt()
+        remove_cpus(fdt, nTiles)
+        split_memory(fdt, nTiles)
+        remove_serial(fdt, nTiles, hartid)
+        remove_interrupt(fdt, nTiles)
+        insert_nohype_index(fdt, hartid)
+        print(fdt.to_dts())
+        with open(os.path.join(out_dir, 'c{}.dtb').format(hartid), 'wb') as f:
+            f.write(fdt.to_dtb())

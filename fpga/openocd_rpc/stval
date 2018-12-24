@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+import socket
+import itertools
+import sys
+
+from dm_reg import *
+from dm_utils import *
+from openocd import *
+
+if __name__ == "__main__":
+    asm = [
+            0x143022f3, # csrr t0, scause
+            #0x105022f3, # csrr t0, stvec
+            0x00100073  # ebreak
+            ]
+    progbuf_cmds = [(i + 0x20, data) for i, data in enumerate(asm)]
+    with OpenOcd() as ocd:
+        # Progbuf
+        for reg, data in progbuf_cmds:
+            ocd.send("riscv dmi_write {} {}".format(reg, data))
+        # Access Register
+        ocd.send("riscv dmi_write 0x17 0x361001") # regno = sp, postexec, transfer, 64-bit
+        ocd.send("riscv dmi_write 0x16 0xffffffff")
+        abstractcs = ocd.send("riscv dmi_read 0x16")
+        if abstractcs != "0x10000002":
+            print("Exec error: abstracts " + abstractcs)
+        ocd.send("riscv dmi_write 0x17 0x361005") # regno = t0, postexec, transfer, 64-bit
+        dm_data0 = ocd.send("riscv dmi_read 0x4")
+        dm_data1 = ocd.send("riscv dmi_read 0x5")
+        print("data0: {}, data1: {}".format(dm_data0, dm_data1))

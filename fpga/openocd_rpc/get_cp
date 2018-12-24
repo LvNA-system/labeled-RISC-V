@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+import socket
+import itertools
+import sys
+
+from dm_reg import *
+from dm_utils import *
+from openocd import *
+
+# set_cp <hartid>(in dec) [property]...
+#   property: waymask bkt_freq bkt_size bkt_inc traffic l2_capacity
+VERBOSE     = False
+
+DSID        = 0x41
+DSID_SEL    = 0x42
+DSID_COUNT  = 0x43
+MEM_BASE_LO = 0x44
+MEM_BASE_HI = 0x45
+MEM_MASK_LO = 0x46
+MEM_MASK_HI = 0x47
+BUCKET_FREQ = 0x48
+BUCKET_SIZE = 0x49
+BUCKET_INC  = 0x4a
+TRAFFIC     = 0x4b
+WAYMASK     = 0x4c
+L2_CAPACITY = 0x4d
+
+CP = {
+        'bkt_freq': BUCKET_FREQ,
+        'bkt_size': BUCKET_SIZE,
+        'bkt_inc' : BUCKET_INC,
+        'traffic' : TRAFFIC,
+        'l2_capacity' : L2_CAPACITY,
+        'waymask' : WAYMASK
+     }
+
+if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        print("get_cp.py <hartid> [<property>] ...")
+        print("properties:")
+        print(CP.keys())
+        sys.exit(0)
+
+    if len(sys.argv) == 2:
+        queries = CP.keys()
+    else:
+        queries = sys.argv[2:]
+
+    hartid = int(sys.argv[1])
+    with OpenOcd(verbose=VERBOSE) as ocd:
+        ocd.dmi_write(DSID_SEL, hartid)
+        for query in queries:
+            addr = CP[query]
+            if not addr:
+                print("Invalid control plane property: {}".format(query))
+                continue
+            resp = ocd.dmi_read(addr)
+            print(query + ": " + resp)
