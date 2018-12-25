@@ -166,7 +166,7 @@ trait CanHaveMasterAXI4MemPort { this: BaseSubsystem =>
   memPortParamsOpt.foreach { params =>
     memBuses.map { m =>
        memAXI4Node := m.toDRAMController(Some(portName)) {
-        (AXI4Dumper() := AXI4UserYanker() := AXI4IdIndexer(params.idBits) := TLToAXI4())
+        (AXI4Dumper() := AXI4UserYanker() := AXI4IdIndexer(params.idBits) := AXI4AmpDelayer(0.99999, 1000) := TLToAXI4())
       }
     }
   }
