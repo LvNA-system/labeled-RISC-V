@@ -21,7 +21,7 @@ trait HasControlPlaneParameters {
   val procDSidWidth = p(ProcDSidWidth)
   val dsidWidth = ldomDSidWidth + procDSidWidth
   val nDSID = 1 << dsidWidth
-  val cacheCapacityWidth = log2Ceil(p(NL2CacheCapacity) * 1024 / 64)
+  val cacheCapacityWidth = if (p(NL2CacheCapacity) != 0) log2Ceil(p(NL2CacheCapacity) * 1024 / 64) else 1
 }
 
 /**
@@ -435,5 +435,7 @@ trait BindL2WayMask extends HasRocketTiles {
 
 trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
   val outer: BindL2WayMask
-  outer._l2.module.cp <> outer._cp.module.io.l2
+  if (p(NL2CacheCapacity) != 0) {
+    outer._l2.module.cp <> outer._cp.module.io.l2
+  }
 }
