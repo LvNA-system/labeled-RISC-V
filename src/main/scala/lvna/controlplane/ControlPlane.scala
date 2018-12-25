@@ -88,7 +88,7 @@ trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketP
   private val bucket_debug = false
 
   val bucketParams = RegInit(Vec(Seq.fill(nDSID){
-    Cat(128.U(tokenBucketSizeWidth.W), 5.U(tokenBucketFreqWidth.W), 1.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
+    Cat(128.U(tokenBucketSizeWidth.W), 8.U(tokenBucketFreqWidth.W), 1.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
   }))
 
   val bucketState = RegInit(Vec(Seq.fill(nDSID){
@@ -247,13 +247,18 @@ with HasTokenBucketParameters
 
 
     private val nLevels = 9
-    private val lowPriorLimits = RegInit(Vec(Seq.fill(nLevels){ 6.U(10.W) })) //TODO
+    private val lowPriorFreqLimits = RegInit(Vec(Seq.fill(nLevels){ 8.U(10.W) })) // bigger is more strict
     private val limitIndex = RegEnable(io.cp.updateData, 0.U(4.W), io.cp.limitIndexWen)
     private val lowerThreshold = RegEnable(io.cp.updateData, 64.U(8.W), io.cp.lowThresholdWen)
     private val higherThreshold = RegEnable(io.cp.updateData, 112.U(8.W), io.cp.highThresholdWen)
 
+    io.cp.lowThreshold := lowerThreshold
+    io.cp.highThreshold := higherThreshold
+    io.cp.limitIndex := limitIndex
+    io.cp.limit := lowPriorFreqLimits(limitIndex)
+
     when (io.cp.limitWen) {
-      lowPriorLimits(limitIndex) := io.cp.updateData
+      lowPriorFreqLimits(limitIndex) := io.cp.updateData
     }
 
     if (policy == "solo") {
@@ -322,7 +327,7 @@ with HasTokenBucketParameters
         bucketParams(highPriorIndex).freq := 0.U
 //        bucketParams(highPriorIndex).inc := 1.U
         for (i <- startIndex until nTiles) {
-          bucketParams(i).freq := lowPriorLimits(nextLevel)
+          bucketParams(i).freq := lowPriorFreqLimits(nextLevel)
           bucketParams(i).inc := 1.U
         }
         curLevel := nextLevel
