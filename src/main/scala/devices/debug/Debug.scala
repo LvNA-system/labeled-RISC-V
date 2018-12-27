@@ -741,10 +741,14 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_BUCKET_INC  << 2) -> Seq(RWNotify(32,              io.cp.bucket.inc,      io.cp.updateData, WireInit(false.B), io.cp.bktIncWen,    Some(RegFieldDesc("bucket-freq", "Token Bucket regain step size for the current hart")))),
       (CP_WAYMASK     << 2) -> Seq(RWNotify(p(NL2CacheWays), io.cp.waymask,         io.cp.updateData, WireInit(false.B), io.cp.waymaskWen,   None)),
 
-      (CP_LIMIT           << 2) -> Seq(RWNotify(10,     io.cp.limit,              io.cp.updateData, WireInit(false.B), io.cp.limitWen,          None)),
+      (CP_LIMIT           << 2) -> Seq(RWNotify(16,     io.cp.limit,              io.cp.updateData, WireInit(false.B), io.cp.limitWen,          None)),
       (CP_LIMIT_INDEX     << 2) -> Seq(RWNotify(4,      io.cp.limitIndex,         io.cp.updateData, WireInit(false.B), io.cp.limitIndexWen,     None)),
       (CP_LOW_THRESHOLD   << 2) -> Seq(RWNotify(8,      io.cp.lowThreshold,       io.cp.updateData, WireInit(false.B), io.cp.lowThresholdWen,   None)),
       (CP_HIGH_THRESHOLD  << 2) -> Seq(RWNotify(8,      io.cp.highThreshold,      io.cp.updateData, WireInit(false.B), io.cp.highThresholdWen,  None)),
+
+      (CP_MAX_QUOTA       << 2) -> Seq(RWNotify(11,      io.cp.maxQuota,           io.cp.updateData, WireInit(false.B), io.cp.maxQuotaWen,       None)),
+      (CP_MIN_QUOTA       << 2) -> Seq(RWNotify(11,      io.cp.minQuota,           io.cp.updateData, WireInit(false.B), io.cp.minQuotaWen,       None)),
+      (CP_QUOTA_STEP      << 2) -> Seq(RWNotify(11,      io.cp.quotaStep,          io.cp.updateData, WireInit(false.B), io.cp.quotaStepWen,      None)),
 
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))
     )

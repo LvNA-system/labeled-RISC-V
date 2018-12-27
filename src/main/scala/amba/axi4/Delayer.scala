@@ -93,8 +93,10 @@ class AXI4AmpDelayer(q: Double, latency: Int = 0)(implicit p: Parameters) extend
   val node = AXI4AdapterNode()
   require (0.0 <= q && q < 1)
 
+  def scale_up(delay: UInt) = {
+    (delay << 3).asUInt + (delay << 2).asUInt
+  }
   val debug_en = false
-  val scale_param = 3
   def debug(fmt: String, args: Bits*) = if (debug_en) {printf("delay %d: " + fmt + "\n", GTimer() +: args:_*)}
 
   lazy val module = new LazyModuleImp(this) {
@@ -131,7 +133,7 @@ class AXI4AmpDelayer(q: Double, latency: Int = 0)(implicit p: Parameters) extend
             }
           }.elsewhen(state === delaying) {
             counter := counter + 1.U
-            when (counter === (real_delay << scale_param).asUInt()) {
+            when (counter === scale_up(real_delay)) {
               debug("delay end id %d", id)
               state := wait_fire
               counter := 0.U
@@ -165,7 +167,7 @@ class AXI4AmpDelayer(q: Double, latency: Int = 0)(implicit p: Parameters) extend
           }.elsewhen(state === delaying) {
             counter := counter + 1.U
             debug("r real_delay %d", real_delay)
-            when (counter === (real_delay << scale_param).asUInt()) {
+            when (counter === scale_up(real_delay)) {
               debug("r delay end id %d", id)
               state := wait_fire
               counter := 0.U

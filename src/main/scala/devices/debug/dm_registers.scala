@@ -356,6 +356,12 @@ object DMI_RegAddrs {
   def CP_LOW_THRESHOLD = 0x51
 
   def CP_HIGH_THRESHOLD = 0x52
+
+  def CP_MAX_QUOTA = 0x53
+
+  def CP_MIN_QUOTA = 0x54
+
+  def CP_QUOTA_STEP = 0x55
 }
 
 class DMSTATUSFields extends Bundle {
