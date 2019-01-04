@@ -43,7 +43,7 @@ class LvNAFPGAConfigzcu102 extends Config(
   ++ new WithNBigCores(4)
   ++ new WithRationalRocketTiles
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
-  ++ new WithExtMemSize(0x100000000L)
+  ++ new WithExtMemSize(0x80000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
   ++ new BaseFPGAConfig)
