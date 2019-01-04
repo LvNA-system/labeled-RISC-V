@@ -9,6 +9,27 @@ import freechips.rocketchip.tilelink._
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.util.DontTouch
+import boom.system._
+
+/** Example Top with periphery devices and ports, and a Rocket subsystem */
+class ExampleBoomSystem(implicit p: Parameters) extends BoomSubsystem
+    with HasAsyncExtInterrupts
+    with CanHaveMasterAXI4MemPort
+    with CanHaveMasterAXI4MMIOPort
+    with CanHaveSlaveAXI4Port
+    with HasPeripheryBootROM {
+  override lazy val module = new ExampleBoomSystemModuleImp(this)
+}
+
+class ExampleBoomSystemModuleImp[+L <: ExampleBoomSystem](_outer: L) extends BoomSubsystemModule(_outer)
+    with HasRTCModuleImp
+    with HasExtInterruptsModuleImp
+    with CanHaveMasterAXI4MemPortModuleImp
+    with CanHaveMasterAXI4MMIOPortModuleImp
+    with CanHaveSlaveAXI4PortModuleImp
+    with HasPeripheryBootROMModuleImp
+    with DontTouch
+
 
 /** Example Top with periphery devices and ports, and a Rocket subsystem */
 class ExampleRocketSystem(implicit p: Parameters) extends RocketSubsystem

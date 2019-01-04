@@ -2,6 +2,8 @@
 
 package freechips.rocketchip.system
 
+import boom.common.{DefaultBoomConfig, WithSmallBooms, WithoutBoomFPU}
+import boom.system.WithNBoomCores
 import freechips.rocketchip.config.{Config, Field}
 import freechips.rocketchip.subsystem._
 
@@ -11,18 +13,36 @@ class WithEmu extends Config ((site, here, up) => {
   case UseEmu => true
 })
 
+// Boom
 class LvNAConfigemu extends Config(
-  new WithoutFPU
-  ++ new WithNonblockingL1(8)
-  ++ new WithNL2CacheCapacity(256)
-  ++ new WithNBigCores(2)
-  ++ new WithEmu
-  ++ new WithRationalRocketTiles
-  ++ new WithExtMemSize(0x2000000L) // 8MB
-  ++ new WithNoMMIOPort
-  ++ new WithJtagDTM
-  ++ new WithDebugSBA
-  ++ new BaseConfig)
+//  new WithoutBoomFPU
+  new WithSmallBooms
+    ++ new DefaultBoomConfig
+    ++ new WithNBoomCores(1)
+//    ++ new WithNonblockingL1(8)
+    ++ new WithNL2CacheCapacity(256)
+    ++ new WithEmu
+    ++ new WithRationalRocketTiles
+    ++ new WithExtMemSize(0x8000000L) // 32MB
+    ++ new WithNoMMIOPort
+    ++ new WithJtagDTM
+    ++ new WithDebugSBA
+    ++ new BaseConfig)
+
+
+// Rocket
+//class LvNAConfigemu extends Config(
+//  new WithoutFPU
+//  ++ new WithNonblockingL1(8)
+//  ++ new WithNL2CacheCapacity(256)
+//  ++ new WithNBigCores(2)
+//  ++ new WithEmu
+//  ++ new WithRationalRocketTiles
+//  ++ new WithExtMemSize(0x8000000L) // 32MB
+//  ++ new WithNoMMIOPort
+//  ++ new WithJtagDTM
+//  ++ new WithDebugSBA
+//  ++ new BaseConfig)
 
 class LvNAFPGAConfigzedboard extends Config(
   new WithoutFPU
@@ -38,7 +58,7 @@ class LvNAFPGAConfigzedboard extends Config(
 class LvNAFPGAConfigzcu102 extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
-  ++ new WithNL2CacheCapacity(2048)
+  ++ new WithNL2CacheCapacity(0)
   ++ new WithNBigCores(4)
   ++ new WithRationalRocketTiles
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz

@@ -4,6 +4,7 @@
 package freechips.rocketchip.subsystem
 
 import Chisel._
+import boom.system.BoomTilesKey
 import freechips.rocketchip.config._
 import freechips.rocketchip.devices.debug._
 import freechips.rocketchip.devices.tilelink._
@@ -15,13 +16,17 @@ import freechips.rocketchip.util._
 
 /** Number of tiles */
 case object NTiles extends Field[Int]
+case object NBoomTiles extends Field[Int]
+case object NRocketTiles extends Field[Int]
 
 class BaseSubsystemConfig extends Config ((site, here, up) => {
   // Tile parameters
   case PgLevels => if (site(XLen) == 64) 3 /* Sv39 */ else 2 /* Sv32 */
   case XLen => 64 // Applies to all cores
-  case MaxHartIdBits => log2Up(site(RocketTilesKey).size)
-  case NTiles => site(RocketTilesKey).size
+  case MaxHartIdBits => log2Up(site(RocketTilesKey).size + site(BoomTilesKey).size)
+  case NBoomTiles => site(BoomTilesKey).size
+  case NRocketTiles => site(RocketTilesKey).size
+  case NTiles => site(RocketTilesKey).size + site(BoomTilesKey).size
   // Interconnect parameters
   case SystemBusKey => SystemBusParams(beatBytes = site(XLen)/8, blockBytes = site(CacheBlockBytes))
   case PeripheryBusKey => PeripheryBusParams(

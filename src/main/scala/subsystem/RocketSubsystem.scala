@@ -44,7 +44,7 @@ trait HasRocketTiles extends HasTiles
   // according to the specified type of clock crossing.
   // Note that we also inject new nodes into the tile itself,
   // also based on the crossing type.
-  val tokenBuckets = Seq.fill(p(NTiles)){ LazyModule(new TokenBucketNode()) }
+  val tokenBuckets = Seq.fill(p(NRocketTiles)){ LazyModule(new TokenBucketNode()) }
   val rocketTiles = rocketTileParams.zip(crossings).zip(tokenBuckets).map { case ((tp, crossing), tokenBucket) =>
     val rocket = LazyModule(new RocketTile(tp, crossing.crossingType)(augmentedTileParameters(tp)))
       .suggestName(tp.name)

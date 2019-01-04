@@ -917,6 +917,7 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   writeArb.io.in(1).bits.addr := mshrs.io.refill.addr
   writeArb.io.in(1).bits.way_en := mshrs.io.refill.way_en
   writeArb.io.in(1).bits.wmask := ~UInt(0, rowWords)
+  println(s"writeArb.io.in(1).bits.data (${writeArb.io.in(1).bits.data.getWidth}) = tl_out.d.bits.data(encRowBits-1,0) (${tl_out.d.bits.data(encRowBits-1,0).getWidth})")
   writeArb.io.in(1).bits.data := tl_out.d.bits.data(encRowBits-1,0)
   data.io.read <> readArb.io.out
   readArb.io.out.ready := !tl_out.d.valid || tl_out.d.ready // insert bubble if refill gets blocked
