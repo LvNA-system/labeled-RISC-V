@@ -5,7 +5,7 @@ import chisel3.core.{Input, Output}
 import freechips.rocketchip.config.{Config, Field, Parameters}
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.subsystem._
-import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, UseEmu}
+import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, NohypeDefault, UseEmu}
 import freechips.rocketchip.tile.XLen
 
 case object ProcDSidWidth extends Field[Int](3)
@@ -75,7 +75,8 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     val dsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
     val dsidSel = RegInit(0.U(ldomDSidWidth.W))
     val memBases = RegInit(Vec(Seq.tabulate(nTiles){ i =>
-      if (p(UseEmu)) {
+      if (p(UseEmu) || p(NohypeDefault)) {
+        println("Split memory by default")
         val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
         (i * memSize / nTiles).U(memAddrWidth.W)
       } else {

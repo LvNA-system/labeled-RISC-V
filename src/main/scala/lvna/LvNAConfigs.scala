@@ -6,6 +6,7 @@ import freechips.rocketchip.config.{Config, Field}
 import freechips.rocketchip.subsystem._
 
 case object UseEmu extends Field[Boolean](false)
+case object NohypeDefault extends Field[Boolean](true)
 
 class WithEmu extends Config ((site, here, up) => {
   case UseEmu => true
