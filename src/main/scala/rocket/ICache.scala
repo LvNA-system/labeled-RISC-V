@@ -176,7 +176,7 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
   }
 
   val tag_array = DescribedSRAM(
-    name = "tag_array",
+    name = "L1_ICache_tag_array",
     desc = "ICache Tag Array",
     size = nSets,
     data = Vec(nWays, UInt(width = tECC.width(1 + tagBits)))
@@ -234,7 +234,7 @@ class ICacheModule(outer: ICache) extends LazyModuleImp(outer)
   val data_arrays = Seq.tabulate(tl_out.d.bits.data.getWidth / wordBits) {
     i =>
       DescribedSRAM(
-        name = s"data_arrays_${i}",
+        name = s"L1_ICache_data_arrays_${i}",
         desc = "ICache Data Array",
         size = nSets * refillCycles,
         data = Vec(nWays, UInt(width = dECC.width(wordBits)))
