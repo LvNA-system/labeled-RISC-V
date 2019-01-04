@@ -8,7 +8,7 @@ Refer to www.wiki.xilinx.com/Fetch+Sources for more information.
 This step is only needed for zynqmp. If your target board is zynq, skip this step.
 
 ```
-git clone https://github.com/xilinx/arm-trusted-firmware
+git clone --depth 1 https://github.com/xilinx/arm-trusted-firmware
 cd arm-trusted-firmware
 make PLAT=zynqmp RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf-
 mkdir -p path-to-labeled-RISC-V/fpga/boot/build/zynqmp
@@ -23,9 +23,8 @@ make PLAT=zynqmp RESET_TO_BL31=1 clean
 ## Build u-boot
 
 ```
-git clone https://github.com/xilinx/u-boot-xlnx
+git clone --depth 1 -b xilinx-v2017.4 https://github.com/xilinx/u-boot-xlnx
 cd u-boot-xlnx
-git checkout 5fa7d2ed066166571e969d036c1871c1759a921d  # this is the release version of 2017.04
 
 # for zynqmp
 make xilinx_zynqmp_zcu102_rev1_0_defconfig  # can be found under u-boot-xlnx/configs/
@@ -78,7 +77,7 @@ Vivado -> File -> Export -> Export Hardware
 ```
 * set the correct path of device tree repo
 ```
-git clone https://github.com/xilinx/device-tree-xlnx
+git clone --depth 1 https://github.com/xilinx/device-tree-xlnx
 # modify the `device_tree_repo_path` variable in `mk.tcl` to the repo just cloned
 ```
 * generate BOOT.BIN and device tree source
@@ -92,9 +91,8 @@ Find `BOOT.BIN` and `dts` under `path-to-labeled-RISC-V/fpga/boot/build/myprojec
 ## Build linux kernel
 
 ```
-git clone https://github.com/xilinx/linux-xlnx
+git clone --depth 1 -b xilinx-v2017.4 https://github.com/xilinx/linux-xlnx
 cd linux-xlnx
-git checkout b450e900fdb473a53613ad014f31eedbc80b1c90  # this is the release version of 2017.04
 
 # for zynqmp
 make ARCH=arm64 xilinx_zynqmp_defconfig # can be found under linux-xlnx/arch/arm64/configs/
