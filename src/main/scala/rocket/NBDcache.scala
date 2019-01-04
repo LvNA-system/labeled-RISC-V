@@ -629,7 +629,7 @@ class DataArray(implicit p: Parameters) extends L1HellaCacheModule()(p) {
       val r_raddr = RegEnable(io.read.bits.addr, io.read.valid)
       for (i <- 0 until resp.size) {
         val array = DescribedSRAM(
-          name = s"array_${w}_${i}",
+          name = s"L1_NBDcache_array_${w}_${i}",
           desc = "Non-blocking DCache Data Array",
           size = nSets * refillCycles,
           data = Vec(rowWords, Bits(width=encDataBits))
@@ -651,7 +651,7 @@ class DataArray(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   } else {
     for (w <- 0 until nWays) {
       val array = DescribedSRAM(
-        name = s"array_${w}",
+        name = s"L1_NBDcahe_array_${w}",
         desc = "Non-blocking DCache Data Array",
         size = nSets * refillCycles,
         data = Vec(rowWords, Bits(width=encDataBits))
