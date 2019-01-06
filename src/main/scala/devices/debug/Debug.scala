@@ -413,12 +413,6 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       val cp = new ControlPlaneIO().flip()
     })
 
-    /* ControlPlane: these read enables are required but not used */
-    val dsidRen = Wire(init = false.B)
-    val selRen = Wire(init = false.B)
-    val memBaseRen = Wire(init = false.B)
-    val memMaskRen = Wire(init = false.B)
-
 
     //--------------------------------------------------------------
     // Import constants for shorter variable names
@@ -697,6 +691,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       SystemBusAccessModule(sb2tl,io.dmactive)(p)
     }.getOrElse((Seq.empty[RegField], Seq.fill[Seq[RegField]](4)(Seq.empty[RegField]), Seq.fill[Seq[RegField]](4)(Seq.empty[RegField])))
 
+    val traffic_read_en = WireInit(false.B)
     //--------------------------------------------------------------
     // Program Buffer Access (DMI ... System Bus can override)
     //--------------------------------------------------------------
@@ -729,18 +724,23 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (DMI_SBADDRESS1 << 2) -> sbAddrFields(1),
       (DMI_SBADDRESS2 << 2) -> sbAddrFields(2),
       (DMI_SBADDRESS3 << 2) -> sbAddrFields(3),
-      (CP_DSID        << 2) -> Seq(RWNotify(ldomDSidWidth, io.cp.dsid, io.cp.updateData, dsidRen, io.cp.dsidWen, Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
-      (CP_DSID_SEL    << 2) -> Seq(RWNotify(32, io.cp.sel, io.cp.selUpdate, selRen, io.cp.selWen, Some(RegFieldDesc("dsid-sel", "Hart index")))),
-      (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32, UInt(nTiles), RegFieldDesc("dsid-count", "The total number of dsid registers"))),
-      (CP_MEM_BASE_LO << 2) -> Seq(RWNotify(32, io.cp.memBase(31, 0), io.cp.updateData, memBaseRen, io.cp.memBaseLoWen, Some(RegFieldDesc("mem-base lo", "Memory base for the current hart")))),
-      (CP_MEM_BASE_HI << 2) -> Seq(RWNotify(32, io.cp.memBase(63, 32), io.cp.updateData, memBaseRen, io.cp.memBaseHiWen, Some(RegFieldDesc("mem-base hi", "Memory base for the current hart")))),
-      (CP_MEM_MASK_LO << 2) -> Seq(RWNotify(32, io.cp.memMask(31, 0), io.cp.updateData, memMaskRen, io.cp.memMaskLoWen, Some(RegFieldDesc("mem-mask lo", "Memory mask for the current hart")))),
-      (CP_MEM_MASK_HI << 2) -> Seq(RWNotify(32, io.cp.memMask(63, 32), io.cp.updateData, memMaskRen, io.cp.memMaskHiWen, Some(RegFieldDesc("mem-mask hi", "Memory mask for the current hart")))),
-      (CP_BUCKET_FREQ << 2) -> Seq(RWNotify(32, io.cp.bucket.freq, io.cp.updateData, WireInit(false.B), io.cp.bktFreqWen, Some(RegFieldDesc("bucket-freq", "Token Bucket regain frequency for the current hart")))),
-      (CP_BUCKET_SIZE << 2) -> Seq(RWNotify(32, io.cp.bucket.size, io.cp.updateData, WireInit(false.B), io.cp.bktSizeWen, Some(RegFieldDesc("bucket-freq", "Token Bucket size for the current hart")))),
-      (CP_BUCKET_INC  << 2) -> Seq(RWNotify(32, io.cp.bucket.inc,  io.cp.updateData, WireInit(false.B), io.cp.bktIncWen,  Some(RegFieldDesc("bucket-freq", "Token Bucket regain step size for the current hart")))),
-      (CP_WAYMASK     << 2) -> Seq(RWNotify(p(NL2CacheWays), io.cp.waymask, io.cp.updateData, WireInit(false.B), io.cp.waymaskWen, None)),
-      (CP_TRAFFIC     << 2) -> Seq(RegField.r(32, io.cp.traffic, RegFieldDesc("traffic", "The L1 cache line r/w request counter for the selected hart")))
+      /* CP Read-only properties:             width               value           description                                                               */
+      (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32,                 UInt(nTiles),   RegFieldDesc("dsid-count", "The total number of dsid registers"))),
+      (CP_L2_CAPACITY << 2) -> Seq(RegField.r(cacheCapacityWidth, io.cp.capacity, RegFieldDesc("cache-capacity", "Current dsid's L2 cache capacity"))),
+      /* CP Read-only property with sepcial behavior                                                                                                        */
+      (CP_TRAFFIC     << 2) -> Seq(RWNotify(32,              io.cp.traffic,         WireInit(0.U),    traffic_read_en,   WireInit(false.B),  Some(RegFieldDesc("traffic", "The L1 to L2 traffic from the selected dsid")))),
+      /* CP RW properties                   width            read-value             write-value       read-en            write-en            description    */
+      (CP_HART_DSID   << 2) -> Seq(RWNotify(ldomDSidWidth,   io.cp.hartDsid,        io.cp.updateData, WireInit(false.B), io.cp.hartDsidWen,  Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
+      (CP_HARD_SEL    << 2) -> Seq(RWNotify(32,              io.cp.hartSel,         io.cp.updateData, WireInit(false.B), io.cp.hartSelWen,   Some(RegFieldDesc("dsid-sel", "Hart index")))),
+      (CP_MEM_BASE_LO << 2) -> Seq(RWNotify(32,              io.cp.memBase(31, 0),  io.cp.updateData, WireInit(false.B), io.cp.memBaseLoWen, Some(RegFieldDesc("mem-base lo", "Memory base for the current hart")))),
+      (CP_MEM_BASE_HI << 2) -> Seq(RWNotify(32,              io.cp.memBase(63, 32), io.cp.updateData, WireInit(false.B), io.cp.memBaseHiWen, Some(RegFieldDesc("mem-base hi", "Memory base for the current hart")))),
+      (CP_MEM_MASK_LO << 2) -> Seq(RWNotify(32,              io.cp.memMask(31, 0),  io.cp.updateData, WireInit(false.B), io.cp.memMaskLoWen, Some(RegFieldDesc("mem-mask lo", "Memory mask for the current hart")))),
+      (CP_MEM_MASK_HI << 2) -> Seq(RWNotify(32,              io.cp.memMask(63, 32), io.cp.updateData, WireInit(false.B), io.cp.memMaskHiWen, Some(RegFieldDesc("mem-mask hi", "Memory mask for the current hart")))),
+      (CP_BUCKET_FREQ << 2) -> Seq(RWNotify(32,              io.cp.bucket.freq,     io.cp.updateData, WireInit(false.B), io.cp.bktFreqWen,   Some(RegFieldDesc("bucket-freq", "Token Bucket regain frequency for the current hart")))),
+      (CP_BUCKET_SIZE << 2) -> Seq(RWNotify(32,              io.cp.bucket.size,     io.cp.updateData, WireInit(false.B), io.cp.bktSizeWen,   Some(RegFieldDesc("bucket-freq", "Token Bucket size for the current hart")))),
+      (CP_BUCKET_INC  << 2) -> Seq(RWNotify(32,              io.cp.bucket.inc,      io.cp.updateData, WireInit(false.B), io.cp.bktIncWen,    Some(RegFieldDesc("bucket-freq", "Token Bucket regain step size for the current hart")))),
+      (CP_WAYMASK     << 2) -> Seq(RWNotify(p(NL2CacheWays), io.cp.waymask,         io.cp.updateData, WireInit(false.B), io.cp.waymaskWen,   None)),
+      (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))
     )
 
     // Abstract data mem is written by both the tile link interface and DMI...
@@ -761,6 +761,14 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
         (abstractDataMem zip custom_bytes).zipWithIndex.foreach {case ((a, b), i) =>
           a := b
         }
+      }
+    }
+    // ... and also by traffic atomic query
+    when (traffic_read_en) {
+      val timed_value = Cat(io.cp.cycle, io.cp.traffic)
+      val bytes = Seq.tabulate(timed_value.getWidth / 8){i => timed_value((i+1)*8-1, i*8)}
+      abstractDataMem zip bytes foreach { case (a, b) =>
+          a := b
       }
     }
 

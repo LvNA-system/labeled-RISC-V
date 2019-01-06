@@ -45,7 +45,7 @@ class DCacheDataArray(implicit p: Parameters) extends L1HellaCacheModule()(p) {
   val data_arrays = Seq.tabulate(rowBytes / wordBytes) {
     i =>
       DescribedSRAM(
-        name = s"data_arrays_${i}",
+        name = s"L1_Dcache_data_arrays_${i}",
         desc = "DCache Data Array",
         size = nSets * cacheBlockBytes / rowBytes,
         data = Vec(nWays * (wordBits / eccBits), UInt(width = encBits))
@@ -98,7 +98,7 @@ class DCacheModule(outer: DCache) extends HellaCacheModule(outer) {
   val metaArb = Module(new Arbiter(new DCacheMetadataReq, 8))
 
   val tag_array = DescribedSRAM(
-    name = "tag_array",
+    name = "L1_DCache_tag_array",
     desc = "DCache Tag Array",
     size = nSets,
     data = Vec(nWays, metaArb.io.out.bits.data)
