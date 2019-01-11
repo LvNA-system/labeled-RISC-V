@@ -62,13 +62,12 @@ class TLROM(val base: BigInt, val size: Int, contentsDelayed: => Seq[Byte], exec
 /** Adds a boot ROM that contains the DTB describing the system's subsystem. */
 trait HasPeripheryBootROM { this: BaseSubsystem =>
   val dtb: DTB
-  private val params = p(BootROMParams)
+  val params = p(BootROMParams)
   private lazy val contents = {
     val romdata = Files.readAllBytes(Paths.get(params.contentFileName))
     val rom = ByteBuffer.wrap(romdata)
     rom.array() ++ dtb.contents
   }
-  def resetVector: BigInt = params.address
 
   val bootrom = LazyModule(new TLROM(params.address, params.size, contents, true, sbus.control_bus.beatBytes))
 
@@ -79,5 +78,6 @@ trait HasPeripheryBootROM { this: BaseSubsystem =>
 trait HasPeripheryBootROMModuleImp extends LazyModuleImp
     with HasResetVectorWire {
   val outer: HasPeripheryBootROM
-  global_reset_vector := outer.resetVector.U
+  val reset_to_hang_en = IO(Bool().asInput)
+  global_reset_vector := Mux(reset_to_hang_en, outer.params.hang.U, outer.params.address.U)
 }
