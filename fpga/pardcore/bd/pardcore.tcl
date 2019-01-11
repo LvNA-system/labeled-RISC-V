@@ -136,7 +136,6 @@ xilinx.com:ip:axi_dwidth_converter:2.1\
 xilinx.com:ip:axi_protocol_converter:2.1\
 xilinx.com:ip:c_shift_ram:12.0\
 xilinx.com:ip:proc_sys_reset:5.0\
-xilinx.com:ip:system_ila:1.1\
 xilinx.com:ip:xlconstant:1.1\
 xilinx.com:ip:xlslice:1.0\
 "
@@ -323,6 +322,8 @@ proc create_root_design { parentCell } {
   set jtag_TMS [ create_bd_port -dir I jtag_TMS ]
   set jtag_TRST [ create_bd_port -dir I jtag_TRST ]
   set led [ create_bd_port -dir O led ]
+  set mem_part_en [ create_bd_port -dir I -type data mem_part_en ]
+  set reset_to_hang_en [ create_bd_port -dir I -type data reset_to_hang_en ]
   set uncore_rstn [ create_bd_port -dir I -from 0 -to 0 -type rst uncore_rstn ]
   set uncoreclk [ create_bd_port -dir I -type clk uncoreclk ]
   set_property -dict [ list \
@@ -398,25 +399,6 @@ proc create_root_design { parentCell } {
   # Create instance: proc_sys_reset_0, and set properties
   set proc_sys_reset_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_0 ]
 
-  # Create instance: system_ila_0, and set properties
-  set system_ila_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:system_ila:1.1 system_ila_0 ]
-  set_property -dict [ list \
-   CONFIG.C_MON_TYPE {INTERFACE} \
-   CONFIG.C_NUM_MONITOR_SLOTS {1} \
-   CONFIG.C_SLOT_0_APC_EN {0} \
-   CONFIG.C_SLOT_0_AXI_AR_SEL_DATA {1} \
-   CONFIG.C_SLOT_0_AXI_AR_SEL_TRIG {1} \
-   CONFIG.C_SLOT_0_AXI_AW_SEL_DATA {1} \
-   CONFIG.C_SLOT_0_AXI_AW_SEL_TRIG {1} \
-   CONFIG.C_SLOT_0_AXI_B_SEL_DATA {1} \
-   CONFIG.C_SLOT_0_AXI_B_SEL_TRIG {1} \
-   CONFIG.C_SLOT_0_AXI_R_SEL_DATA {1} \
-   CONFIG.C_SLOT_0_AXI_R_SEL_TRIG {1} \
-   CONFIG.C_SLOT_0_AXI_W_SEL_DATA {1} \
-   CONFIG.C_SLOT_0_AXI_W_SEL_TRIG {1} \
-   CONFIG.C_SLOT_0_INTF_TYPE {xilinx.com:interface:aximm_rtl:1.0} \
- ] $system_ila_0
-
   # Create instance: xlconstant_0, and set properties
   set xlconstant_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0 ]
   set_property -dict [ list \
@@ -447,10 +429,6 @@ proc create_root_design { parentCell } {
   connect_bd_intf_net -intf_net S_AXI_DMA_1 [get_bd_intf_ports S_AXI_DMA] [get_bd_intf_pins axi_crossbar_0/S01_AXI]
   connect_bd_intf_net -intf_net S_AXI_SBUS_1 [get_bd_intf_ports S_AXI_SBUS] [get_bd_intf_pins axi_crossbar_0/S00_AXI]
   connect_bd_intf_net -intf_net axi_crossbar_0_M00_AXI [get_bd_intf_pins LvNAFPGATop_0/l2_frontend_bus_axi4_0] [get_bd_intf_pins axi_crossbar_0/M00_AXI]
-connect_bd_intf_net -intf_net [get_bd_intf_nets axi_crossbar_0_M00_AXI] [get_bd_intf_pins axi_crossbar_0/M00_AXI] [get_bd_intf_pins system_ila_0/SLOT_0_AXI]
-  set_property -dict [ list \
-HDL_ATTRIBUTE.DEBUG {true} \
- ] [get_bd_intf_nets axi_crossbar_0_M00_AXI]
   connect_bd_intf_net -intf_net axi_dwidth_converter_0_M_AXI [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins axi_protocol_converter_0/S_AXI]
   connect_bd_intf_net -intf_net axi_protocol_converter_0_M_AXI [get_bd_intf_ports M_AXILITE_MMIO] [get_bd_intf_pins axi_protocol_converter_0/M_AXI]
 
@@ -459,7 +437,7 @@ HDL_ATTRIBUTE.DEBUG {true} \
   connect_bd_net -net LvNAFPGATop_0_io_nasti_error [get_bd_ports led] [get_bd_pins LvNAFPGATop_0/debug_dmactive]
   connect_bd_net -net c_shift_ram_0_Q [get_bd_pins c_shift_ram_0/Q] [get_bd_pins c_shift_ram_1/D]
   connect_bd_net -net c_shift_ram_1_Q [get_bd_pins LvNAFPGATop_0/corerst] [get_bd_pins c_shift_ram_1/Q]
-  connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins LvNAFPGATop_0/clock] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk] [get_bd_pins system_ila_0/clk]
+  connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins LvNAFPGATop_0/clock] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
   connect_bd_net -net coreclk_1 [get_bd_ports coreclk] [get_bd_pins LvNAFPGATop_0/coreclk] [get_bd_pins c_shift_ram_0/CLK] [get_bd_pins c_shift_ram_1/CLK]
   connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
   connect_bd_net -net intrs_1 [get_bd_ports intrs] [get_bd_pins LvNAFPGATop_0/interrupts]
@@ -467,7 +445,9 @@ HDL_ATTRIBUTE.DEBUG {true} \
   connect_bd_net -net io_jtag_TRST_1 [get_bd_ports jtag_TRST] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_reset]
   connect_bd_net -net jtag_TCK_1 [get_bd_ports jtag_TCK] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TCK]
   connect_bd_net -net jtag_TMS_1 [get_bd_ports jtag_TMS] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TMS]
-  connect_bd_net -net proc_sys_reset_0_peripheral_aresetn [get_bd_pins proc_sys_reset_0/peripheral_aresetn] [get_bd_pins system_ila_0/resetn]
+  connect_bd_net -net mem_part_en_1 [get_bd_ports mem_part_en] [get_bd_pins LvNAFPGATop_0/mem_part_en]
+  connect_bd_net -net proc_sys_reset_0_peripheral_aresetn [get_bd_pins proc_sys_reset_0/peripheral_aresetn]
+  connect_bd_net -net reset_to_hang_en_1 [get_bd_ports reset_to_hang_en] [get_bd_pins LvNAFPGATop_0/reset_to_hang_en]
   connect_bd_net -net s_axi_aresetn1_1 [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins proc_sys_reset_0/interconnect_aresetn]
   connect_bd_net -net uncore_rstn_1 [get_bd_ports uncore_rstn] [get_bd_pins proc_sys_reset_0/ext_reset_in]
   connect_bd_net -net xlconstant_0_dout [get_bd_pins LvNAFPGATop_0/debug_systemjtag_mfr_id] [get_bd_pins xlconstant_0/dout]

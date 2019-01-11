@@ -5,7 +5,7 @@ import chisel3.core.{IO, Input, Output}
 import freechips.rocketchip.config.{Config, Field, Parameters}
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.subsystem._
-import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, UseEmu}
+import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, NohypeDefault, UseEmu}
 import freechips.rocketchip.tile.XLen
 import freechips.rocketchip.util.GTimer
 
@@ -130,17 +130,14 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val memMasks  = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
       val l2        = new CPToL2CacheIO()
       val cp        = new ControlPlaneIO()
+      val mem_part_en = Bool().asInput
     })
 
     val hartSel   = RegInit(0.U(ldomDSidWidth.W))
     val hartDsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
     val memBases  = RegInit(Vec(Seq.tabulate(nTiles){ i =>
-      if (p(UseEmu)) {
-        val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
-        (i * memSize / nTiles).U(memAddrWidth.W)
-      } else {
-        0.U(memAddrWidth.W)
-      }
+      val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
+      Mux(io.mem_part_en, (i * memSize / nTiles).U(memAddrWidth.W), 0.U(memAddrWidth.W))
     }))
     val memMasks  = RegInit(Vec(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
     val waymasks  = RegInit(Vec(Seq.fill(nTiles){ ((1L << p(NL2CacheWays)) - 1).U }))
@@ -216,6 +213,7 @@ trait HasControlPlane extends HasRocketTiles {
 
 trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   val outer: HasControlPlane
+  val mem_part_en = IO(Input(Bool()))
 
   (outer.rocketTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
     val cpio = outer.controlPlane.module.io
@@ -226,6 +224,7 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   }
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp
+  outer.controlPlane.module.io.mem_part_en := mem_part_en
 }
 
 trait BindL2WayMask extends HasRocketTiles {
