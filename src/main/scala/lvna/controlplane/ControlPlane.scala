@@ -131,10 +131,13 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val l2        = new CPToL2CacheIO()
       val cp        = new ControlPlaneIO()
       val mem_part_en = Bool().asInput
+      val distinct_hart_dsid_en = Bool().asInput
     })
 
     val hartSel   = RegInit(0.U(ldomDSidWidth.W))
-    val hartDsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
+    val hartDsids = RegInit(Vec(Seq.tabulate(nTiles){ i =>
+      Mux(io.distinct_hart_dsid_en, i.U(ldomDSidWidth.W), 0.U(ldomDSidWidth.W))
+    }))
     val memBases  = RegInit(Vec(Seq.tabulate(nTiles){ i =>
       val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
       Mux(io.mem_part_en, (i * memSize / nTiles).U(memAddrWidth.W), 0.U(memAddrWidth.W))
@@ -214,6 +217,7 @@ trait HasControlPlane extends HasRocketTiles {
 trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   val outer: HasControlPlane
   val mem_part_en = IO(Input(Bool()))
+  val distinct_hart_dsid_en = IO(Input(Bool()))
 
   (outer.rocketTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
     val cpio = outer.controlPlane.module.io
@@ -225,6 +229,7 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp
   outer.controlPlane.module.io.mem_part_en := mem_part_en
+  outer.controlPlane.module.io.distinct_hart_dsid_en := distinct_hart_dsid_en
 }
 
 trait BindL2WayMask extends HasRocketTiles {
