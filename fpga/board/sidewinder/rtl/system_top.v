@@ -22,6 +22,7 @@ module system_top (
   wire [1:0] pardcore_corerstn;
   wire pardcore_uncoreclk;
   wire pardcore_uncorerstn;
+  wire [2:0] nohype_settings;
 
   wire mm2s_introut;
   wire s2mm_introut;
@@ -42,6 +43,7 @@ module system_top (
     .mm2s_introut(mm2s_introut),
     .s2mm_introut(s2mm_introut),
 
+    .nohype_settings(nohype_settings),
     .pardcore_coreclk(pardcore_coreclk),
     .pardcore_corerstn(pardcore_corerstn),
     .pardcore_uncoreclk(pardcore_uncoreclk),
@@ -73,7 +75,9 @@ module system_top (
     .intrs({s2mm_introut, mm2s_introut}),
 
 //    .led(led[7]),
-
+    .mem_part_en(nohype_settings[0]),
+    .reset_to_hang_en(nohype_settings[1]),
+    .distinct_hart_dsid_en(nohype_settings[2]),
     .coreclk(pardcore_coreclk),
     .corersts(~pardcore_corerstn),
     .uncoreclk(pardcore_uncoreclk),

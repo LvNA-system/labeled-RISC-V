@@ -50,8 +50,8 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 
 set list_projs [get_projects -quiet]
 if { $list_projs eq "" } {
-   create_project project_1 myproj -part xczu9eg-ffvb1156-2-e
-   set_property BOARD_PART xilinx.com:zcu102:part0:3.1 [current_project]
+   create_project project_1 myproj -part xczu19eg-ffvc1760-2-i-es2
+   set_property BOARD_PART fidus:none:part0:2.0 [current_project]
 }
 
 
@@ -315,6 +315,7 @@ proc create_root_design { parentCell } {
   # Create ports
   set coreclk [ create_bd_port -dir I coreclk ]
   set corersts [ create_bd_port -dir I -from 1 -to 0 corersts ]
+  set distinct_hart_dsid_en [ create_bd_port -dir I -type data distinct_hart_dsid_en ]
   set intrs [ create_bd_port -dir I -from 1 -to 0 intrs ]
   set jtag_TCK [ create_bd_port -dir I jtag_TCK ]
   set jtag_TDI [ create_bd_port -dir I jtag_TDI ]
@@ -343,8 +344,10 @@ proc create_root_design { parentCell } {
    }
   
   set_property -dict [ list \
+   CONFIG.SUPPORTS_NARROW_BURST {1} \
    CONFIG.NUM_READ_OUTSTANDING {2} \
    CONFIG.NUM_WRITE_OUTSTANDING {2} \
+   CONFIG.MAX_BURST_LENGTH {256} \
  ] [get_bd_intf_pins /LvNAFPGATop_0/l2_frontend_bus_axi4_0]
 
   set_property -dict [ list \
@@ -440,6 +443,7 @@ proc create_root_design { parentCell } {
   connect_bd_net -net clk_1 [get_bd_ports uncoreclk] [get_bd_pins LvNAFPGATop_0/clock] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
   connect_bd_net -net coreclk_1 [get_bd_ports coreclk] [get_bd_pins LvNAFPGATop_0/coreclk] [get_bd_pins c_shift_ram_0/CLK] [get_bd_pins c_shift_ram_1/CLK]
   connect_bd_net -net corersts_1 [get_bd_ports corersts] [get_bd_pins xlslice_0/Din] [get_bd_pins xlslice_1/Din]
+  connect_bd_net -net distinct_hart_dsid_en_1 [get_bd_ports distinct_hart_dsid_en] [get_bd_pins LvNAFPGATop_0/distinct_hart_dsid_en]
   connect_bd_net -net intrs_1 [get_bd_ports intrs] [get_bd_pins LvNAFPGATop_0/interrupts]
   connect_bd_net -net io_jtag_TDI_1 [get_bd_ports jtag_TDI] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_jtag_TDI]
   connect_bd_net -net io_jtag_TRST_1 [get_bd_ports jtag_TRST] [get_bd_pins LvNAFPGATop_0/debug_systemjtag_reset]
@@ -475,4 +479,6 @@ proc create_root_design { parentCell } {
 
 create_root_design ""
 
+
+common::send_msg_id "BD_TCL-1000" "WARNING" "This Tcl script was generated from a block design that has not been validated. It is possible that design <$design_name> may result in errors during validation."
 
