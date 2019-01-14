@@ -19,6 +19,7 @@ trait HasControlPlaneParameters {
   val dsidWidth = ldomDSidWidth + procDSidWidth
   val nDSID = 1 << dsidWidth
   val cacheCapacityWidth = log2Ceil(p(NL2CacheCapacity) * 1024 / 64)
+  val cycle_counter_width = 64
 }
 
 /**
@@ -28,7 +29,7 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   private val indexWidth = 32
   val updateData   = UInt(INPUT, 32)
   val traffic      = UInt(OUTPUT, 32)
-  val cycle        = UInt(OUTPUT, 32)
+  val cycle        = UInt(OUTPUT, cycle_counter_width)
   val capacity     = UInt(OUTPUT, cacheCapacityWidth)
   val hartDsid     = UInt(OUTPUT, ldomDSidWidth)
   val hartDsidWen  = Bool(INPUT)
@@ -85,7 +86,8 @@ trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketP
 
   val bucketIO = IO(Vec(nTiles, new BucketIO()))
 
-  val timer = GTimer()
+  val timer = RegInit(0.U(cycle_counter_width.W))
+  timer := Mux(timer === (~0.U(timer.getWidth.W)).asUInt, 0.U, timer + 1.U)
 
   bucketState.zipWithIndex.foreach { case (state, i) =>
     state.counter := Mux(state.counter >= bucketParams(i).freq, 0.U, state.counter + 1.U)

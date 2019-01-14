@@ -22,7 +22,7 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
 
   bucketIO.dsid := in.a.bits.dsid
   bucketIO.fire := out.a.ready && out.a.valid && !phy
-  bucketIO.size := 1.U << in.a.bits.size
+  bucketIO.size := (1.U << in.a.bits.size) >> 6
 
   out.a.valid := in.a.valid && (phy || bucketIO.enable)
   in.a.ready := out.a.ready && (phy || bucketIO.enable)
