@@ -5,7 +5,7 @@ import chisel3.core.{IO, Input, Output}
 import freechips.rocketchip.config.{Config, Field, Parameters}
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.subsystem._
-import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, UseEmu}
+import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, NohypeDefault, UseEmu}
 import freechips.rocketchip.tile.XLen
 import freechips.rocketchip.util.GTimer
 
@@ -19,6 +19,7 @@ trait HasControlPlaneParameters {
   val dsidWidth = ldomDSidWidth + procDSidWidth
   val nDSID = 1 << dsidWidth
   val cacheCapacityWidth = log2Ceil(p(NL2CacheCapacity) * 1024 / 64)
+  val cycle_counter_width = 64
 }
 
 /**
@@ -28,7 +29,7 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   private val indexWidth = 32
   val updateData   = UInt(INPUT, 32)
   val traffic      = UInt(OUTPUT, 32)
-  val cycle        = UInt(OUTPUT, 32)
+  val cycle        = UInt(OUTPUT, cycle_counter_width)
   val capacity     = UInt(OUTPUT, cacheCapacityWidth)
   val hartDsid     = UInt(OUTPUT, ldomDSidWidth)
   val hartDsidWen  = Bool(INPUT)
@@ -85,7 +86,8 @@ trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketP
 
   val bucketIO = IO(Vec(nTiles, new BucketIO()))
 
-  val timer = GTimer()
+  val timer = RegInit(0.U(cycle_counter_width.W))
+  timer := Mux(timer === (~0.U(timer.getWidth.W)).asUInt, 0.U, timer + 1.U)
 
   bucketState.zipWithIndex.foreach { case (state, i) =>
     state.counter := Mux(state.counter >= bucketParams(i).freq, 0.U, state.counter + 1.U)
@@ -130,17 +132,17 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val memMasks  = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
       val l2        = new CPToL2CacheIO()
       val cp        = new ControlPlaneIO()
+      val mem_part_en = Bool().asInput
+      val distinct_hart_dsid_en = Bool().asInput
     })
 
     val hartSel   = RegInit(0.U(ldomDSidWidth.W))
-    val hartDsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
+    val hartDsids = RegInit(Vec(Seq.tabulate(nTiles){ i =>
+      Mux(io.distinct_hart_dsid_en, i.U(ldomDSidWidth.W), 0.U(ldomDSidWidth.W))
+    }))
     val memBases  = RegInit(Vec(Seq.tabulate(nTiles){ i =>
-      if (p(UseEmu)) {
-        val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
-        (i * memSize / nTiles).U(memAddrWidth.W)
-      } else {
-        0.U(memAddrWidth.W)
-      }
+      val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
+      Mux(io.mem_part_en, (i * memSize / nTiles).U(memAddrWidth.W), 0.U(memAddrWidth.W))
     }))
     val memMasks  = RegInit(Vec(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
     val waymasks  = RegInit(Vec(Seq.fill(nTiles){ ((1L << p(NL2CacheWays)) - 1).U }))
@@ -216,6 +218,8 @@ trait HasControlPlane extends HasRocketTiles {
 
 trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   val outer: HasControlPlane
+  val mem_part_en = IO(Input(Bool()))
+  val distinct_hart_dsid_en = IO(Input(Bool()))
 
   (outer.rocketTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
     val cpio = outer.controlPlane.module.io
@@ -226,6 +230,8 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   }
 
   outer.debug.module.io.cp <> outer.controlPlane.module.io.cp
+  outer.controlPlane.module.io.mem_part_en := mem_part_en
+  outer.controlPlane.module.io.distinct_hart_dsid_en := distinct_hart_dsid_en
 }
 
 trait BindL2WayMask extends HasRocketTiles {

@@ -765,7 +765,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
     }
     // ... and also by traffic atomic query
     when (traffic_read_en) {
-      val timed_value = Cat(io.cp.cycle, io.cp.traffic)
+      val timed_value = io.cp.cycle
       val bytes = Seq.tabulate(timed_value.getWidth / 8){i => timed_value((i+1)*8-1, i*8)}
       abstractDataMem zip bytes foreach { case (a, b) =>
           a := b
