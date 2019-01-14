@@ -49,13 +49,12 @@ class LvNAFPGAConfigzcu102 extends Config(
   ++ new BaseFPGAConfig)
 
 class LvNAFPGAConfigsidewinder extends Config(
-  new WithoutFPU
-  ++ new WithNonblockingL1(8)
+  new WithNonblockingL1(8)
   ++ new WithNL2CacheCapacity(2048)
   ++ new WithNBigCores(4)
   ++ new WithRationalRocketTiles
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
-  ++ new WithExtMemSize(0x100000000L)
+  ++ new WithExtMemSize(0x80000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
   ++ new BaseFPGAConfig)
