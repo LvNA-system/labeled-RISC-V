@@ -5,6 +5,7 @@ import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+import boom.common._
 
 class TokenBucketNode(implicit p: Parameters) extends LazyModule {
   val node = TLIdentityNode()
@@ -26,6 +27,16 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   bucketIO.fire := out.a.ready && out.a.valid && !phy
   bucketIO.size := 1.U << in.a.bits.size
 
-  out.a.valid := in.a.valid && (phy || bucketIO.enable)
-  in.a.ready := out.a.ready && (phy || bucketIO.enable)
+//  out.a.valid := in.a.valid && (phy || bucketIO.enable)
+//  in.a.ready := out.a.ready && (phy || bucketIO.enable)
+  out.a.valid := in.a.valid
+  in.a.ready := out.a.ready
+  if (DEBUG_TB_FETCH) {
+    when(in.a.valid && !out.a.valid) {
+      printf(p"request blocked by token bucket: 0x${Hexadecimal(in.a.bits.address)}\n")
+    }
+    when(out.a.valid && !in.a.ready) {
+      printf(p"response blocked by token bucket: 0x${Hexadecimal(in.a.bits.address)}\n")
+    }
+  }
 }
