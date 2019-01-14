@@ -9,6 +9,7 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+import boom.common._
 
 trait HasMissInfo extends HasL1HellaCacheParameters {
   val tag_match = Bool()
@@ -154,6 +155,7 @@ class MSHR(id: Int)(implicit edge: TLEdgeOut, p: Parameters) extends L1HellaCach
     val wb_req = Decoupled(new WritebackReq(edge.bundle))
     val probe_rdy = Bool(OUTPUT)
   }
+  println(s"Creating MHSR[$id]\n")
 
   val s_invalid :: s_wb_req :: s_wb_resp :: s_meta_clear :: s_refill_req :: s_refill_resp :: s_meta_write_req :: s_meta_write_resp :: s_drain_rpq :: Nil = Enum(UInt(), 9)
   val state = Reg(init=s_invalid)
@@ -281,6 +283,14 @@ class MSHR(id: Int)(implicit edge: TLEdgeOut, p: Parameters) extends L1HellaCach
                                 toAddress = Cat(io.tag, req_idx) << blockOffBits,
                                 lgSize = lgCacheBlockBytes,
                                 growPermissions = grow_param)._2
+  if (DEBUG_DCACHE) {
+    when (io.mem_acquire.valid) {
+      printf("NBD$ MSHR[%d] requesting to refill 0x%x\n", id.U, io.mem_acquire.bits.address)
+    }
+    when (state === s_refill_req && !grantackq.io.enq.ready) {
+      printf("NBD$ MSHR[%d] want to refill 0x%x, but grant not ready\n", id.U, io.mem_acquire.bits.address)
+    }
+  }
 
   io.meta_read.valid := state === s_drain_rpq
   io.meta_read.bits.idx := req_idx
@@ -721,6 +731,12 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   dtlb.io.req.bits.cmd := s1_req.cmd
   when (!dtlb.io.req.ready && !io.cpu.req.bits.phys) { io.cpu.req.ready := Bool(false) }
 
+  if (DEBUG_DCACHE) {
+    when (dtlb.io.req.valid) {
+      printf("NBD$ lookup vaddr 0x%x in DTLB\n", dtlb.io.req.bits.vaddr)
+    }
+  }
+
   dtlb.io.sfence.valid := s1_valid && !io.cpu.s1_kill && s1_sfence
   dtlb.io.sfence.bits.rs1 := s1_req.typ(0)
   dtlb.io.sfence.bits.rs2 := s1_req.typ(1)
@@ -759,12 +775,20 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   val isMMIO = dtlb.io.resp.paddr < 0x100000000L.U  // TODO Query memory bse from parameters.
   val mappedAddr = (dtlb.io.resp.paddr & memMask) | memBase
   val s1_addr = Mux(isMMIO || s1_req.probing, dtlb.io.resp.paddr, mappedAddr)
+  if (DEBUG_DCACHE) {
+    printf("is probing: [%d], dtlb: -> paddr 0x%x\n", s1_req.probing, dtlb.io.resp.paddr)
+    printf("isMMIO: [%d], s1_addr: [0x%x], mappedAddr:[0x%x]\n", isMMIO, s1_addr, mappedAddr)
+    printf("mem mask: [0x%x], membase: [0x%x]\n", memMask, memBase)
+  }
   when (s1_clk_en) {
     s2_req.typ := s1_req.typ
     s2_req.phys := s1_req.phys
     s2_req.addr := s1_addr
     when (s1_write) {
       s2_req.data := Mux(s1_replay, mshrs.io.replay.bits.data, io.cpu.s1_data.data)
+      if (DEBUG_DCACHE) {
+        printf("NBD$: s2_req.data: 0x%x write to addr: 0x%x\n", s2_req.data, s2_req.addr)
+      }
     }
     when (s1_recycled) { s2_req.data := s1_req.data }
     s2_req.tag := s1_req.tag
@@ -788,6 +812,11 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   data.io.write.bits := writeArb.io.out.bits
   val wdata_encoded = (0 until rowWords).map(i => dECC.encode(writeArb.io.out.bits.data(coreDataBits*(i+1)-1,coreDataBits*i)))
   data.io.write.bits.data := wdata_encoded.asUInt
+  if (DEBUG_DCACHE) {
+    when (data.io.write.valid) {
+      printf("NBD$ DA: writing 0x%x to addr: 0x%x\n", writeArb.io.out.bits.data, writeArb.io.out.bits.addr)
+    }
+  }
 
   // tag read for new requests
   metaReadArb.io.in(4).valid := io.cpu.req.valid
@@ -869,6 +898,11 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   writeArb.io.in(0).valid := s3_valid
   writeArb.io.in(0).bits.way_en :=  s3_way
 
+  if (DEBUG_DCACHE) {
+    when(writeArb.io.in(0).valid) {
+      printf("NBD$: Arb(0) s3 req data: 0x%x, store addr: 0x%x\n", s3_req.data, s3_req.addr)
+    }
+  }
   // replacement policy
   val replacer = cacheParams.replacement
   val s1_replaced_way_en = UIntToOH(replacer.way)
@@ -909,19 +943,27 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   mshrs.io.mem_grant.valid := tl_out.d.fire()
   mshrs.io.mem_grant.bits := tl_out.d.bits
   tl_out.d.ready := writeArb.io.in(1).ready || !grant_has_data
+
   /* The last clause here is necessary in order to prevent the responses for
    * the IOMSHRs from being written into the data array. It works because the
    * IOMSHR ids start right the ones for the regular MSHRs. */
   writeArb.io.in(1).valid := tl_out.d.valid && grant_has_data &&
                                tl_out.d.bits.source < UInt(cfg.nMSHRs)
+
   writeArb.io.in(1).bits.addr := mshrs.io.refill.addr
   writeArb.io.in(1).bits.way_en := mshrs.io.refill.way_en
   writeArb.io.in(1).bits.wmask := ~UInt(0, rowWords)
-  println(s"writeArb.io.in(1).bits.data (${writeArb.io.in(1).bits.data.getWidth}) = tl_out.d.bits.data(encRowBits-1,0) (${tl_out.d.bits.data(encRowBits-1,0).getWidth})")
+//  println(s"writeArb.io.in(1).bits.data (${writeArb.io.in(1).bits.data.getWidth}) = tl_out.d.bits.data(encRowBits-1,0) (${tl_out.d.bits.data(encRowBits-1,0).getWidth})")
   writeArb.io.in(1).bits.data := tl_out.d.bits.data(encRowBits-1,0)
   data.io.read <> readArb.io.out
   readArb.io.out.ready := !tl_out.d.valid || tl_out.d.ready // insert bubble if refill gets blocked
   tl_out.e <> mshrs.io.mem_finish
+
+  if (DEBUG_DCACHE) {
+    when(writeArb.io.in(1).valid) {
+      printf("NBD$: Arb(1) refill data: 0x%x, refilling addr: 0x%x\n", tl_out.d.bits.data(encRowBits-1,0), mshrs.io.refill.addr)
+    }
+  }
 
   // writebacks
   val wbArb = Module(new Arbiter(new WritebackReq(edge.bundle), 2))
@@ -983,6 +1025,17 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
     io.cpu.req.ready := Bool(false)
   }
 
+  if (DEBUG_DCACHE) {
+    when (io.cpu.req.valid) {
+      printf("NBD$: CPU requesting for address 0x%x, ", io.cpu.req.bits.addr)
+      when (io.cpu.req.bits.cmd === M_XRD) {
+        printf("NBD$: load\n")
+      }.elsewhen (io.cpu.req.bits.cmd === M_XWR) {
+        printf("NBD$: store 0x%x\n", io.cpu.req.bits.data)
+      }
+    }
+  }
+
   val cache_resp = Wire(Valid(new HellaCacheResp))
   cache_resp.valid := (s2_replay || s2_valid_masked && s2_hit) && !s2_data_correctable
   cache_resp.bits := s2_req
@@ -998,10 +1051,18 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
 
   io.cpu.s2_nack := s2_valid && s2_nack
   io.cpu.resp := Mux(mshrs.io.resp.ready, uncache_resp, cache_resp)
+
   io.cpu.resp.bits.data_word_bypass := loadgen.wordData
   io.cpu.resp.bits.data_raw := s2_data_word
   io.cpu.ordered := mshrs.io.fence_rdy && !s1_valid && !s2_valid
   io.cpu.replay_next := (s1_replay && s1_read) || mshrs.io.replay_next
+
+  if (DEBUG_DCACHE) {
+    when (io.cpu.resp.valid) {
+      printf("NBD$ responsing data: 0x%x, reponsing data_word_bypass: 0x%x, for address: 0x%x\n",
+        io.cpu.resp.bits.data, io.cpu.resp.bits.data_word_bypass, io.cpu.resp.bits.addr)
+    }
+  }
 
   val s1_xcpt_valid = dtlb.io.req.valid && !s1_nack
   val s1_xcpt = dtlb.io.resp

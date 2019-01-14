@@ -13,6 +13,8 @@ import freechips.rocketchip.util.property._
 import chisel3.internal.sourceinfo.SourceInfo
 import chisel3.experimental._
 import TLMessages._
+import boom.common._
+import chisel3.printf
 
 class DCacheErrors(implicit p: Parameters) extends L1HellaCacheBundle()(p)
     with CanHaveErrors {
@@ -738,6 +740,11 @@ class DCacheModule(outer: DCache) extends HellaCacheModule(outer) {
   io.cpu.resp.bits.data_word_bypass := loadgen.wordData
   io.cpu.resp.bits.data_raw := s2_data_word
   io.cpu.resp.bits.store_data := pstore1_data
+  if (DEBUG_DCACHE) {
+    when (io.cpu.resp.valid) {
+      printf("Responsing data: 0x%x, reponsing data_word_bypass: 0x%x\n", io.cpu.resp.bits.data, io.cpu.resp.bits.data_word_bypass)
+    }
+  }
 
   // AMOs
   if (usingRMW) {

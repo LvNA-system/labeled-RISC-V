@@ -26,7 +26,7 @@ case class DCacheParams(
     dataECCBytes: Int = 1,
 //    dataECC: Option[String] = Some("secded"),
 //    dataECCBytes: Int = 4,
-    nMSHRs: Int = 1,
+    nMSHRs: Int = 4,
     nSDQ: Int = 17,
     nRPQ: Int = 16,
     nMMIOs: Int = 1,
@@ -66,18 +66,18 @@ trait HasL1HellaCacheParameters extends HasL1CacheParameters with HasCoreParamet
   def offsetlsb = wordOffBits
   def rowWords = rowBits/wordBits
   def doNarrowRead = coreDataBits * nWays % rowBits == 0
-  println(s"cacheParams.dataECCBytes (${cacheParams.dataECCBytes})")
+//  println(s"cacheParams.dataECCBytes (${cacheParams.dataECCBytes})")
   def eccBytes = cacheParams.dataECCBytes
   val eccBits = cacheParams.dataECCBytes * 8
-  println(s"eccBits ($eccBits)")
+//  println(s"eccBits ($eccBits)")
   val encBits = cacheParams.dataCode.width(eccBits)
-  println(s"encBits ($encBits)")
+//  println(s"encBits ($encBits)")
   val encWordBits = encBits * (wordBits / eccBits)
   def encDataBits = cacheParams.dataCode.width(coreDataBits) // NBDCache only
-  println(s"coreDataBits ($coreDataBits)")
-  println(s"encDataBits ($encDataBits)")
+//  println(s"coreDataBits ($coreDataBits)")
+//  println(s"encDataBits ($encDataBits)")
   def encRowBits = encDataBits*rowWords
-  println(s"encRowBits ($encRowBits)")
+//  println(s"encRowBits ($encRowBits)")
   def lrscCycles = coreParams.lrscCycles // ISA requires 16-insn LRSC sequences to succeed
   def lrscBackoff = 3 // disallow LRSC reacquisition briefly
   def blockProbeAfterGrantCycles = 8 // give the processor some time to issue a request after a grant
