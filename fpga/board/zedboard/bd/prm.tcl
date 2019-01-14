@@ -131,11 +131,11 @@ set bCheckIPsPassed 1
 set bCheckIPs 1
 if { $bCheckIPs == 1 } {
    set list_check_ips "\ 
+xilinx.com:ip:axi_gpio:2.0\
 xilinx.com:ip:processing_system7:5.5\
 xilinx.com:ip:axi_protocol_converter:2.1\
 xilinx.com:ip:axi_crossbar:2.1\
 xilinx.com:ip:axi_dwidth_converter:2.1\
-xilinx.com:ip:axi_gpio:2.0\
 xilinx.com:ip:clk_wiz:5.4\
 xilinx.com:ip:proc_sys_reset:5.0\
 xilinx.com:ip:xlconcat:2.1\
@@ -533,6 +533,15 @@ proc create_root_design { parentCell } {
    CONFIG.NUM_WRITE_OUTSTANDING {2} \
    CONFIG.PROTOCOL {AXI4} \
    ] $M_AXI_DMA
+  set M_AXI_FBUS [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_FBUS ]
+  set_property -dict [ list \
+   CONFIG.ADDR_WIDTH {32} \
+   CONFIG.DATA_WIDTH {64} \
+   CONFIG.HAS_REGION {0} \
+   CONFIG.NUM_READ_OUTSTANDING {8} \
+   CONFIG.NUM_WRITE_OUTSTANDING {8} \
+   CONFIG.PROTOCOL {AXI4} \
+   ] $M_AXI_FBUS
   set S_AXILITE_MMIO [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 S_AXILITE_MMIO ]
   set_property -dict [ list \
    CONFIG.ADDR_WIDTH {32} \
@@ -601,6 +610,7 @@ proc create_root_design { parentCell } {
   set jtag_TMS [ create_bd_port -dir O jtag_TMS ]
   set led [ create_bd_port -dir O -from 7 -to 0 led ]
   set mm2s_introut [ create_bd_port -dir O -type intr mm2s_introut ]
+  set nohype_settings [ create_bd_port -dir O -from 2 -to 0 -type data nohype_settings ]
   set pardcore_coreclk [ create_bd_port -dir O -type clk pardcore_coreclk ]
   set_property -dict [ list \
    CONFIG.ASSOCIATED_RESET {pardcore_corerstn} \
@@ -608,10 +618,17 @@ proc create_root_design { parentCell } {
   set pardcore_corerstn [ create_bd_port -dir O -from 1 -to 0 -type rst pardcore_corerstn ]
   set pardcore_uncoreclk [ create_bd_port -dir O -type clk pardcore_uncoreclk ]
   set_property -dict [ list \
-   CONFIG.ASSOCIATED_BUSIF {S_AXI_MEM:S_AXILITE_MMIO:M_AXI_DMA} \
+   CONFIG.ASSOCIATED_BUSIF {S_AXI_MEM:S_AXILITE_MMIO:M_AXI_DMA:M_AXI_FBUS} \
  ] $pardcore_uncoreclk
   set pardcore_uncorerstn [ create_bd_port -dir O -from 0 -to 0 -type rst pardcore_uncorerstn ]
   set s2mm_introut [ create_bd_port -dir O -type intr s2mm_introut ]
+
+  # Create instance: GPIO_NOHYPE_SETTINGS, and set properties
+  set GPIO_NOHYPE_SETTINGS [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 GPIO_NOHYPE_SETTINGS ]
+  set_property -dict [ list \
+   CONFIG.C_ALL_OUTPUTS {1} \
+   CONFIG.C_GPIO_WIDTH {3} \
+ ] $GPIO_NOHYPE_SETTINGS
 
   # Create instance: armv7_processing_system, and set properties
   set armv7_processing_system [ create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 armv7_processing_system ]
@@ -1178,7 +1195,7 @@ proc create_root_design { parentCell } {
    CONFIG.PCW_S_AXI_ACP_ID_WIDTH {3} \
    CONFIG.PCW_S_AXI_GP0_ID_WIDTH {6} \
    CONFIG.PCW_S_AXI_GP1_ID_WIDTH {6} \
-   CONFIG.PCW_S_AXI_HP0_DATA_WIDTH {32} \
+   CONFIG.PCW_S_AXI_HP0_DATA_WIDTH {64} \
    CONFIG.PCW_S_AXI_HP0_ID_WIDTH {6} \
    CONFIG.PCW_S_AXI_HP1_DATA_WIDTH {64} \
    CONFIG.PCW_S_AXI_HP1_ID_WIDTH {6} \
@@ -1344,7 +1361,7 @@ proc create_root_design { parentCell } {
    CONFIG.PCW_USE_FABRIC_INTERRUPT {1} \
    CONFIG.PCW_USE_HIGH_OCM {0} \
    CONFIG.PCW_USE_M_AXI_GP0 {1} \
-   CONFIG.PCW_USE_M_AXI_GP1 {0} \
+   CONFIG.PCW_USE_M_AXI_GP1 {1} \
    CONFIG.PCW_USE_PROC_EVENT_BUS {0} \
    CONFIG.PCW_USE_PS_SLCR_REGISTERS {0} \
    CONFIG.PCW_USE_S_AXI_ACP {0} \
@@ -1668,7 +1685,7 @@ proc create_root_design { parentCell } {
    CONFIG.M15_A15_BASE_ADDR {0xffffffffffffffff} \
    CONFIG.M15_READ_ISSUING {1} \
    CONFIG.M15_WRITE_ISSUING {1} \
-   CONFIG.NUM_MI {5} \
+   CONFIG.NUM_MI {6} \
    CONFIG.R_REGISTER {1} \
    CONFIG.S00_READ_ACCEPTANCE {1} \
    CONFIG.S00_SINGLE_THREAD {1} \
@@ -1719,6 +1736,14 @@ proc create_root_design { parentCell } {
    CONFIG.NUM_SI {2} \
  ] $axi_crossbar_2
 
+  # Create instance: axi_dwidth_converter_0, and set properties
+  set axi_dwidth_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0 ]
+  set_property -dict [ list \
+   CONFIG.MAX_SPLIT_BEATS {16} \
+   CONFIG.PROTOCOL {AXI4} \
+   CONFIG.SI_ID_WIDTH {12} \
+ ] $axi_dwidth_converter_0
+
   # Create instance: axi_dwidth_converter_1, and set properties
   set axi_dwidth_converter_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_1 ]
 
@@ -1752,6 +1777,9 @@ proc create_root_design { parentCell } {
 
   # Create instance: axi_protocol_converter_0, and set properties
   set axi_protocol_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_protocol_converter:2.1 axi_protocol_converter_0 ]
+
+  # Create instance: axi_protocol_converter_1, and set properties
+  set axi_protocol_converter_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_protocol_converter:2.1 axi_protocol_converter_1 ]
 
   # Create instance: clk_wiz_0, and set properties
   set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:5.4 clk_wiz_0 ]
@@ -1817,6 +1845,7 @@ proc create_root_design { parentCell } {
   connect_bd_intf_net -intf_net S_AXI_MEM_1 [get_bd_intf_ports S_AXI_MEM] [get_bd_intf_pins axi_dwidth_converter_1/S_AXI]
   connect_bd_intf_net -intf_net armv7_processing_system_DDR [get_bd_intf_ports DDR] [get_bd_intf_pins armv7_processing_system/DDR]
   connect_bd_intf_net -intf_net armv7_processing_system_FIXED_IO [get_bd_intf_ports FIXED_IO] [get_bd_intf_pins armv7_processing_system/FIXED_IO]
+  connect_bd_intf_net -intf_net armv7_processing_system_M_AXI_GP1 [get_bd_intf_pins armv7_processing_system/M_AXI_GP1] [get_bd_intf_pins axi_protocol_converter_1/S_AXI]
   connect_bd_intf_net -intf_net armv7_ps_M_AXI_GP0 [get_bd_intf_pins armv7_processing_system/M_AXI_GP0] [get_bd_intf_pins axi3_to_lite_pc/S_AXI]
   connect_bd_intf_net -intf_net axi3_to_lite_pc_M_AXI [get_bd_intf_pins axi3_to_lite_pc/M_AXI] [get_bd_intf_pins axi_crossbar_0/S00_AXI]
   connect_bd_intf_net -intf_net axi_crossbar_0_M00_AXI [get_bd_intf_pins axi_crossbar_0/M00_AXI] [get_bd_intf_pins axi_gpio_0/S_AXI]
@@ -1824,17 +1853,21 @@ proc create_root_design { parentCell } {
   connect_bd_intf_net -intf_net axi_crossbar_0_M02_AXI [get_bd_intf_pins axi_crossbar_0/M02_AXI] [get_bd_intf_pins hier_uart/S_AXI2]
   connect_bd_intf_net -intf_net axi_crossbar_0_M03_AXI [get_bd_intf_pins axi_crossbar_0/M03_AXI] [get_bd_intf_pins axi_jtag_v1_0_0/s_axi]
   connect_bd_intf_net -intf_net axi_crossbar_0_M04_AXI [get_bd_intf_pins axi_crossbar_0/M04_AXI] [get_bd_intf_pins hier_dma/S_AXI_LITE]
+  connect_bd_intf_net -intf_net axi_crossbar_0_M05_AXI [get_bd_intf_pins GPIO_NOHYPE_SETTINGS/S_AXI] [get_bd_intf_pins axi_crossbar_0/M05_AXI]
   connect_bd_intf_net -intf_net axi_crossbar_1_M00_AXI [get_bd_intf_pins axi_crossbar_1/M00_AXI] [get_bd_intf_pins hier_uart/S_AXI1]
   connect_bd_intf_net -intf_net axi_crossbar_1_M01_AXI [get_bd_intf_pins axi_crossbar_1/M01_AXI] [get_bd_intf_pins hier_uart/S_AXI3]
   connect_bd_intf_net -intf_net axi_crossbar_1_M02_AXI [get_bd_intf_pins axi_crossbar_1/M02_AXI] [get_bd_intf_pins hier_dma/S_AXI_LITE1]
   connect_bd_intf_net -intf_net axi_crossbar_2_M00_AXI [get_bd_intf_pins axi_crossbar_2/M00_AXI] [get_bd_intf_pins axi_protocol_converter_0/S_AXI]
+  connect_bd_intf_net -intf_net axi_dwidth_converter_0_M_AXI [get_bd_intf_ports M_AXI_FBUS] [get_bd_intf_pins axi_dwidth_converter_0/M_AXI]
   connect_bd_intf_net -intf_net axi_dwidth_converter_1_M_AXI [get_bd_intf_pins axi_dwidth_converter_1/M_AXI] [get_bd_intf_pins hier_slowddr/S_AXI]
   connect_bd_intf_net -intf_net axi_dwidth_converter_3_M_AXI [get_bd_intf_ports M_AXI_DMA] [get_bd_intf_pins hier_dma/M_AXI_DMA]
   connect_bd_intf_net -intf_net axi_protocol_converter_0_M_AXI [get_bd_intf_pins armv7_processing_system/S_AXI_GP0] [get_bd_intf_pins axi_protocol_converter_0/M_AXI]
+  connect_bd_intf_net -intf_net axi_protocol_converter_1_M_AXI [get_bd_intf_pins axi_dwidth_converter_0/S_AXI] [get_bd_intf_pins axi_protocol_converter_1/M_AXI]
   connect_bd_intf_net -intf_net hier_dma_M00_AXI [get_bd_intf_pins axi_crossbar_2/S01_AXI] [get_bd_intf_pins hier_dma/M_AXI]
   connect_bd_intf_net -intf_net hier_slowddr_M_AXI [get_bd_intf_pins axi_crossbar_2/S00_AXI] [get_bd_intf_pins hier_slowddr/M_AXI]
 
   # Create port connections
+  connect_bd_net -net GPIO_NOHYPE_SETTINGS_gpio_io_o [get_bd_ports nohype_settings] [get_bd_pins GPIO_NOHYPE_SETTINGS/gpio_io_o]
   connect_bd_net -net armv7_processing_system_FCLK_CLK0 [get_bd_pins armv7_processing_system/FCLK_CLK0] [get_bd_pins clk_wiz_0/clk_in1]
   connect_bd_net -net armv7_processing_system_FCLK_RESET0_N [get_bd_pins armv7_processing_system/FCLK_RESET0_N] [get_bd_pins clk_wiz_0/resetn] [get_bd_pins hier_slowddr/ext_reset_in] [get_bd_pins pardcore_uncorerst/ext_reset_in]
   connect_bd_net -net axi_dma_arm_mm2s_introut [get_bd_pins hier_dma/mm2s_introut] [get_bd_pins xlconcat_0/In2] [get_bd_pins xlconcat_led/In0]
@@ -1847,16 +1880,18 @@ proc create_root_design { parentCell } {
   connect_bd_net -net axi_jtag_v1_0_0_TMS [get_bd_ports jtag_TMS] [get_bd_pins axi_jtag_v1_0_0/TMS]
   connect_bd_net -net axi_uartlite_0_interrupt [get_bd_pins hier_uart/interrupt] [get_bd_pins xlconcat_0/In0]
   connect_bd_net -net axi_uartlite_1_interrupt [get_bd_pins hier_uart/interrupt1] [get_bd_pins xlconcat_0/In1]
-  connect_bd_net -net clk_wiz_0_clk_out1 [get_bd_ports pardcore_coreclk] [get_bd_ports pardcore_uncoreclk] [get_bd_pins armv7_processing_system/M_AXI_GP0_ACLK] [get_bd_pins armv7_processing_system/S_AXI_GP0_ACLK] [get_bd_pins axi3_to_lite_pc/aclk] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_crossbar_1/aclk] [get_bd_pins axi_crossbar_2/aclk] [get_bd_pins axi_dwidth_converter_1/s_axi_aclk] [get_bd_pins axi_gpio_0/s_axi_aclk] [get_bd_pins axi_jtag_v1_0_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins hier_dma/pardcore_uncoreclk] [get_bd_pins hier_slowddr/pardcore_uncoreclk] [get_bd_pins hier_slowddr/slowest_sync_clk] [get_bd_pins hier_uart/pardcore_uncoreclk] [get_bd_pins pardcore_uncorerst/slowest_sync_clk]
+  connect_bd_net -net clk_wiz_0_clk_out1 [get_bd_ports pardcore_coreclk] [get_bd_ports pardcore_uncoreclk] [get_bd_pins GPIO_NOHYPE_SETTINGS/s_axi_aclk] [get_bd_pins armv7_processing_system/M_AXI_GP0_ACLK] [get_bd_pins armv7_processing_system/M_AXI_GP1_ACLK] [get_bd_pins armv7_processing_system/S_AXI_GP0_ACLK] [get_bd_pins axi3_to_lite_pc/aclk] [get_bd_pins axi_crossbar_0/aclk] [get_bd_pins axi_crossbar_1/aclk] [get_bd_pins axi_crossbar_2/aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins axi_dwidth_converter_1/s_axi_aclk] [get_bd_pins axi_gpio_0/s_axi_aclk] [get_bd_pins axi_jtag_v1_0_0/s_axi_aclk] [get_bd_pins axi_protocol_converter_0/aclk] [get_bd_pins axi_protocol_converter_1/aclk] [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins hier_dma/pardcore_uncoreclk] [get_bd_pins hier_slowddr/pardcore_uncoreclk] [get_bd_pins hier_slowddr/slowest_sync_clk] [get_bd_pins hier_uart/pardcore_uncoreclk] [get_bd_pins pardcore_uncorerst/slowest_sync_clk]
   connect_bd_net -net clk_wiz_0_locked [get_bd_pins clk_wiz_0/locked] [get_bd_pins hier_slowddr/dcm_locked] [get_bd_pins pardcore_uncorerst/dcm_locked]
   connect_bd_net -net jtag_TDO_1 [get_bd_ports jtag_TDO] [get_bd_pins axi_jtag_v1_0_0/TDO]
   connect_bd_net -net proc_sys_reset_1_interconnect_aresetn [get_bd_pins axi3_to_lite_pc/aresetn] [get_bd_pins axi_crossbar_0/aresetn] [get_bd_pins axi_crossbar_1/aresetn] [get_bd_pins axi_crossbar_2/aresetn] [get_bd_pins axi_dwidth_converter_1/s_axi_aresetn] [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins hier_dma/aresetn] [get_bd_pins hier_slowddr/m_axi_aresetn] [get_bd_pins pardcore_uncorerst/interconnect_aresetn]
-  connect_bd_net -net proc_sys_reset_1_peripheral_aresetn [get_bd_ports pardcore_uncorerstn] [get_bd_pins axi_gpio_0/s_axi_aresetn] [get_bd_pins axi_jtag_v1_0_0/s_axi_aresetn] [get_bd_pins hier_dma/pardcore_uncorerstn] [get_bd_pins hier_uart/pardcore_uncorerstn] [get_bd_pins pardcore_uncorerst/peripheral_aresetn]
+  connect_bd_net -net proc_sys_reset_1_peripheral_aresetn [get_bd_ports pardcore_uncorerstn] [get_bd_pins GPIO_NOHYPE_SETTINGS/s_axi_aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins axi_gpio_0/s_axi_aresetn] [get_bd_pins axi_jtag_v1_0_0/s_axi_aresetn] [get_bd_pins axi_protocol_converter_1/aresetn] [get_bd_pins hier_dma/pardcore_uncorerstn] [get_bd_pins hier_uart/pardcore_uncorerstn] [get_bd_pins pardcore_uncorerst/peripheral_aresetn]
   connect_bd_net -net xlconcat_0_dout [get_bd_pins armv7_processing_system/IRQ_F2P] [get_bd_pins xlconcat_0/dout]
   connect_bd_net -net xlconcat_led_dout [get_bd_ports led] [get_bd_pins xlconcat_led/dout]
   connect_bd_net -net xlslice_0_Dout [get_bd_pins hier_dma/ext_reset_in] [get_bd_pins xlslice_0/Dout]
 
   # Create address segments
+  create_bd_addr_seg -range 0x00010000 -offset 0x41210000 [get_bd_addr_spaces armv7_processing_system/Data] [get_bd_addr_segs GPIO_NOHYPE_SETTINGS/S_AXI/Reg] SEG_GPIO_NOHYPE_SETTINGS_Reg
+  create_bd_addr_seg -range 0x40000000 -offset 0x80000000 [get_bd_addr_spaces armv7_processing_system/Data] [get_bd_addr_segs M_AXI_FBUS/Reg] SEG_M_AXI_FBUS_Reg
   create_bd_addr_seg -range 0x00010000 -offset 0x40400000 [get_bd_addr_spaces armv7_processing_system/Data] [get_bd_addr_segs hier_dma/axi_dma_arm/S_AXI_LITE/Reg] SEG_axi_dma_arm_Reg
   create_bd_addr_seg -range 0x00010000 -offset 0x41200000 [get_bd_addr_spaces armv7_processing_system/Data] [get_bd_addr_segs axi_gpio_0/S_AXI/Reg] SEG_axi_gpio_0_Reg
   create_bd_addr_seg -range 0x00010000 -offset 0x43C00000 [get_bd_addr_spaces armv7_processing_system/Data] [get_bd_addr_segs axi_jtag_v1_0_0/s_axi/reg0] SEG_axi_jtag_v1_0_0_reg0
