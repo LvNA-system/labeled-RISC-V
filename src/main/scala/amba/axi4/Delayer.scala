@@ -9,6 +9,7 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink.LFSRNoiseMaker
 import freechips.rocketchip.util.{GTimer, LatencyPipeIrrevocable}
+import boom.common._
 
 // q is the probability to delay a request
 class AXI4Delayer(q: Double, latency: Int = 0)(implicit p: Parameters) extends LazyModule
@@ -94,8 +95,12 @@ class AXI4AmpDelayer(q: Double, latency: Int = 0)(implicit p: Parameters) extend
   require (0.0 <= q && q < 1)
 
   def scale_up(delay: UInt) = {
-    (delay << 3).asUInt + (delay << 2).asUInt
+    delay
   }
+
+//  def scale_up(delay: UInt) = {
+//    (delay << 3).asUInt + (delay << 2).asUInt
+//  }
   val debug_en = false
   def debug(fmt: String, args: Bits*) = if (debug_en) {printf("delay %d: " + fmt + "\n", GTimer() +: args:_*)}
 
@@ -119,8 +124,15 @@ class AXI4AmpDelayer(q: Double, latency: Int = 0)(implicit p: Parameters) extend
           val idle :: delaying :: wait_fire :: Nil = Enum(UInt(), 3)
           val state = RegInit(idle)
 
-          dout.ready := state === wait_fire && din.ready
-          din.valid := state === wait_fire && dout.valid
+//          dout.ready := state === wait_fire && din.ready
+//          din.valid := state === wait_fire && dout.valid
+          dout.ready := din.ready
+          din.valid := dout.valid
+          if (DEBUG_FETCH_AXI) {
+            when (dout.valid) {
+              printf("AXI returned\n")
+            }
+          }
 
           id_b_timers.foreach{i => when(state =/= delaying) {i := i + 1.U(timer.getWidth.W)}}
 
@@ -152,8 +164,16 @@ class AXI4AmpDelayer(q: Double, latency: Int = 0)(implicit p: Parameters) extend
           val idle :: delaying :: wait_fire :: Nil = Enum(UInt(), 3)
           val state = RegInit(idle)
 
-          dout.ready := state === wait_fire && din.ready
-          din.valid := state === wait_fire && dout.valid
+//          dout.ready := state === wait_fire && din.ready
+//          din.valid := state === wait_fire && dout.valid
+
+          dout.ready := din.ready
+          din.valid := dout.valid
+          if (DEBUG_FETCH_AXI) {
+            when (dout.valid) {
+              printf("AXI returned\n")
+            }
+          }
 
           id_r_timers.foreach{i => when(state =/= delaying) {i := i + 1.U(timer.getWidth.W)}}
 
