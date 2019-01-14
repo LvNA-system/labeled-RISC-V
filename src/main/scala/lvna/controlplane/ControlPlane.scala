@@ -1,6 +1,7 @@
 package lvna
 
 import Chisel._
+import boom.system.{HasBoomTiles, HasBoomTilesModuleImp}
 import chisel3.VecInit
 import chisel3.core.{IO, Input, Output}
 import freechips.rocketchip.config.{Config, Field, Parameters}
@@ -9,6 +10,7 @@ import freechips.rocketchip.subsystem._
 import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, UseEmu}
 import freechips.rocketchip.tile.XLen
 import freechips.rocketchip.util._
+
 import scala.math.round
 import freechips.rocketchip.util.GTimer
 
@@ -427,10 +429,29 @@ trait HasControlPlane extends HasRocketTiles {
   val controlPlane = LazyModule(new ControlPlane())
 }
 
+trait HasBoomControlPlane extends HasBoomTiles {
+  this: BaseSubsystem =>
+  val controlPlane = LazyModule(new ControlPlane())
+}
+
 trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
   val outer: HasControlPlane
 
   (outer.rocketTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
+    val cpio = outer.controlPlane.module.io
+    tile.module.dsid := cpio.hartDsids(i.U)
+    tile.module.memBase := cpio.memBases(i.U)
+    tile.module.memMask := cpio.memMasks(i.U)
+    token.module.bucketIO <> outer.controlPlane.module.bucketIO(i)
+  }
+
+  outer.debug.module.io.cp <> outer.controlPlane.module.io.cp
+}
+
+trait HasControlPlaneBoomModuleImpl extends HasBoomTilesModuleImp {
+  val outer: HasBoomControlPlane
+
+  (outer.boomTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
     val cpio = outer.controlPlane.module.io
     tile.module.dsid := cpio.hartDsids(i.U)
     tile.module.memBase := cpio.memBases(i.U)

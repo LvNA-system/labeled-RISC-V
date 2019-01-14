@@ -4,18 +4,20 @@ package freechips.rocketchip.system
 
 import Chisel._
 import freechips.rocketchip.config.Parameters
-import lvna.{BindL2WayMask, BindL2WayMaskModuleImp, HasControlPlane, HasControlPlaneModuleImpl}
+import lvna._
 import sifive.blocks.devices.uart._
 
 
 class LvNAEmuTop(implicit p: Parameters) extends ExampleBoomSystem
     with HasPeripheryUART
+  with HasBoomControlPlane
 {
   override lazy val module = new LvNAEmuTopModule(this)
 }
 
 class LvNAEmuTopModule[+L <: LvNAEmuTop](_outer: L) extends ExampleBoomSystemModuleImp(_outer)
     with HasPeripheryUARTModuleImp
+  with HasControlPlaneBoomModuleImpl
 
 //class LvNAEmuTop(implicit p: Parameters) extends ExampleRocketSystem
 //    with HasPeripheryUART
