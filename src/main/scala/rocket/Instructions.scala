@@ -543,11 +543,11 @@ object CSRs {
   val mhpmcounter29h = 0xb9d
   val mhpmcounter30h = 0xb9e
   val mhpmcounter31h = 0xb9f
-  val simlog = 0x800
-  val realHartId = 0x810
-  val procdsid = 0x9c0
-  val pfctl = 0x801
-  val all = {
+  val simlog         = 0x800
+  val fakeHartId     = 0x810
+  val procdsid       = 0x9c0
+  val pfctl          = 0x801
+  val all            = {
     val res = collection.mutable.ArrayBuffer[Int]()
     res += fflags
     res += frm

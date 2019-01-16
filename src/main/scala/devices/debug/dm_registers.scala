@@ -348,6 +348,8 @@ object DMI_RegAddrs {
   def CP_L2_CAPACITY = 0x4d
 
   def CP_DSID_SEL = 0x4e
+
+  def CP_HART_ID = 0x4f
 }
 
 class DMSTATUSFields extends Bundle {

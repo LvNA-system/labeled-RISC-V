@@ -116,6 +116,8 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
   Annotated.params(this, outer.rocketParams)
 
   val core = Module(new Rocket()(outer.p))
+  val progHartId = IO(Input(UInt(log2Ceil(nTiles).W)))
+  core.io.progHartId := progHartId
 
   val uncorrectable = RegInit(Bool(false))
   val halt_and_catch_fire = outer.rocketParams.hcfOnUncorrectable.option(IO(Bool(OUTPUT)))

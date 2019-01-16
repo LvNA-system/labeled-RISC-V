@@ -5,12 +5,15 @@ package freechips.rocketchip.rocket
 
 import Chisel._
 import Chisel.ImplicitConversions._
+import chisel3.core.Input
 import chisel3.experimental._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.tile._
 import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
 import freechips.rocketchip.scie._
+import freechips.rocketchip.subsystem.NTiles
+
 import scala.collection.immutable.ListMap
 import scala.collection.mutable.ArrayBuffer
 
@@ -242,6 +245,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   val id_npc = (ibuf.io.pc.asSInt + ImmGen(IMM_UJ, id_inst(0))).asUInt
 
   val csr = Module(new CSRFile(perfEvents, coreParams.customCSRs.decls))
+  csr.io.progHartid := io.progHartId
   val id_csr_en = id_ctrl.csr.isOneOf(CSR.S, CSR.C, CSR.W)
   val id_system_insn = id_ctrl.csr === CSR.I
   val id_csr_ren = id_ctrl.csr.isOneOf(CSR.S, CSR.C) && id_raddr1 === UInt(0)

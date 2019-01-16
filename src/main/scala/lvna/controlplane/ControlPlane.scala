@@ -49,6 +49,8 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val hartSelWen   = Bool(INPUT)
   val dsidSel      = UInt(OUTPUT, dsidWidth)
   val dsidSelWen   = Bool(INPUT)
+  val progHartId   = UInt(OUTPUT, log2Ceil(nTiles))
+  val progHartIdWen = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -134,6 +136,7 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       val cp        = new ControlPlaneIO()
       val mem_part_en = Bool().asInput
       val distinct_hart_dsid_en = Bool().asInput
+      val progHartIds = Vec(nTiles, UInt(log2Ceil(nTiles).W)).asOutput
     })
 
     val hartSel   = RegInit(0.U(ldomDSidWidth.W))
@@ -146,6 +149,11 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
     }))
     val memMasks  = RegInit(Vec(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
     val waymasks  = RegInit(Vec(Seq.fill(nTiles){ ((1L << p(NL2CacheWays)) - 1).U }))
+    /**
+      * Programmable hartid.
+      */
+    val progHartIds = RegInit(Vec(Seq.fill(nTiles){ 0.U(log2Ceil(nTiles).W) }))
+    io.progHartIds := progHartIds
     val l2dsid_reg = RegNext(io.l2.dsid)  // 1 cycle delay
     io.l2.waymask := waymasks(l2dsid_reg)
 
@@ -193,6 +201,10 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       memMasks(hartSel) := Cat(io.cp.updateData, mem_mask_lo_tmp)
     }
 
+    when (io.cp.progHartIdWen) {
+      progHartIds(hartSel) := io.cp.updateData
+    }
+
     when (io.cp.bktFreqWen) {
       bucketParams(currDsid).freq := io.cp.updateData
     }
@@ -226,6 +238,7 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
     tile.module.dsid := cpio.hartDsids(i.U)
     tile.module.memBase := cpio.memBases(i.U)
     tile.module.memMask := cpio.memMasks(i.U)
+    tile.module.progHartId := cpio.progHartIds(i)
     token.module.bucketIO <> outer.controlPlane.module.bucketIO(i)
   }
 
