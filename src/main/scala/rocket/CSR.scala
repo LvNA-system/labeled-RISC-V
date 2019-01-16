@@ -10,8 +10,10 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.tile._
 import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
+
 import scala.collection.mutable.LinkedHashMap
 import Instructions._
+import freechips.rocketchip.subsystem.NTiles
 import lvna.ProcDSidWidth
 
 class MStatus extends Bundle {
@@ -233,6 +235,7 @@ class CSRFile(
     with HasCoreParameters {
   val io = new CSRFileIO {
     val customCSRs = Vec(CSRFile.this.customCSRs.size, new CustomCSRIO).asOutput
+    val progHartid = UInt(INPUT, log2Ceil(p(NTiles)))
   }
 
   val reset_mstatus = Wire(init=new MStatus().fromBits(0))
@@ -386,8 +389,7 @@ class CSRFile(
     CSRs.mepc -> readEPC(reg_mepc).sextTo(xLen),
     CSRs.mbadaddr -> reg_mbadaddr.sextTo(xLen),
     CSRs.mcause -> reg_mcause,
-    //CSRs.mhartid -> io.hartid)
-    CSRs.mhartid -> 0.U(hartIdLen.W))
+    CSRs.mhartid -> io.hartid)
 
   val debug_csrs = LinkedHashMap[Int,Bits](
     CSRs.dcsr -> reg_dcsr.asUInt,
@@ -428,7 +430,7 @@ class CSRFile(
 
     read_mapping += CSRs.simlog -> reg_simlog
     read_mapping += CSRs.procdsid -> reg_procdsid
-    read_mapping += CSRs.realHartId -> io.hartid
+    read_mapping += CSRs.fakeHartId -> io.progHartid
 
     if (xLen == 32) {
       read_mapping += CSRs.mcycleh -> (reg_cycle >> 32)

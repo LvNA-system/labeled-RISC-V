@@ -3,9 +3,10 @@
 package freechips.rocketchip.tile
 
 import Chisel._
-
+import chisel3.core.Input
 import freechips.rocketchip.config._
 import freechips.rocketchip.rocket._
+import freechips.rocketchip.subsystem.NTiles
 import freechips.rocketchip.util._
 import util._
 import lvna.HasControlPlaneParameters
@@ -111,5 +112,6 @@ trait HasCoreIO extends HasTileParameters with HasControlPlaneParameters {
     val ila = new ILABundle()
     val prefetch_enable = Bool(OUTPUT)
     val trace = Vec(coreParams.retireWidth, new TracedInstruction).asOutput
+    val progHartId = UInt(INPUT, log2Ceil(p(NTiles)).W)
   }
 }
