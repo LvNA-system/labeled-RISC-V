@@ -46,8 +46,8 @@ module addr_mapper (
 endmodule
 
 module dma_addr_mapper (
-   `axi_slave_if(s_axi, 64, 12),
-   `axi_master_if(m_axi, 64, 12)
+   `axi_slave_if(s_axi, 64, 1),
+   `axi_master_if(m_axi, 64, 16)
 );
 
     // Zyqnmp -> Rocket
@@ -58,7 +58,6 @@ module dma_addr_mapper (
     assign  m_axi_arburst = s_axi_arburst;
     assign  m_axi_arcache = s_axi_arcache;
     assign  m_axi_arid    = s_axi_arid   ;
-    assign  m_axi_aruser  = s_axi_aruser ;
     assign  m_axi_arlen   = s_axi_arlen  ;
     assign  m_axi_arlock  = s_axi_arlock ;
     assign  m_axi_arprot  = s_axi_arprot ;
@@ -68,7 +67,6 @@ module dma_addr_mapper (
     assign  m_axi_awburst = s_axi_awburst;
     assign  m_axi_awcache = s_axi_awcache;
     assign  m_axi_awid    = s_axi_awid   ;
-    assign  m_axi_awuser  = s_axi_awuser ;
     assign  m_axi_awlen   = s_axi_awlen  ;
     assign  m_axi_awlock  = s_axi_awlock ;
     assign  m_axi_awprot  = s_axi_awprot ;

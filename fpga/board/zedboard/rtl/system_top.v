@@ -30,8 +30,8 @@ module system_top (
   `axilite_wire(AXILITE_MMIO);
   `axi_wire(AXI_DMA, 64, 1);
 
-  `axi_wire(AXI_SBUS_FROM_ZYNQ, 64, 12);
-  `axi_wire(AXI_SBUS_TO_ROCKET, 64, 12);
+  `axi_wire(AXI_SBUS_FROM_ZYNQ, 64, 1);
+  `axi_wire(AXI_SBUS_TO_ROCKET, 64, 16);
 
   wire jtag_TCK;
   wire jtag_TMS;
@@ -49,7 +49,7 @@ module system_top (
   wire s2mm_introut;
 
   zynq_soc zynq_soc_i (
-    `axi_connect_if(M_AXI_FBUS, AXI_SBUS_FROM_ZYNQ),
+    `axi_connect_if_no_id(M_AXI_FBUS, AXI_SBUS_FROM_ZYNQ),
 
     .DDR_addr(DDR_addr),
     .DDR_ba(DDR_ba),
