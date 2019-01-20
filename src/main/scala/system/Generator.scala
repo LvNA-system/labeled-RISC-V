@@ -6,6 +6,7 @@ import boom.system.BoomTilesKey
 import freechips.rocketchip.subsystem.RocketTilesKey
 import freechips.rocketchip.tile.XLen
 import freechips.rocketchip.util.GeneratorApp
+import freechips.rocketchip.system.UseBoom
 
 import scala.collection.mutable.LinkedHashSet
 
@@ -52,8 +53,7 @@ object Generator extends GeneratorApp {
     import DefaultTestSuites._
     val xlen = params(XLen)
     // TODO: for now only generate tests for the first core in the first subsystem
-//    val tileParams = params(RocketTilesKey).head
-    val tileParams = params(BoomTilesKey).head
+    val tileParams = if (params(UseBoom)) params(BoomTilesKey).head else params(RocketTilesKey).head
     val coreParams = tileParams.core
     val vm = coreParams.useVM
     val env = if (vm) List("p","v") else List("p")

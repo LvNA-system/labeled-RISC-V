@@ -7,12 +7,7 @@ _start:
   li s0, DRAM_BASE
   csrr a0, mhartid
   la a1, _dtb
-//   la a2, _real
-//   jr a2
-//   // mispred:
-//   li a2, 0
-//   div a1, a2, a2
-// _real:
+
   jr s0
 
 .section .text.hang, "ax", @progbits

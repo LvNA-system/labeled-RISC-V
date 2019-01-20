@@ -13,15 +13,21 @@ class WithEmu extends Config ((site, here, up) => {
   case UseEmu => true
 })
 
+case object UseBoom extends Field[Boolean](false)
+
+class WithBoom extends Config ((site, here, up) => {
+  case UseBoom => true
+})
+
 // Boom
-class LvNAConfigemu extends Config(
+class LvNABoomConfigemu extends Config(
 //  new WithoutBoomFPU
   new WithSmallBooms
     ++ new DefaultBoomConfig
     ++ new WithNBoomCores(1)
-//    ++ new WithNonblockingL1(8)
     ++ new WithNL2CacheCapacity(256)
     ++ new WithEmu
+    ++ new WithBoom
     ++ new WithRationalRocketTiles
     ++ new WithExtMemSize(0x8000000L) // 32MB
     ++ new WithNoMMIOPort
@@ -31,18 +37,18 @@ class LvNAConfigemu extends Config(
 
 
 // Rocket
-//class LvNAConfigemu extends Config(
-//  new WithoutFPU
-//  ++ new WithNonblockingL1(8)
-//  ++ new WithNL2CacheCapacity(256)
-//  ++ new WithNBigCores(2)
-//  ++ new WithEmu
-//  ++ new WithRationalRocketTiles
-//  ++ new WithExtMemSize(0x8000000L) // 32MB
-//  ++ new WithNoMMIOPort
-//  ++ new WithJtagDTM
-//  ++ new WithDebugSBA
-//  ++ new BaseConfig)
+class LvNAConfigemu extends Config(
+  new WithoutFPU
+  ++ new WithNonblockingL1(8)
+  ++ new WithNL2CacheCapacity(256)
+  ++ new WithNBigCores(1)
+  ++ new WithEmu
+  ++ new WithRationalRocketTiles
+  ++ new WithExtMemSize(0x8000000L) // 32MB
+  ++ new WithNoMMIOPort
+  ++ new WithJtagDTM
+  ++ new WithDebugSBA
+  ++ new BaseConfig)
 
 class LvNAFPGAConfigzedboard extends Config(
   new WithoutFPU

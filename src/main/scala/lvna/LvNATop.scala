@@ -8,29 +8,29 @@ import lvna._
 import sifive.blocks.devices.uart._
 
 
-class LvNAEmuTop(implicit p: Parameters) extends ExampleBoomSystem
+class LvNABoomEmuTop(implicit p: Parameters) extends ExampleBoomSystem
     with HasPeripheryUART
   with HasBoomControlPlane
+{
+  override lazy val module = new LvNABoomEmuTopModule(this)
+}
+
+class LvNABoomEmuTopModule[+L <: LvNABoomEmuTop](_outer: L) extends ExampleBoomSystemModuleImp(_outer)
+    with HasPeripheryUARTModuleImp
+  with HasControlPlaneBoomModuleImpl
+
+class LvNAEmuTop(implicit p: Parameters) extends ExampleRocketSystem
+    with HasPeripheryUART
+    with HasControlPlane
+    with BindL2WayMask
 {
   override lazy val module = new LvNAEmuTopModule(this)
 }
 
-class LvNAEmuTopModule[+L <: LvNAEmuTop](_outer: L) extends ExampleBoomSystemModuleImp(_outer)
+class LvNAEmuTopModule[+L <: LvNAEmuTop](_outer: L) extends ExampleRocketSystemModuleImp(_outer)
     with HasPeripheryUARTModuleImp
-  with HasControlPlaneBoomModuleImpl
-
-//class LvNAEmuTop(implicit p: Parameters) extends ExampleRocketSystem
-//    with HasPeripheryUART
-//    with HasControlPlane
-//    with BindL2WayMask
-//{
-//  override lazy val module = new LvNAEmuTopModule(this)
-//}
-//
-//class LvNAEmuTopModule[+L <: LvNAEmuTop](_outer: L) extends ExampleRocketSystemModuleImp(_outer)
-//    with HasPeripheryUARTModuleImp
-//    with HasControlPlaneModuleImpl
-//    with BindL2WayMaskModuleImp
+    with HasControlPlaneModuleImpl
+    with BindL2WayMaskModuleImp
 
 
 class LvNAFPGATop(implicit p: Parameters) extends ExampleRocketSystem
