@@ -15,4 +15,4 @@
 	url = https://github.com/ucb-bar/firrtl.git
 [submodule "src/main/scala/boom"]
 	path = src/main/scala/boom
-	url = https://github.com/riscv-boom/riscv-boom.git
+	url = https://github.com/shinezyy/BOOM-inside-LvNA.git
