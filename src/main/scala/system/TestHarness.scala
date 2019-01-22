@@ -19,7 +19,7 @@ class BoomTestHarness()(implicit p: Parameters) extends Module {
 
   // Weird compilation failure...
   // val dut = Module(LazyModule(if (p(UseEmu)) new LvNAEmuTop else new LvNAFPGATop).module)
-  val dut = if (p(UseEmu)) Module(LazyModule(new LvNABoomEmuTop).module) else Module(LazyModule(new LvNAFPGATop).module)
+  val dut = Module(LazyModule(new LvNABoomEmuTop).module)
   dut.reset := reset | dut.debug.ndreset
 
   dut.dontTouchPorts()

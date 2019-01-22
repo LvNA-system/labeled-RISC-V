@@ -14,7 +14,8 @@ import boom.system._
 /** Example Top with periphery devices and ports, and a Rocket subsystem */
 class ExampleBoomSystem(implicit p: Parameters) extends BoomSubsystem
     with HasAsyncExtInterrupts
-    with CanHaveMasterAXI4MemPort
+//    with CanHaveMasterAXI4MemPort
+    with CanHaveMisalignedMasterAXI4MemPort
     with CanHaveMasterAXI4MMIOPort
     with CanHaveSlaveAXI4Port
     with HasPeripheryBootROM {
@@ -24,7 +25,8 @@ class ExampleBoomSystem(implicit p: Parameters) extends BoomSubsystem
 class ExampleBoomSystemModuleImp[+L <: ExampleBoomSystem](_outer: L) extends BoomSubsystemModule(_outer)
     with HasRTCModuleImp
     with HasExtInterruptsModuleImp
-    with CanHaveMasterAXI4MemPortModuleImp
+//    with CanHaveMasterAXI4MemPortModuleImp
+    with CanHaveMisalignedMasterAXI4MemPortModuleImp
     with CanHaveMasterAXI4MMIOPortModuleImp
     with CanHaveSlaveAXI4PortModuleImp
     with HasPeripheryBootROMModuleImp
