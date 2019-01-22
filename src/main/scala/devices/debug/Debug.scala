@@ -731,7 +731,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_TRAFFIC     << 2) -> Seq(RWNotify(32,              io.cp.traffic,         WireInit(0.U),    traffic_read_en,   WireInit(false.B),  Some(RegFieldDesc("traffic", "The L1 to L2 traffic from the selected dsid")))),
       /* CP RW properties                   width            read-value             write-value       read-en            write-en            description    */
       (CP_HART_DSID   << 2) -> Seq(RWNotify(ldomDSidWidth,   io.cp.hartDsid,        io.cp.updateData, WireInit(false.B), io.cp.hartDsidWen,  Some(RegFieldDesc("dsid", "LvNA label for the selected hart")))),
-      (CP_HARD_SEL    << 2) -> Seq(RWNotify(32,              io.cp.hartSel,         io.cp.updateData, WireInit(false.B), io.cp.hartSelWen,   Some(RegFieldDesc("dsid-sel", "Hart index")))),
+      (CP_HART_SEL    << 2) -> Seq(RWNotify(32,              io.cp.hartSel,         io.cp.updateData, WireInit(false.B), io.cp.hartSelWen,   Some(RegFieldDesc("dsid-sel", "Hart index")))),
       (CP_MEM_BASE_LO << 2) -> Seq(RWNotify(32,              io.cp.memBase(31, 0),  io.cp.updateData, WireInit(false.B), io.cp.memBaseLoWen, Some(RegFieldDesc("mem-base lo", "Memory base for the current hart")))),
       (CP_MEM_BASE_HI << 2) -> Seq(RWNotify(32,              io.cp.memBase(63, 32), io.cp.updateData, WireInit(false.B), io.cp.memBaseHiWen, Some(RegFieldDesc("mem-base hi", "Memory base for the current hart")))),
       (CP_MEM_MASK_LO << 2) -> Seq(RWNotify(32,              io.cp.memMask(31, 0),  io.cp.updateData, WireInit(false.B), io.cp.memMaskLoWen, Some(RegFieldDesc("mem-mask lo", "Memory mask for the current hart")))),
