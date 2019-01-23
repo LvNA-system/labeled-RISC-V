@@ -724,9 +724,9 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (DMI_SBADDRESS1 << 2) -> sbAddrFields(1),
       (DMI_SBADDRESS2 << 2) -> sbAddrFields(2),
       (DMI_SBADDRESS3 << 2) -> sbAddrFields(3),
-      /* CP Read-only properties:             width               value           description                                                               */
-      (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32,                 UInt(nTiles),   RegFieldDesc("dsid-count", "The total number of dsid registers"))),
-      (CP_L2_CAPACITY << 2) -> Seq(RegField.r(cacheCapacityWidth, io.cp.capacity, RegFieldDesc("cache-capacity", "Current dsid's L2 cache capacity"))),
+      /* CP Read-only properties:             width               value               description                                                               */
+      (CP_DSID_COUNT  << 2) -> Seq(RegField.r(32,                 (1 << dsidWidth).U, RegFieldDesc("dsid-count", "The total number of dsid registers"))),
+      (CP_L2_CAPACITY << 2) -> Seq(RegField.r(cacheCapacityWidth, io.cp.capacity,     RegFieldDesc("cache-capacity", "Current dsid's L2 cache capacity"))),
       /* CP Read-only property with sepcial behavior                                                                                                        */
       (CP_TRAFFIC     << 2) -> Seq(RWNotify(32,              io.cp.traffic,         WireInit(0.U),    traffic_read_en,   WireInit(false.B),  Some(RegFieldDesc("traffic", "The L1 to L2 traffic from the selected dsid")))),
       /* CP RW properties                   width            read-value             write-value       read-en            write-en            description    */
