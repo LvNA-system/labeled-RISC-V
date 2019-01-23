@@ -48,3 +48,12 @@ class LvNAFPGATopAHB(implicit p: Parameters) extends ExampleRocketSystemAHB
 
 class LvNAFPGATopAHBModule[+L <: LvNAFPGATopAHB](_outer: L) extends ExampleRocketSystemModuleAHBImp(_outer)
 
+class LvNABoomFPGATopModule[+L <: LvNABoomFPGATop](_outer: L) extends ExampleBoomSystemModuleImp(_outer)
+  with HasControlPlaneBoomModuleImpl
+
+class LvNABoomFPGATop(implicit p: Parameters) extends ExampleBoomSystem
+    with HasBoomControlPlane
+{
+  override lazy val module = new LvNABoomFPGATopModule(this)
+}
+

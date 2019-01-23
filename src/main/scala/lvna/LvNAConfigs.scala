@@ -25,7 +25,7 @@ class LvNABoomConfigemu extends Config(
   new WithSmallBooms
     ++ new DefaultBoomConfig
     ++ new WithNBoomCores(1)
-    ++ new WithNL2CacheCapacity(256)
+    ++ new WithNL2CacheCapacity(0)
     ++ new WithEmu
     ++ new WithBoom
     ++ new WithRationalRocketTiles
@@ -34,6 +34,20 @@ class LvNABoomConfigemu extends Config(
     ++ new WithJtagDTM
     ++ new WithDebugSBA
     ++ new BaseConfig)
+
+class LvNABoomFPGAConfigzcu102 extends Config(
+  new WithSmallBooms
+  ++ new DefaultBoomConfig
+  ++ new WithNonblockingL1(8)
+  ++ new WithNL2CacheCapacity(0)
+  ++ new WithBoom
+  ++ new WithNBoomCores(1)
+  ++ new WithRationalRocketTiles
+  ++ new WithTimebase(BigInt(10000000)) // 10 MHz
+  ++ new WithExtMemSize(0x100000000L)
+  ++ new WithJtagDTM
+  ++ new WithDebugSBA
+  ++ new BaseFPGAConfig)
 
 
 // Rocket
