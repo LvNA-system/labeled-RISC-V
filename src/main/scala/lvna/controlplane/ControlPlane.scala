@@ -148,7 +148,7 @@ class ControlPlane()(implicit p: Parameters) extends LazyModule
       Mux(io.mem_part_en, (i * memSize / nTiles).U(memAddrWidth.W), 0.U(memAddrWidth.W))
     }))
     val memMasks  = RegInit(Vec(Seq.fill(nTiles)(~0.U(memAddrWidth.W))))
-    val waymasks  = RegInit(Vec(Seq.fill(nTiles){ ((1L << p(NL2CacheWays)) - 1).U }))
+    val waymasks  = RegInit(Vec(Seq.fill(1 << dsidWidth){ ((1L << p(NL2CacheWays)) - 1).U }))
     /**
       * Programmable hartid.
       */

@@ -320,7 +320,7 @@ object DMI_RegAddrs {
   def CP_HART_DSID = 0x41
 
   /* Access dsid selector */
-  def CP_HARD_SEL = 0x42
+  def CP_HART_SEL = 0x42
 
   /* Read total dsid count */
   def CP_DSID_COUNT = 0x43
