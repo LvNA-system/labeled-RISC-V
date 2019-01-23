@@ -26,13 +26,22 @@ RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .
 #--------------------------------------------------------------------
 
 BBL_REPO_PATH = $(SW_PATH)/riscv-pk
-BBL_BUILD_COMMIT = 91a6ac79c37f3ab1c9c63e35bf992a76a398e926
+
+# autoMBA:
+# BBL_BUILD_COMMIT = f0295b7f7ca1b301a248fb1e7e332be70983e2dc
+
+# BOOM
+BBL_BUILD_COMMIT = e4230fe249c91bd917899c483184afe19158b3f4
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
 
 BBL_PAYLOAD = $(LINUX_ELF)
-BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imac --enable-logo
+
+# autoMBA:
+# BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imac --enable-logo
+# BOOM:
+BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imafd --enable-logo
 
 BBL_ELF = $(build_dir)/bbl.elf
 BBL_BIN = $(build_dir)/linux.bin
@@ -42,7 +51,12 @@ BBL_BIN = $(build_dir)/linux.bin
 #--------------------------------------------------------------------
 
 LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
-LINUX_BUILD_COMMIT = 84e0e640810ed639865b8124cc6896d1324564f0
+
+# autoMBA:
+# LINUX_BUILD_COMMIT = a57318a489074cf5768e97de2b45eac47e474731
+
+# BOOM:
+LINUX_BUILD_COMMIT = 6704f026851c9f2f0484cc87cb7867b54ff42e3b
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
@@ -63,7 +77,7 @@ $(BBL_ELF): $(BBL_ELF_BUILD)
 
 $(BBL_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.7.141:pard/riscv_bbl.git $@
+	git clone git@10.30.16.1:pard/riscv_bbl.git $@
 
 $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 	mkdir -p $@
@@ -91,8 +105,8 @@ bbl-clean:
 $(LINUX_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
 	@/bin/echo -e "\033[1;31mBy default, a shallow clone with only 1 commit history is performed, since the commit history is very large.\nThis is enough for building the project.\nTo fetch full history, run 'git fetch --unshallow' under $(LINUX_REPO_PATH).\033[0m"
-	git clone --depth 1 https://github.com/LvNA-system/riscv-linux.git $@
-	cd $@ && make ARCH=riscv emu_defconfig
+	git clone --depth 1 https://github.com/shinezyy/riscv-linux.git $@
+	cd $@ && make ARCH=riscv emu_boomconfig
 
 $(ROOTFS_PATH): | $(SW_PATH)
 	mkdir -p $@

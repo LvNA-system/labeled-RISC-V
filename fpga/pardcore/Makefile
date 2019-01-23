@@ -16,7 +16,7 @@ generated_dir = $(build_dir)/generated-src
 
 MODEL ?= TestHarness
 BOARD ?= zcu102
-CONFIG = LvNAFPGAConfig$(BOARD)
+CONFIG ?= LvNAFPGAConfig$(BOARD)
 
 #--------------------------------------------------------------------
 # Rocket-chip verilog source generation
