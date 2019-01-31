@@ -302,16 +302,12 @@ with HasControlPlaneParameters
       val curr_state_reg = Reg(Bits(width = nWays))
       val set_dsids_reg = Reg(Vec(nWays, UInt(width = dsidWidth.W)))
 
-      val set_first_access_flag = RegInit(Vec(Seq.fill(nSets){ Bool(true) }))
-      val init_state = ((1 << nWays) - 1).U(nWays.W)
-
       when (state === s_tag_read_resp) {
         state := s_tag_read
         vb_rdata_reg := vb_rdata
         db_rdata_reg := db_rdata
         tag_rdata_reg := tag_rdata
-        curr_state_reg := Mux(set_first_access_flag(idx), init_state, curr_state)
-        set_first_access_flag(idx) := false.B
+        curr_state_reg := curr_state
         set_dsids_reg := set_dsids
       }
 
@@ -393,6 +389,7 @@ with HasControlPlaneParameters
         metadata.dirty := false.B
         metadata.tag := 0.U
         metadata.dsid := 0.U
+        metadata.rr_state := false.B
       }
 
 
