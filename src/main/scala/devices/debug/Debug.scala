@@ -750,6 +750,13 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_MIN_QUOTA       << 2) -> Seq(RWNotify(11,      io.cp.minQuota,           io.cp.updateData, WireInit(false.B), io.cp.minQuotaWen,       None)),
       (CP_QUOTA_STEP      << 2) -> Seq(RWNotify(11,      io.cp.quotaStep,          io.cp.updateData, WireInit(false.B), io.cp.quotaStepWen,      None)),
 
+      (CORE_PC_HI           << 2) -> Seq(RegField.r(32,        io.cp.PC(63, 32),   RegFieldDesc("pc-hi", "The high bits of PC"))),
+      (CORE_PC_LO           << 2) -> Seq(RegField.r(32,        io.cp.PC(31, 0),   RegFieldDesc("pc-lo", "The low bits of PC"))),
+
+      (CORE_PC_SNAP         << 2) -> Seq(RWNotify(1,      io.cp.autoPCSnapShotEn,   io.cp.updateData, WireInit(false.B), io.cp.autoPCSnapShotWen,      None)),
+      (CORE_PC_READ_DONE    << 2) -> Seq(RWNotify(1,      0.U,                      io.cp.updateData, WireInit(false.B), io.cp.doneReadPC,      None)),
+
+
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))
     )
 

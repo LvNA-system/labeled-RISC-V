@@ -6,7 +6,6 @@ import boom.system.BoomTilesKey
 import freechips.rocketchip.subsystem.RocketTilesKey
 import freechips.rocketchip.tile.XLen
 import freechips.rocketchip.util.GeneratorApp
-import freechips.rocketchip.system.UseBoom
 
 import scala.collection.mutable.LinkedHashSet
 

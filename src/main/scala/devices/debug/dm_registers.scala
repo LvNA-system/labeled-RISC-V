@@ -362,6 +362,15 @@ object DMI_RegAddrs {
   def CP_MIN_QUOTA = 0x54
 
   def CP_QUOTA_STEP = 0x55
+
+
+  def CORE_PC_HI    = 0x70
+
+  def CORE_PC_LO    = 0x71
+
+  def CORE_PC_SNAP  = 0x72
+
+  def CORE_PC_READ_DONE  = 0x73
 }
 
 class DMSTATUSFields extends Bundle {

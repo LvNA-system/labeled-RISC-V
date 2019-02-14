@@ -31,6 +31,7 @@ trait HasControlPlaneParameters {
  */
 class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters {
   private val indexWidth = 32
+
   val updateData   = UInt(INPUT, 32)
   val traffic      = UInt(OUTPUT, 32)
   val cycle        = UInt(OUTPUT, 32)
@@ -69,6 +70,12 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val minQuotaWen   = Bool(INPUT)
   val quotaStep     = UInt(OUTPUT, 8)
   val quotaStepWen  = Bool(INPUT)
+
+  val readPC              = Bool(INPUT)
+  val doneReadPC          = Bool(INPUT)
+  val autoPCSnapShotWen   = Bool(INPUT)
+  val autoPCSnapShotEn    = Bool(OUTPUT)
+  val PC                  = UInt(OUTPUT, p(XLen))
 }
 
 /* From ControlPlane's View */
@@ -145,6 +152,7 @@ with HasControlPlaneParameters
 with HasTokenBucketParameters
 {
   private val memAddrWidth = p(XLen)
+  private val instAddrWidth = p(XLen)
   private val totalBW = if (p(UseEmu)) 55*8 else 20*8
 
   override lazy val module = new LazyModuleImp(this) with HasTokenBucketPlane {
@@ -152,6 +160,7 @@ with HasTokenBucketParameters
       val hartDsids = Vec(nTiles, UInt(ldomDSidWidth.W)).asOutput
       val memBases  = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
       val memMasks  = Vec(nTiles, UInt(memAddrWidth.W)).asOutput
+      val pc        = Vec(nTiles, UInt(instAddrWidth.W)).asInput
       val l2        = new CPToL2CacheIO()
       val cp        = new ControlPlaneIO()
     })
@@ -421,6 +430,22 @@ with HasTokenBucketParameters
         }
       }
     }
+
+    //Boom debug
+
+    val snapshotPC = RegInit(0.asUInt(instAddrWidth.W))
+    val hasNewPCSnapshot = RegInit(false.B)
+    val autoSnapshot = RegEnable(io.cp.updateData =/= 0.U, true.B, io.cp.autoPCSnapShotWen)
+
+    when ((autoSnapshot || io.cp.readPC) && !hasNewPCSnapshot) {
+      snapshotPC := io.pc(hartSel)
+      hasNewPCSnapshot := true.B
+    }
+
+    when (io.cp.doneReadPC) {
+      hasNewPCSnapshot := false.B
+    }
+    io.cp.autoPCSnapShotEn := autoSnapshot
   }
 }
 
@@ -456,6 +481,7 @@ trait HasControlPlaneBoomModuleImpl extends HasBoomTilesModuleImp {
     tile.module.dsid := cpio.hartDsids(i.U)
     tile.module.memBase := cpio.memBases(i.U)
     tile.module.memMask := cpio.memMasks(i.U)
+    cpio.pc(i.U) := tile.module.pc
     token.module.bucketIO <> outer.controlPlane.module.bucketIO(i)
   }
 
