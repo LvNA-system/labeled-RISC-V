@@ -755,6 +755,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
 
       (CORE_PC_SNAP         << 2) -> Seq(RWNotify(1,      io.cp.autoPCSnapShotEn,   io.cp.updateData, WireInit(false.B), io.cp.autoPCSnapShotWen,      None)),
       (CORE_PC_READ_DONE    << 2) -> Seq(RWNotify(1,      0.U,                      io.cp.updateData, WireInit(false.B), io.cp.doneReadPC,      None)),
+      (CORE_PC_READ         << 2) -> Seq(RWNotify(1,      0.U,                      io.cp.updateData, WireInit(false.B), io.cp.readPC,      None)),
 
 
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))

@@ -446,6 +446,7 @@ with HasTokenBucketParameters
       hasNewPCSnapshot := false.B
     }
     io.cp.autoPCSnapShotEn := autoSnapshot
+    io.cp.PC := snapshotPC
   }
 }
 

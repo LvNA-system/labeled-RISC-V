@@ -371,6 +371,8 @@ object DMI_RegAddrs {
   def CORE_PC_SNAP  = 0x72
 
   def CORE_PC_READ_DONE  = 0x73
+
+  def CORE_PC_READ  = 0x74
 }
 
 class DMSTATUSFields extends Bundle {
