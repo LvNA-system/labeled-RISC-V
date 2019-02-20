@@ -1,4 +1,5 @@
-#define DRAM_BASE 0x100000000
+#define DRAM_BASE 0x80000000
+// #define DRAM_BASE 0x100000000
 
 .section .text.start, "ax", @progbits
 .globl _start
@@ -16,7 +17,7 @@ _hang:
   // csrwi 0x7c1, 0 // disable chicken bits
   csrr a0, mhartid
   la a1, _dtb
-  // csrwi mie, 0
+  csrwi mie, 0
 1:
   wfi
   j 1b

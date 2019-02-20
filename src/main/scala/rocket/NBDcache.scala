@@ -5,7 +5,7 @@ package freechips.rocketchip.rocket
 
 import Chisel._
 import Chisel.ImplicitConversions._
-import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.config.{MemInitAddr, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
@@ -772,7 +772,7 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
     s1_req := s2_req
     s1_req.probing := Bool(false)
   }
-  val isMMIO = dtlb.io.resp.paddr < 0x100000000L.U  // TODO Query memory bse from parameters.
+  val isMMIO = dtlb.io.resp.paddr < p(MemInitAddr).U  // TODO Query memory bse from parameters.
   val mappedAddr = (dtlb.io.resp.paddr & memMask) | memBase
   val s1_addr = Mux(isMMIO || s1_req.probing, dtlb.io.resp.paddr, mappedAddr)
   if (DEBUG_DCACHE) {

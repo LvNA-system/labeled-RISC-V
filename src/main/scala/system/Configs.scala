@@ -4,7 +4,7 @@
 package freechips.rocketchip.system
 
 import Chisel._
-import freechips.rocketchip.config.Config
+import freechips.rocketchip.config.{Config, LvNADirtyConfig}
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.debug.{IncludeJtagDTM, JtagDTMKey}
 import freechips.rocketchip.diplomacy._
@@ -19,7 +19,19 @@ class BaseConfig extends Config(
   new WithTimebase(BigInt(1000000)) ++ // 1 MHz
   new WithDTS("freechips,rocketchip-unknown", Nil) ++
   new WithNExtTopInterrupts(2) ++
-  new BaseSubsystemConfig()
+  new BaseSubsystemConfig() ++
+  new LvNADirtyConfig()
+)
+
+class BaseBoomConfig extends Config(
+  new WithDefaultMemPort() ++
+  new WithDefaultMMIOPort() ++
+  new WithDefaultSlavePort() ++
+  new WithTimebase(BigInt(1000000)) ++ // 1 MHz
+  new WithDTS("ict,boom-unknown", Nil) ++
+  new WithNExtTopInterrupts(2) ++
+  new BaseSubsystemConfig() ++
+  new LvNADirtyConfig()
 )
 
 class DefaultConfig extends Config(new WithNBigCores(1) ++ new BaseConfig)
@@ -83,6 +95,7 @@ class WithRTCPeriod(nCycles: Int) extends Config((site, here, up) => {
 })
 
 class BaseFPGAConfig extends Config(new BaseConfig)
+class BaseBoomFPGAConfig extends Config(new BaseBoomConfig)
 
 class DefaultFPGAConfig extends Config(new WithNSmallCores(1) ++ new BaseFPGAConfig)
 class DefaultFPGASmallConfig extends Config(new DefaultFPGAConfig)

@@ -2,9 +2,10 @@
 
 package freechips.rocketchip.system
 
-import boom.common.{DefaultBoomConfig, WithSmallBooms, WithoutBoomFPU}
+import boom.common.{DefaultBoomConfig, WithSmallBooms}
 import boom.system.WithNBoomCores
 import freechips.rocketchip.config.{Config, Field}
+import freechips.rocketchip.devices.tilelink.WithRocketTests
 import freechips.rocketchip.subsystem._
 
 case object UseEmu extends Field[Boolean](false)
@@ -20,7 +21,7 @@ class WithBoom extends Config ((site, here, up) => {
 })
 
 // Boom
-class LvNABoomConfigemu extends Config(
+class LvNABoomLinuxConfig extends Config(
 //  new WithoutBoomFPU
   new WithSmallBooms
     ++ new DefaultBoomConfig
@@ -33,6 +34,37 @@ class LvNABoomConfigemu extends Config(
     ++ new WithNoMMIOPort
     ++ new WithJtagDTM
     ++ new WithDebugSBA
+    ++ new BaseBoomConfig)
+
+class LvNABoomTestConfig extends Config(
+//  new WithoutBoomFPU
+  new WithSmallBooms
+    ++ new DefaultBoomConfig
+    ++ new WithNBoomCores(1)
+    ++ new WithNL2CacheCapacity(0)
+    ++ new WithEmu
+    ++ new WithBoom
+    ++ new WithRationalRocketTiles
+    //    ++ new WithJtagDTM : // remove JtagDTM for rocket tests
+    ++ new WithExtMemBase(0x80000000L) // for rocket tests
+    ++ new WithExtMemSize(0x1000000L) // 4MB
+    ++ new WithNoMMIOPort
+    ++ new WithDebugSBA
+    ++ new WithRocketTests
+    ++ new BaseBoomConfig)
+
+class LvNARocketTestConfig extends Config(
+  new WithoutFPU
+    ++ new WithNBigCores(1)
+    ++ new WithNonblockingL1(8)
+    ++ new WithNL2CacheCapacity(0)
+    ++ new WithNoMMIOPort
+    ++ new WithEmu
+    ++ new WithRationalRocketTiles
+    //    ++ new WithJtagDTM : // remove JtagDTM for rocket tests
+    ++ new WithExtMemBase(0x80000000L) // for rocket tests
+    ++ new WithExtMemSize(0x8000000L) // 32MB
+    ++ new WithRocketTests
     ++ new BaseConfig)
 
 class LvNABoomFPGAConfigzcu102 extends Config(
@@ -47,7 +79,7 @@ class LvNABoomFPGAConfigzcu102 extends Config(
   ++ new WithExtMemSize(0x100000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
-  ++ new BaseFPGAConfig)
+  ++ new BaseBoomFPGAConfig)
 
 
 // Rocket
@@ -79,7 +111,7 @@ class LvNAFPGAConfigzcu102 extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
   ++ new WithNL2CacheCapacity(0)
-  ++ new WithNBigCores(4)
+  ++ new WithNBigCores(1)
   ++ new WithRationalRocketTiles
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
   ++ new WithExtMemSize(0x100000000L)

@@ -122,7 +122,9 @@ $(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) $(ROOTFS_PATH)
 	$(MAKE) -C $(ROOTFS_PATH)
 	cd $(@D) && \
 		git checkout $(LINUX_BUILD_COMMIT) && \
-		(($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
+		(($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv fpgaboom_defconfig ) && \
+		($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv vmlinux ) \
+		|| (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 linux-clean:

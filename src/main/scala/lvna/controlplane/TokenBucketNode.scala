@@ -21,7 +21,7 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   // require(bundleIn.size == 1, s"[TokenBucket] Only expect one link for a hart, current link count is ${bundleIn.size}")
   val (in, out) = (bundleIn zip bundleOut).head
 
-  val phy = in.a.bits.address < 0x100000000L.U
+  val phy = in.a.bits.address < p(MemInitAddr).U
 
   bucketIO.dsid := in.a.bits.dsid
   bucketIO.fire := out.a.ready && out.a.valid && !phy

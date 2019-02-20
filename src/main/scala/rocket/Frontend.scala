@@ -150,7 +150,7 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
   icache.io.req.valid := s0_valid
   icache.io.req.bits.addr := io.cpu.npc
   icache.io.invalidate := io.cpu.flush_icache
-  val isMMIO = tlb.io.resp.paddr < 0x100000000L.U
+  val isMMIO = tlb.io.resp.paddr < p(MemInitAddr).U
   val mappedAddr = (tlb.io.resp.paddr & io.memMask) | io.memBase
   icache.io.s1_paddr := Mux(isMMIO, tlb.io.resp.paddr, mappedAddr)
   icache.io.s2_vaddr := s2_pc
