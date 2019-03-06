@@ -12,6 +12,7 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.util._
+import ila.{BoomCSRILABundle, FPGATraceBaseBundle, FPGATraceExtraBundle}
 import lvna.HasControlPlaneParameters
 
 case class RocketTileParams(
@@ -191,6 +192,14 @@ class RocketTileModuleImp(outer: RocketTile) extends BaseTileModuleImp(outer)
   // TODO figure out how to move the below into their respective mix-ins
   dcacheArb.io.requestor <> dcachePorts
   ptw.io.requestor <> ptwPorts
+
+  val ila = IO(new BoomCSRILABundle())
+  ila := core.io.csr_ila
+
+  val fpga_trace = IO(new FPGATraceBaseBundle(1))
+  val fpga_trace_ex = IO(new FPGATraceExtraBundle())
+  fpga_trace := core.io.fpga_trace
+  fpga_trace_ex := core.io.fpga_trace_ex
 }
 
 trait HasFpuOpt { this: RocketTileModuleImp =>

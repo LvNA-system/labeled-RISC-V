@@ -10,3 +10,14 @@ ControlPlanes.v
 src/main/scala/.idea/
 src/main/scala/build.sbt
 src/main/scala/project/
+
+.idea/
+boom-ether.err
+bootrom/bootrom.txt
+emulator/boom-failed.md
+emulator/log.txt
+emulator/serial6*
+fpga/.Xil/
+fpga/bbl.elf.txt
+fpga/vivado_*.str
+fpga/vmlinux.txt

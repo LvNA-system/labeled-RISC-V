@@ -3,11 +3,10 @@
 package freechips.rocketchip.tile
 
 import Chisel._
-
 import freechips.rocketchip.config._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.util._
-import util._
+import ila.{BoomCSRILABundle, FPGATraceBaseBundle, FPGATraceExtraBundle, ILABundle}
 import lvna.HasControlPlaneParameters
 
 case object XLen extends Field[Int]
@@ -97,6 +96,7 @@ class CoreInterrupts(implicit p: Parameters) extends TileInterrupts()(p) {
   val buserror = coreParams.tileControlAddr.map(a => Bool())
 }
 
+
 trait HasCoreIO extends HasTileParameters with HasControlPlaneParameters {
   implicit val p: Parameters
   val io = new CoreBundle()(p) with HasExternallyDrivenTileConstants {
@@ -112,5 +112,10 @@ trait HasCoreIO extends HasTileParameters with HasControlPlaneParameters {
     val ila = new ILABundle()
     val prefetch_enable = Bool(OUTPUT)
     val trace = Vec(coreParams.retireWidth, new TracedInstruction).asOutput
+
+//    val core_debug = new CoreDebugIO()
+    val csr_ila = new BoomCSRILABundle()
+    val fpga_trace = new FPGATraceBaseBundle(1)
+    val fpga_trace_ex = new FPGATraceExtraBundle()
   }
 }

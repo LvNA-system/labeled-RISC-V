@@ -12,6 +12,7 @@ import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.interrupts._
 import freechips.rocketchip.util._
+import ila.{BoomCSRILABundle, FPGATraceBaseBundle, FPGATraceExtraBundle}
 import lvna.TokenBucketNode
 
 // TODO: how specific are these to RocketTiles?
@@ -79,4 +80,13 @@ class RocketSubsystemModuleImp[+L <: RocketSubsystem](_outer: L) extends BaseSub
     wire.hartid := UInt(i)
     wire.reset_vector := global_reset_vector
   }
+
+  // head: single core only
+  val ila = IO(new BoomCSRILABundle())
+  ila := _outer.tiles.head.module.ila
+
+  val fpga_trace = IO(new FPGATraceBaseBundle(1))
+  val fpga_trace_ex = IO(new FPGATraceExtraBundle())
+  fpga_trace := _outer.tiles.head.module.fpga_trace
+  fpga_trace_ex := _outer.tiles.head.module.fpga_trace_ex
 }

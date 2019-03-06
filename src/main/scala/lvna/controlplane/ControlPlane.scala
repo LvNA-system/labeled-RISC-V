@@ -76,6 +76,8 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val autoPCSnapShotWen   = Bool(INPUT)
   val autoPCSnapShotEn    = Bool(OUTPUT)
   val PC                  = UInt(OUTPUT, p(XLen))
+
+  val assertDebugInt      = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -249,9 +251,7 @@ with HasTokenBucketParameters
     when (GTimer() >= cycleCounter) {
       for (i <- 0 until nTiles) {
         // 输出每段时间内，产生了多少流量，用于精细观察流量控制策略
-        // printf("Traffic time: %d dsid: %d traffic: %d\n", cycleCounter, i.U, io.traffics(i) - lastTraffic(i))
         // 输出到了每个时间点后的CDF，用于看整体的流量曲线，观察流量控制效果
-        printf("Traffic time: %d dsid: %d traffic: %d\n", cycleCounter, i.U, bucketState(i).traffic)
         lastTraffic(i) := bucketState(i).traffic
       }
       cycleCounter := cycleCounter + accountingCycle.U
@@ -325,9 +325,6 @@ with HasTokenBucketParameters
 
         val bandwidthUsage = ((bucketState(highPriorIndex).traffic - startTraffic) << 3).asUInt()
         startTraffic := bucketState(highPriorIndex).traffic
-        printf("limit level: %d;quota: %d/%d; traffic: %d\n", curLevel, quota, totalBW.U, bandwidthUsage)
-        printf("freq 0: %d; freq 1: %d\n", bucketParams(0).freq, bucketParams(1).freq)
-        printf("inc 0: %d; inc 1: %d\n", bucketParams(0).inc , bucketParams(1).inc)
 
         val nextLevel = Wire(UInt(4.W))
         val nextQuota = Wire(UInt(8.W))
@@ -353,7 +350,6 @@ with HasTokenBucketParameters
         curLevel := nextLevel
         quota := nextQuota
 
-        printf("next level: %d;next quota: %d\n", nextLevel, nextQuota)
       }
       when (windowCounter < windowSize.U) {
         windowCounter := windowCounter + 1.U

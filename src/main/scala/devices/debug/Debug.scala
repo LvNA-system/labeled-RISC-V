@@ -3,8 +3,10 @@
 package freechips.rocketchip.devices.debug
 
 import Chisel._
-import chisel3.core.WireInit
+import boom.common._
+import chisel3.core.{VecInit, WireInit}
 import freechips.rocketchip.config._
+import freechips.rocketchip.debug.DebugCSRIntIO
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.regmapper._
 import freechips.rocketchip.rocket.Instructions
@@ -13,8 +15,10 @@ import freechips.rocketchip.interrupts._
 import freechips.rocketchip.util._
 import freechips.rocketchip.util.property._
 import freechips.rocketchip.devices.debug.systembusaccess._
-import freechips.rocketchip.subsystem.NL2CacheWays
+import freechips.rocketchip.subsystem.{NL2CacheWays, NTiles}
+import freechips.rocketchip.system.UseEmu
 import freechips.rocketchip.tile.XLen
+import ila.BoomCSRILABundle
 import lvna.{ControlPlaneIO, HasControlPlaneParameters}
 
 object DsbBusConsts {
@@ -411,6 +415,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       val innerCtrl = (new DecoupledIO(new DebugInternalBundle())).flip
       val debugUnavail = Vec(nComponents, Bool()).asInput
       val cp = new ControlPlaneIO().flip()
+      val zid = Vec(p(NTiles), new DebugCSRIntIO().flip())
     })
 
 
@@ -502,7 +507,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
         haveResetBitRegs(io.innerCtrl.bits.hartsel) := false.B
       }
     }
- 
+
     DMSTATUSRdData.allresumeack := ~resumeReqRegs(selectedHartReg) && ~resumereq
     DMSTATUSRdData.anyresumeack := ~resumeReqRegs(selectedHartReg) && ~resumereq
 
@@ -686,6 +691,41 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       }
     }
 
+    val periodic_debug_int = WireInit(false.B)
+
+    val ocd_debut_int = WireInit(false.B)
+
+    val debug_interrupt_en = ocd_debut_int | periodic_debug_int
+
+    when (debug_interrupt_en) {
+      dprintf(DEBUG_ETHER, "debug enabled!\n")
+    }
+
+    //counter
+    val debug_int_counter_local = Counter(debug_interrupt_en, 1<<16)
+
+    if (p(UseEmu) && DEBUG_ETHER) {
+      val ztimer = GTimer()
+
+//      val start = 0.U
+      val start = 34603008.U
+      val period_small = ((1 << 20) - 1).U
+
+      when ((ztimer & period_small) === 0.U) {
+        dprintf(DEBUG_ETHER, "small periodic timer triggered @ %d!\n", ztimer)
+        when (ztimer >= start) {
+          periodic_debug_int := true.B
+          dprintf(DEBUG_ETHER, "local counter = %d, remote counter = %d\n",
+            debug_int_counter_local._1, io.zid(io.cp.hartSel).ndmiInterrupts)
+        }
+      }
+    }
+
+    // send to core
+    io.zid.zipWithIndex.foreach { case (zidio, i) =>
+      zidio.dmiInterrupt := debug_interrupt_en && io.cp.hartSel === i.U
+    }
+
     val (sbcsFields, sbAddrFields, sbDataFields):
     (Seq[RegField], Seq[Seq[RegField]], Seq[Seq[RegField]]) = sb2tlOpt.map{ sb2tl =>
       SystemBusAccessModule(sb2tl,io.dmactive)(p)
@@ -757,6 +797,13 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CORE_PC_READ_DONE    << 2) -> Seq(RWNotify(1,      0.U,                      io.cp.updateData, WireInit(false.B), io.cp.doneReadPC,      None)),
       (CORE_PC_READ         << 2) -> Seq(RWNotify(1,      0.U,                      io.cp.updateData, WireInit(false.B), io.cp.readPC,      None)),
 
+      (CORE_INT_DEBUG       << 2) -> Seq(RWNotify(1,      0.U,                      io.cp.updateData, WireInit(false.B), ocd_debut_int,   None)),
+      (CORE_N_INT_DEBUG     << 2) -> Seq(RegField.r(16,   io.zid(io.cp.hartSel).ndmiInterrupts,   RegFieldDesc("num-debug-interrupts", "times that debug interrrupt has being triggered"))),
+      (CORE_N_INT_DEBUG_LOCAL     << 2) -> Seq(RegField.r(16,   debug_int_counter_local._1,   RegFieldDesc("num-debug-interrupts-local", "times that debug interrrupt has being triggered"))),
+      (CORE_CSR_INT_VALID       << 2) -> Seq(RegField.r(1,   io.zid(io.cp.hartSel).csrOutInt,   RegFieldDesc("eipOutstanding", "eipOutstanding"))),
+
+      (CORE_CSR_PENDING_INT_HI     << 2) -> Seq(RegField.r(32,   io.zid(io.cp.hartSel).reg_mip(63, 32),   RegFieldDesc("1", "1"))),
+      (CORE_CSR_PENDING_INT_LO     << 2) -> Seq(RegField.r(32,   io.zid(io.cp.hartSel).reg_mip(31, 0),   RegFieldDesc("1", "1"))),
 
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))
     )
@@ -767,6 +814,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
         x := abstractDataNxt(i)
       }
     }
+
     // ... and also by custom register read (if implemented)
     val (customs, customParams) = customNode.in.unzip
     val needCustom = (customs.size > 0) && (customParams.head.addrs.size > 0)
@@ -1116,12 +1164,17 @@ class TLDebugModuleInnerAsync(device: Device, getNComponents: () => Int, beatByt
       val debugUnavail    = Vec(getNComponents(), Bool()).asInput
       val psd = new PSDTestMode().asInput
       val cp = new ControlPlaneIO().flip()
+      val zid = Vec(p(NTiles), new DebugCSRIntIO().flip())
     })
 
     dmInner.module.io.cp <> io.cp
     dmInner.module.io.innerCtrl := FromAsyncBundle(io.innerCtrl)
     dmInner.module.io.dmactive := ~ResetCatchAndSync(clock, ~io.dmactive, "dmactiveSync", io.psd)
     dmInner.module.io.debugUnavail := io.debugUnavail
+
+    dmInner.module.io.zid <> io.zid
+
+//    dprintf(DEBUG_ETHER, dmInner.module.io.zid(0).dmiInterrupt, "DMI int for core 0 triggered\n")
   }
 }
 
@@ -1152,6 +1205,7 @@ class TLDebugModule(beatBytes: Int)(implicit p: Parameters) extends LazyModule {
       val dmi = new ClockedDMIIO().flip
       val psd = new PSDTestMode().asInput
       val cp = new ControlPlaneIO().flip()
+      val zid = Vec(p(NTiles), new DebugCSRIntIO().flip())
     })
 
     dmInner.module.io.cp <> io.cp
@@ -1167,5 +1221,7 @@ class TLDebugModule(beatBytes: Int)(implicit p: Parameters) extends LazyModule {
 
     io.ctrl <> dmOuter.module.io.ctrl
 
+    dmInner.module.io.zid <> io.zid
+//    dprintf(DEBUG_ETHER, dmInner.module.io.zid(0).dmiInterrupt, "DMI int for core 0 triggered\n")
   }
 }

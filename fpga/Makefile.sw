@@ -5,6 +5,10 @@ endif
 
 build_dir = $(realpath ./build)
 SW_PATH = $(abspath ../../sw)
+# SW_PATH = $(HOME)/build-dir/boom-sw
+
+
+config_prefix ?= notset
 
 $(SW_PATH):
 	@echo "Do you want to put all software repos under $(SW_PATH) (You can modify 'SW_PATH' in Makefile.sw)? [y/n]"
@@ -31,7 +35,7 @@ BBL_REPO_PATH = $(SW_PATH)/riscv-pk
 # BBL_BUILD_COMMIT = f0295b7f7ca1b301a248fb1e7e332be70983e2dc
 
 # BOOM
-BBL_BUILD_COMMIT = e4230fe249c91bd917899c483184afe19158b3f4
+BBL_BUILD_COMMIT = 8cab179810e71c4361d30631da9bc3967522828f
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
@@ -41,7 +45,9 @@ BBL_PAYLOAD = $(LINUX_ELF)
 # autoMBA:
 # BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imac --enable-logo
 # BOOM:
-BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imafd --enable-logo
+# BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imafd --enable-logo
+# Both:
+BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64ima --enable-logo
 
 BBL_ELF = $(build_dir)/bbl.elf
 BBL_BIN = $(build_dir)/linux.bin
@@ -56,7 +62,7 @@ LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
 # LINUX_BUILD_COMMIT = a57318a489074cf5768e97de2b45eac47e474731
 
 # BOOM:
-LINUX_BUILD_COMMIT = 6704f026851c9f2f0484cc87cb7867b54ff42e3b
+LINUX_BUILD_COMMIT = adc341d40a7fc4f6c9e4139d7c451b1068576556
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
@@ -77,7 +83,7 @@ $(BBL_ELF): $(BBL_ELF_BUILD)
 
 $(BBL_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
-	git clone git@10.30.16.1:pard/riscv_bbl.git $@
+	git clone https://github.com/shinezyy/riscv-pk.git $@
 
 $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 	mkdir -p $@
@@ -106,7 +112,7 @@ $(LINUX_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
 	@/bin/echo -e "\033[1;31mBy default, a shallow clone with only 1 commit history is performed, since the commit history is very large.\nThis is enough for building the project.\nTo fetch full history, run 'git fetch --unshallow' under $(LINUX_REPO_PATH).\033[0m"
 	git clone --depth 1 https://github.com/shinezyy/riscv-linux.git $@
-	cd $@ && make ARCH=riscv emu_boomconfig
+	cd $@ && make ARCH=riscv $(config_prefix)boom_config
 
 $(ROOTFS_PATH): | $(SW_PATH)
 	mkdir -p $@
@@ -122,7 +128,7 @@ $(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) $(ROOTFS_PATH)
 	$(MAKE) -C $(ROOTFS_PATH)
 	cd $(@D) && \
 		git checkout $(LINUX_BUILD_COMMIT) && \
-		(($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv fpgaboom_defconfig ) && \
+		(($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv $(config_prefix)boom_defconfig ) && \
 		($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv vmlinux ) \
 		|| (git checkout @{-1}; false)) && \
 		git checkout @{-1}

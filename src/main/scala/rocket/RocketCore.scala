@@ -865,6 +865,33 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   }
   }
 
+  io.fpga_trace.traces.zipWithIndex.foreach { case(trace, w) =>
+
+    val rd = wb_waddr
+    val wfd = wb_ctrl.wfd
+    val wxd = wb_ctrl.wxd
+    val has_data = wb_wen && !wb_set_sboard
+
+    trace.valid := t.valid && !t.exception
+
+    val priv = t.priv
+    trace.commPriv := priv
+
+    trace.commPC := t.iaddr
+    trace.commInst := t.insn
+
+    trace.isFloat := wfd
+    trace.wbValueValid := rd =/= UInt(0) && has_data
+    trace.wbARFN := rd
+    trace.wbValue := rf_wdata
+  }
+  io.fpga_trace_ex.delayedWbValid := ll_wen && rf_waddr =/= UInt(0)
+  io.fpga_trace_ex.wbARFN := rf_waddr
+  io.fpga_trace_ex.wbValue := rf_wdata
+
+
+
+
   PlusArg.timeout(
     name = "max_core_cycles",
     docstring = "Kill the emulation after INT rdtime cycles. Off if 0."

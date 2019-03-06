@@ -5,6 +5,8 @@ package freechips.rocketchip.tilelink
 import Chisel._
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
+import boom.common._
+import freechips.rocketchip.util.GTimer
 
 // Trades off slave port proximity against routing resource cost
 object ForceFanout
@@ -66,6 +68,23 @@ class TLXbar(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parame
 
     val (io_in, edgesIn) = node.in.unzip
     val (io_out, edgesOut) = node.out.unzip
+
+    if (io_in.nonEmpty) {
+      when(io_in.map(_.a.fire()).reduce(_ || _)) {
+        dprintf(DEBUG_ETHER1, "cycle %d: xbar size %d\n", GTimer(), io_in.size.U)
+        io_in.zipWithIndex.foreach { case (in, i) =>
+          dprintf(DEBUG_ETHER1, "in a [%d] fire: %b, from: %d, addr: 0x%x\n",
+            i.U, in.a.fire(), in.a.bits.source, in.a.bits.address)
+        }
+      }
+      when(io_in.map(_.d.fire()).reduce(_ || _)) {
+        dprintf(DEBUG_ETHER1, "cycle %d: xbar size %d\n", GTimer(), io_in.size.U)
+        io_in.zipWithIndex.foreach { case (in, i) =>
+          dprintf(DEBUG_ETHER1, "in d [%d] fire: %b, denied: %b, corrupt: %b, resp to: %d\n",
+            i.U, in.d.fire(), in.d.bits.denied, in.d.bits.corrupt, in.d.bits.source)
+        }
+      }
+    }
 
     // Grab the port ID mapping
     val inputIdRanges = TLXbar.mapInputIds(edgesIn.map(_.client))

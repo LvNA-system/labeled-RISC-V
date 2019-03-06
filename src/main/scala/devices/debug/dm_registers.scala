@@ -373,6 +373,19 @@ object DMI_RegAddrs {
   def CORE_PC_READ_DONE  = 0x73
 
   def CORE_PC_READ  = 0x74
+
+  def CORE_INT_DEBUG = 0x75
+
+  def CORE_N_INT_DEBUG = 0x76
+
+  def CORE_N_INT_DEBUG_LOCAL = 0x77
+
+  def CORE_CSR_INT_VALID = 0x78
+
+  def CORE_CSR_PENDING_INT_LO = 0x79
+
+  def CORE_CSR_PENDING_INT_HI = 0x7a
+
 }
 
 class DMSTATUSFields extends Bundle {
