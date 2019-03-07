@@ -2,7 +2,7 @@
 
 package freechips.rocketchip.system
 
-import boom.common.{DefaultBoomConfig, WithSmallBooms}
+import boom.common.{DefaultBoomConfig, WithRVC, WithSmallBooms}
 import boom.system.WithNBoomCores
 import freechips.rocketchip.config.{Config, Field}
 import freechips.rocketchip.devices.tilelink.WithRocketTests
@@ -22,8 +22,8 @@ class WithBoom extends Config ((site, here, up) => {
 
 // Boom
 class LvNABoomLinuxConfig extends Config(
-//  new WithoutBoomFPU
-  new WithSmallBooms
+  new WithRVC
+    ++ new WithSmallBooms
     ++ new DefaultBoomConfig
     ++ new WithNBoomCores(1)
     ++ new WithNL2CacheCapacity(0)
@@ -37,8 +37,8 @@ class LvNABoomLinuxConfig extends Config(
     ++ new BaseBoomConfig)
 
 class LvNABoomTestConfig extends Config(
-//  new WithoutBoomFPU
-  new WithSmallBooms
+  new WithRVC
+    ++ new WithSmallBooms
     ++ new DefaultBoomConfig
     ++ new WithNBoomCores(1)
     ++ new WithNL2CacheCapacity(0)
@@ -68,9 +68,9 @@ class LvNARocketTestConfig extends Config(
     ++ new BaseConfig)
 
 class LvNABoomFPGAConfigzcu102 extends Config(
-  new WithSmallBooms
+  new WithRVC
+  ++ new WithSmallBooms
   ++ new DefaultBoomConfig
-  ++ new WithNonblockingL1(8)
   ++ new WithNL2CacheCapacity(0)
   ++ new WithBoom
   ++ new WithNBoomCores(1)
@@ -80,7 +80,6 @@ class LvNABoomFPGAConfigzcu102 extends Config(
   ++ new WithJtagDTM
   ++ new WithDebugSBA
   ++ new BaseBoomFPGAConfig)
-
 
 // Rocket
 class LvNAConfigemu extends Config(
