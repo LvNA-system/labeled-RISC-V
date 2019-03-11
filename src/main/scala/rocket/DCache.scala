@@ -200,7 +200,7 @@ class DCacheModule(outer: DCache) extends HellaCacheModule(outer) {
 
   val isMMIO = tlb.io.resp.paddr < 0x100000000L.U
   val mappedAddr = (tlb.io.resp.paddr & memMask) | memBase
-  val s1_paddr = Mux(isMMIO, tlb.io.resp.paddr, mappedAddr)
+  val s1_paddr = Mux(isMMIO || s1_probe, tlb.io.resp.paddr, mappedAddr)
   val s1_victim_way = Wire(init = replacer.way)
   val (s1_hit_way, s1_hit_state, s1_meta, s1_victim_meta) =
     if (usingDataScratchpad) {
