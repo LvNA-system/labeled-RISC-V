@@ -42,7 +42,7 @@ class BaseSubsystemConfig extends Config ((site, here, up) => {
 class WithNBigCores(n: Int) extends Config((site, here, up) => {
   case RocketTilesKey => {
     val big = RocketTileParams(
-      core   = RocketCoreParams(mulDiv = Some(MulDivParams(
+      core   = RocketCoreParams(nPerfCounters = 8, mulDiv = Some(MulDivParams(
         mulUnroll = 8,
         mulEarlyOut = true,
         divEarlyOut = true))),
