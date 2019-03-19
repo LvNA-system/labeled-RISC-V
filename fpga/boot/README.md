@@ -8,7 +8,7 @@ Refer to www.wiki.xilinx.com/Fetch+Sources for more information.
 This step is only needed for zynqmp. If your target board is zynq, skip this step.
 
 ```
-git clone --depth 1 https://github.com/xilinx/arm-trusted-firmware
+git clone --depth 1 -b xilinx-v2017.4 https://github.com/xilinx/arm-trusted-firmware
 cd arm-trusted-firmware
 make PLAT=zynqmp RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf-
 mkdir -p path-to-labeled-RISC-V/fpga/boot/build/zynqmp
@@ -77,7 +77,7 @@ Vivado -> File -> Export -> Export Hardware
 ```
 * set the correct path of device tree repo
 ```
-git clone --depth 1 https://github.com/xilinx/device-tree-xlnx
+git clone --depth 1 -b xilinx-v2017.4 https://github.com/xilinx/device-tree-xlnx
 # modify the `device_tree_repo_path` variable in `mk.tcl` to the repo just cloned
 ```
 * generate BOOT.BIN and device tree source
@@ -151,7 +151,7 @@ path-to-labeled-RISC-V/fpga/boot/build/myproject-your-target-board/dts $ cat top
     ranges;
 
     mem_reserved: buffer@100000000 {
-      reg = <0x10000008 0x10000000>;
+      reg = <0x10000000 0x10000000>;
     };
 	};
 };
