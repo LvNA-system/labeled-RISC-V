@@ -1056,6 +1056,7 @@ class NonBlockingDCacheModule(outer: NonBlockingDCache) extends HellaCacheModule
   io.cpu.resp.bits.data_raw := s2_data_word
   io.cpu.ordered := mshrs.io.fence_rdy && !s1_valid && !s2_valid
   io.cpu.replay_next := (s1_replay && s1_read) || mshrs.io.replay_next
+  io.cpu.s2_primary_miss := s2_valid_masked && !s2_hit && (isRead(s2_req.cmd) || isWrite(s2_req.cmd))
 
   if (DEBUG_DCACHE) {
     when (io.cpu.resp.valid) {

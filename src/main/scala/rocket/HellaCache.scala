@@ -161,6 +161,7 @@ class HellaCacheIO(implicit p: Parameters) extends CoreBundle()(p) {
   val s1_kill = Bool(OUTPUT) // kill previous cycle's req
   val s1_data = new HellaCacheWriteData().asOutput // data for previous cycle's req
   val s2_nack = Bool(INPUT) // req from two cycles ago is rejected
+
   val s2_nack_cause_raw = Bool(INPUT) // reason for nack is store-load RAW hazard (performance hint)
   val s2_kill = Bool(OUTPUT) // kill req from two cycles ago
 
@@ -172,6 +173,9 @@ class HellaCacheIO(implicit p: Parameters) extends CoreBundle()(p) {
 
   val keep_clock_enabled = Bool(OUTPUT) // should D$ avoid clock-gating itself?
   val clock_enabled = Bool(INPUT) // is D$ currently being clocked?
+
+  // for prefetecher
+  val s2_primary_miss = Bool(INPUT) // req from two cycles ago is rejected
 }
 
 /** Base classes for Diplomatic TL2 HellaCaches */

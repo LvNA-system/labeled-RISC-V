@@ -740,6 +740,7 @@ class DCacheModule(outer: DCache) extends HellaCacheModule(outer) {
   io.cpu.resp.bits.data_word_bypass := loadgen.wordData
   io.cpu.resp.bits.data_raw := s2_data_word
   io.cpu.resp.bits.store_data := pstore1_data
+  io.cpu.s2_primary_miss := s2_valid_masked && !s2_hit && (isRead(s2_req.cmd) || isWrite(s2_req.cmd))
   if (DEBUG_DCACHE) {
     when (io.cpu.resp.valid) {
       printf("Responsing data: 0x%x, reponsing data_word_bypass: 0x%x\n", io.cpu.resp.bits.data, io.cpu.resp.bits.data_word_bypass)

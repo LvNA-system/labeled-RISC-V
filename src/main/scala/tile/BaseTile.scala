@@ -3,6 +3,7 @@
 package freechips.rocketchip.tile
 
 import Chisel._
+import boom.lsu.pref.UsePrefetcher
 import freechips.rocketchip.config._
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.diplomacy._
@@ -81,11 +82,11 @@ trait HasTileParameters {
   // TODO make HellaCacheIO diplomatic and remove this brittle collection of hacks
 
   //                  Core   PTW                DTIM                    coprocessors  prefetcher
-//  def dcacheArbPorts = 1 + usingVM.toInt + usingDataScratchpad.toInt + p(BuildRoCC).size + 1
+  def dcacheArbPorts = 1 + usingVM.toInt + usingDataScratchpad.toInt + p(BuildRoCC).size + p(UsePrefetcher).toInt
 //  println(s"core: 1, PTW (${usingVM.toInt}) + DTIM (${usingDataScratchpad.toInt}) + coproc (${p(BuildRoCC).size}) + pref 1")
 
   //                  Core   PTW                DTIM                    coprocessors
-  def dcacheArbPorts = 1 + usingVM.toInt + usingDataScratchpad.toInt + p(BuildRoCC).size
+//  def dcacheArbPorts = 1 + usingVM.toInt + usingDataScratchpad.toInt + p(BuildRoCC).size
 //  println(s"core: 1, PTW (${usingVM.toInt}) + DTIM (${usingDataScratchpad.toInt}) + coproc (${p(BuildRoCC).size})")
 
   // TODO merge with isaString in CSR.scala
