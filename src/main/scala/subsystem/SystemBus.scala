@@ -8,6 +8,7 @@ import freechips.rocketchip.devices.tilelink.{DevNullParams, TLError, TLZero}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
+import lvna.TokenBucketNode
 
 case class SystemBusParams(
   beatBytes: Int,
@@ -66,10 +67,15 @@ class SystemBus(params: SystemBusParams)(implicit p: Parameters)
   }
 
   def fromTile
-      (name: Option[String], buffer: BufferParams = BufferParams.none, cork: Option[Boolean] = None)
+      (name: Option[String], buffer: BufferParams = BufferParams.none, cork: Option[Boolean] = None, token: Option[TokenBucketNode] = None)
       (gen: => TLOutwardNode): NoHandle = {
     from("tile" named name) {
-      master_splitter.node :=* TLBuffer(buffer) :=* TLFIFOFixer(TLFIFOFixer.allUncacheable) :=* gen
+      if (token.isDefined) {
+        master_splitter.node := token.get.node :=* TLBuffer(buffer) :=* TLFIFOFixer(TLFIFOFixer.allUncacheable) :=* gen
+      }
+      else {
+        master_splitter.node :=* TLBuffer(buffer) :=* TLFIFOFixer(TLFIFOFixer.allUncacheable) :=* gen
+      }
     }
   }
 }

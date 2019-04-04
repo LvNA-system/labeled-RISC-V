@@ -45,7 +45,7 @@ trait HasTiles { this: BaseSubsystem =>
   }
 
   protected def connectMasterPortsToSBus(tile: BaseTile, crossing: RocketCrossingParams, tokenBucket: TokenBucketNode)(implicit valName: ValName) {
-    sbus.fromTile(tile.tileParams.name, crossing.master.buffers) {
+    sbus.fromTile(tile.tileParams.name, crossing.master.buffers, None, Some(tokenBucket)) {
         crossing.master.cork
           .map { u => TLCacheCork(unsafe = u) }
           .map { _ :=* tile.crossMasterPort(tokenBucket) }
