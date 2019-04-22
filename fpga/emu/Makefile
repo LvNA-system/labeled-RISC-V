@@ -5,6 +5,8 @@ build_dir = $(fpga_dir)/build
 generated_dir = $(build_dir)/generated-src
 
 CONFIG ?= LvNAConfigemu
+NUMA_CONFIG ?=
+SEED ?=
 
 -include $(base_dir)/Makefrag
 
@@ -17,6 +19,8 @@ emu = $(build_dir)/emu
 emu_bin_file = $(build_dir)/linux.bin
 emu_gen_script = gen_bin.sh
 emu_bin_hex_file = $(build_dir)/bin.txt
+# max_cycles = 40000000
+max_cycles = 2209069
 
 $(emu): $(original_emu)
 	ln -sf $< $@
@@ -36,7 +40,7 @@ DEBUG_ARGS = +jtag_rbb_enable=1 -r 4040
 endif
 
 run-emu: $(emu) $(emu_bin_hex_file)
-	cd $(dir $(emu)) && $< $(DEBUG_ARGS) +verbose -m 50000000 . 3>&1 1>&2 2>&3 \
+	cd $(dir $(emu)) && time $< $(DEBUG_ARGS) $(SEED) +verbose -m $(max_cycles) . 3>&1 1>&2 2>&3 \
 		| spike-dasm > $(dir $(emu))/emu.log
 
 remote_host = dnode13
@@ -54,7 +58,7 @@ session_name: $(ssn)
 
 windows:
 
-- layout: main-vertical
+- layout: tiled
 
   shell_command_before:
 
@@ -62,21 +66,24 @@ windows:
 
   panes:
 
-    - focus: 'true'
+    - shell_command:
+
+      - htop
 
     - shell_command:
 
-      - docker run --name emu-$(ssn) --rm -it \
-        -v /home/zyy-work/projects/emu-run/:/home/ygbao/lvna/ \
-        shinezyy/ubuntu-18.04:emu \
+      - time docker run $(NUMA_CONFIG) --name emu-$(ssn) --rm -it \
+        -v $(remote_dir):$(docker_map_dir) $(docker_image)\
         /bin/bash -c "export LD_LIBRARY_PATH=\`pwd\`; \
-        ./$(ssn).emu +verbose -m 50000000 . 3>&1 1>&2 2>&3 | ./spike-dasm > $(ssn).log"
+        ./$(ssn).emu +verbose -m $(max_cycles) $(SEED) . 3>&1 1>&2 2>&3 | ./spike-dasm > $(ssn).log"
 
     - shell_command:
 
       - sleep 1
 
-      - echo "tail -f $(ssn).log"
+      - ail -f $(ssn).log
+
+      focus: 'true'
 
     - shell_command:
 
@@ -86,7 +93,13 @@ windows:
 
   window_name: work
 
+  focus: 'true'
+
 - window_name: avoid-prev-not-found
+
+  shell_command_before:
+
+    - cd $(remote_dir)
 
   panes:
 
@@ -96,11 +109,12 @@ endef
 
 remote-run: $(original_emu) $(emu_bin_hex_file)
 	echo -e '$(subst $(newline),\n,${s})' > $(ssn).yml
-	# ssh -t $(remote_host) "mkdir -p $(remote_dir)"
+	ssh -t $(remote_host) "mkdir -p $(remote_dir)"
+	rsync -uvz ./emu-run-backup/* $(remote_host):$(remote_dir)
+	rsync -uvz $(emu_bin_hex_file) $(remote_host):$(remote_dir)
 	scp $(original_emu) $(remote_host):$(remote_dir)$(ssn).emu
-	rsync $(emu_bin_hex_file) $(remote_host):$(remote_dir)
 	scp $(ssn).yml $(remote_host):/tmp
-	ssh -t $(remote_host) "~/.local/bin/tmuxp load -d /tmp/$(ssn).yml"
+	ssh -t $(remote_host) "tmuxp load -d /tmp/$(ssn).yml"
 	rm $(ssn).yml
 	# ssh -t $(remote_host) rm /tmp/$(ssn).yml
 

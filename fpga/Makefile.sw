@@ -47,7 +47,7 @@ BBL_PAYLOAD = $(LINUX_ELF)
 # BOOM:
 # BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imafd --enable-logo
 # Both:
-BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64ima --enable-logo
+BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imac
 
 BBL_ELF = $(build_dir)/bbl.elf
 BBL_BIN = $(build_dir)/linux.bin
@@ -62,7 +62,7 @@ LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
 # LINUX_BUILD_COMMIT = a57318a489074cf5768e97de2b45eac47e474731
 
 # BOOM:
-LINUX_BUILD_COMMIT = adc341d40a7fc4f6c9e4139d7c451b1068576556
+LINUX_BUILD_COMMIT = 88bea57926029dc6eb8287d5d3b0d24af8a71a13
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux

@@ -7,6 +7,7 @@ import boom.system.WithNBoomCores
 import freechips.rocketchip.config.{Config, Field}
 import freechips.rocketchip.devices.tilelink.WithRocketTests
 import freechips.rocketchip.subsystem._
+import boom.lsu.pref.WithPrefetcher
 
 case object UseEmu extends Field[Boolean](false)
 
@@ -22,6 +23,8 @@ class WithBoom extends Config ((site, here, up) => {
 
 // Boom
 class LvNABoomLinuxConfig extends Config(
+//  new WithPrefetcher ++
+  new WithBoomNBL1(4) ++
   new WithRVC
     ++ new WithSmallBooms
     ++ new DefaultBoomConfig
@@ -37,6 +40,8 @@ class LvNABoomLinuxConfig extends Config(
     ++ new BaseBoomConfig)
 
 class LvNABoomTestConfig extends Config(
+  new WithPrefetcher ++
+  new WithBoomNBL1(4) ++
   new WithRVC
     ++ new WithSmallBooms
     ++ new DefaultBoomConfig
@@ -68,6 +73,8 @@ class LvNARocketTestConfig extends Config(
     ++ new BaseConfig)
 
 class LvNABoomFPGAConfigzcu102 extends Config(
+  new WithPrefetcher ++
+  new WithBoomNBL1(4) ++
   new WithRVC
   ++ new WithSmallBooms
   ++ new DefaultBoomConfig

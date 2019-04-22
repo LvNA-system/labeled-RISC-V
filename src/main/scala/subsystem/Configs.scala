@@ -205,6 +205,13 @@ class WithNonblockingL1(nMSHRs: Int) extends Config((site, here, up) => {
   }
 })
 
+class WithBoomNBL1(nMSHRs: Int) extends Config((site, here, up) => {
+  case BoomTilesKey => up(BoomTilesKey, site) map { r =>
+    r.copy(dcache = r.dcache.map(_.copy(dataECC = None, dataECCBytes = 1, nMSHRs = nMSHRs)))
+  }
+})
+
+
 class WithNBreakpoints(hwbp: Int) extends Config ((site, here, up) => {
   case RocketTilesKey => up(RocketTilesKey, site) map { r =>
     r.copy(core = r.core.copy(nBreakpoints = hwbp))

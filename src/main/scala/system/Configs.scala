@@ -4,7 +4,6 @@
 package freechips.rocketchip.system
 
 import Chisel._
-import boom.lsu.pref.WithPrefetcher
 import freechips.rocketchip.config.{Config, LvNADirtyConfig}
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.devices.debug.{IncludeJtagDTM, JtagDTMKey}
@@ -25,7 +24,6 @@ class BaseConfig extends Config(
 )
 
 class BaseBoomConfig extends Config(
-  new WithPrefetcher() ++
   new WithDefaultMemPort() ++
   new WithDefaultMMIOPort() ++
   new WithDefaultSlavePort() ++
