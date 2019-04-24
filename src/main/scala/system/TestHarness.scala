@@ -3,6 +3,7 @@
 package freechips.rocketchip.system
 
 import Chisel._
+import chisel3.core.DontCare
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.devices.debug.Debug
 import freechips.rocketchip.diplomacy.LazyModule
@@ -20,13 +21,15 @@ class BoomTestHarness()(implicit p: Parameters) extends Module {
   // Weird compilation failure...
   // val dut = Module(LazyModule(if (p(UseEmu)) new LvNAEmuTop else new LvNAFPGATop).module)
   val dut = if (p(UseEmu)) Module(LazyModule(new LvNABoomEmuTop).module) else Module(LazyModule(new LvNABoomFPGATop).module)
-  dut.reset := reset | dut.debug.ndreset
+  dut.reset := reset.toBool | dut.debug.ndreset
 
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
   dut.connectSimAXIMem()
   dut.connectSimAXIMMIO()
-  Debug.connectDebug(dut.debug, clock, reset, io.success)
+  dut.l2_frontend_bus_axi4.foreach( q => q := DontCare ) // Overridden in next line
+
+  Debug.connectDebug(dut.debug, clock, reset.toBool, io.success)
 
   val enableFrontBusTraffic = false
   val frontBusAccessAddr = 0x10000fc00L

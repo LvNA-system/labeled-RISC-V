@@ -171,7 +171,7 @@ with HasTokenBucketParameters
     val hartDsids = RegInit(Vec(Seq.tabulate(nTiles)(_.U(ldomDSidWidth.W))))
     val memBases  = RegInit(Vec(Seq.tabulate(nTiles){ i =>
       if (p(UseEmu)) {
-        val memSize: BigInt = p(ExtMem).map { m => m.size }.getOrElse(0x80000000)
+        val memSize: BigInt = p(ExtMem).map { m => m.master.size }.getOrElse(0x80000000)
         (i * memSize / nTiles).U(memAddrWidth.W)
       } else {
         0.U(memAddrWidth.W)

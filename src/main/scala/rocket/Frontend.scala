@@ -45,6 +45,7 @@ class FrontendPerfEvents extends Bundle {
 
 class FrontendIO(implicit p: Parameters) extends CoreBundle()(p) {
   val might_request = Bool(OUTPUT)
+  val clock_enabled = Bool(INPUT)
   val req = Valid(new FrontendReq)
   val sfence = Valid(new SFenceReq)
   val resp = Decoupled(new FrontendResp).flip
@@ -85,6 +86,7 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
 
   val clock_en_reg = Reg(Bool())
   val clock_en = clock_en_reg || io.cpu.might_request
+  io.cpu.clock_enabled := clock_en
   assert(!(io.cpu.req.valid || io.cpu.sfence.valid || io.cpu.flush_icache || io.cpu.bht_update.valid || io.cpu.btb_update.valid) || io.cpu.might_request)
   val gated_clock =
     if (!rocketParams.clockGate) clock
@@ -96,11 +98,16 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
 
   val tlb = Module(new TLB(true, log2Ceil(fetchBytes), TLBConfig(nTLBEntries)))
 
-  val s0_valid = io.cpu.req.valid || !fq.io.mask(fq.io.mask.getWidth-3)
-  val s1_valid = RegNext(s0_valid)
+  val s1_valid = Reg(Bool())
+  val s2_valid = RegInit(false.B)
+  val s0_fq_has_space =
+    !fq.io.mask(fq.io.mask.getWidth-3) ||
+    (!fq.io.mask(fq.io.mask.getWidth-2) && (!s1_valid || !s2_valid)) ||
+    (!fq.io.mask(fq.io.mask.getWidth-1) && (!s1_valid && !s2_valid))
+  val s0_valid = io.cpu.req.valid || s0_fq_has_space
+  s1_valid := s0_valid
   val s1_pc = Reg(UInt(width=vaddrBitsExtended))
   val s1_speculative = Reg(Bool())
-  val s2_valid = RegInit(false.B)
   val s2_pc = RegInit(t = UInt(width = vaddrBitsExtended), alignPC(io.reset_vector))
   val s2_btb_resp_valid = if (usingBTB) Reg(Bool()) else false.B
   val s2_btb_resp_bits = Reg(new BTBResp)
@@ -325,7 +332,8 @@ class FrontendModule(outer: Frontend) extends LazyModuleImp(outer)
   io.errors := icache.io.errors
 
   // gate the clock
-  clock_en_reg := io.cpu.might_request || // chicken bit
+  clock_en_reg := !rocketParams.clockGate ||
+    io.cpu.might_request || // chicken bit
     icache.io.keep_clock_enabled || // I$ miss or ITIM access
     s1_valid || s2_valid || // some fetch in flight
     !tlb.io.req.ready || // handling TLB miss

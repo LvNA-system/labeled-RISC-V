@@ -3,7 +3,6 @@
 package freechips.rocketchip.subsystem
 
 import Chisel._
-import freechips.rocketchip.amba.ahb._
 import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
@@ -21,154 +20,47 @@ case class MasterPortParams(
 
 /** Specifies the width of external slave ports */
 case class SlavePortParams(beatBytes: Int, idBits: Int, sourceBits: Int)
+case class MemoryPortParams(master: MasterPortParams, nMemoryChannels: Int)
 
-case object ExtMem extends Field[Option[MasterPortParams]](None)
+case object ExtMem extends Field[Option[MemoryPortParams]](None)
 case object ExtBus extends Field[Option[MasterPortParams]](None)
 case object ExtIn extends Field[Option[SlavePortParams]](None)
 
 ///// The following traits add ports to the sytem, in some cases converting to different interconnect standards
 
-/** Adds a port to the system intended to master an AHB DRAM controller. */
-trait CanHaveMasterAHBMemPort { this: BaseSubsystem =>
-  val module: CanHaveMasterAHBMemPortModuleImp
-  val nMemoryChannels: Int
-  private val memPortParamsOpt = p(ExtMem)
-  private val portName = "ahb"
-  private val device = new MemoryDevice
-
-  require(nMemoryChannels == 0 || memPortParamsOpt.isDefined,
-    s"Cannot have $nMemoryChannels with no memory port!")
-
-  val memAHBNode = AHBSlaveNode(Seq.tabulate(nMemoryChannels) { channel =>
-    val params = memPortParamsOpt.get
-    val base = AddressSet(params.base, params.size-1)
-    val filter = AddressSet(channel * cacheBlockBytes, ~((nMemoryChannels-1) * cacheBlockBytes))
-
-    AHBSlavePortParameters(
-      slaves = Seq(AHBSlaveParameters(
-        address       = base.intersect(filter).toList,
-        resources     = device.reg,
-        regionType    = RegionType.UNCACHED, // cacheable
-        executable    = true,
-        supportsWrite = TransferSizes(1, cacheBlockBytes),
-        supportsRead  = TransferSizes(1, cacheBlockBytes))),
-      beatBytes = params.beatBytes)
-  })
-
-  memPortParamsOpt.foreach { params =>
-    memBuses.map { m =>
-      memAHBNode := m.toDRAMController(Some(portName)) {
-        TLToAHB()  // TODO [WHZ] Is this enough?
-      }
-    }
-  }
-}
-
-/** Actually generates the corresponding IO in the concrete Module */
-trait CanHaveMasterAHBMemPortModuleImp extends LazyModuleImp {
-  val outer: CanHaveMasterAHBMemPort
-
-  val mem_ahb = IO(HeterogeneousBag.fromNode(outer.memAHBNode.in))
-  (mem_ahb zip outer.memAHBNode.in).foreach { case (io, (bundle, _)) => io <> bundle }
-}
-
-/** Adds a AHB port to the system intended to master an MMIO device bus */
-trait CanHaveMasterAHBMMIOPort { this: BaseSubsystem =>
-  private val mmioPortParamsOpt = p(ExtBus)
-  private val portName = "mmio_port_ahb"
-  private val device = new SimpleBus(portName.kebab, Nil)
-
-  val mmioAHBNode = AHBSlaveNode(
-    mmioPortParamsOpt.map(params =>
-      AHBSlavePortParameters(
-        slaves = Seq(AHBSlaveParameters(
-          address       = AddressSet.misaligned(params.base, params.size),
-          resources     = device.ranges,
-          executable    = params.executable,
-          supportsWrite = TransferSizes(1, params.beatBytes * AHBParameters.maxTransfer),
-          supportsRead  = TransferSizes(1, params.beatBytes * AHBParameters.maxTransfer))),
-        beatBytes = params.beatBytes)).toSeq)
-
-  mmioPortParamsOpt.map { params =>
-    mmioAHBNode := sbus.toFixedWidthPort(Some(portName)) {
-      TLToAHB() := TLFragmenter(params.beatBytes, params.beatBytes * AHBParameters.maxTransfer)
-    }
-  }
-}
-
-/** Actually generates the corresponding IO in the concrete Module */
-trait CanHaveMasterAHBMMIOPortModuleImp extends LazyModuleImp {
-  val outer: CanHaveMasterAHBMMIOPort
-  val mmio_ahb = IO(HeterogeneousBag.fromNode(outer.mmioAHBNode.in))
-
-  (mmio_ahb zip outer.mmioAHBNode.in) foreach { case (io, (bundle, _)) => io <> bundle }
-}
-
-/** Adds an AHB port to the system intended to be a slave on an MMIO device bus */
-trait CanHaveSlaveAHBPort { this: BaseSubsystem =>
-  private val slavePortParamsOpt = p(ExtIn)
-  private val portName = "slave_port_ahb"
-  private val fifoBits = 1
-
-  val l2FrontendAHBNode = AHBMasterNode(
-    slavePortParamsOpt.map(params =>
-      AHBMasterPortParameters(
-        masters = Seq(AHBMasterParameters(
-          name = portName.kebab,
-          nodePath = Seq()/* TODO [WHZ] Can we ignore this field? */)))).toSeq)
-
-  slavePortParamsOpt.map { params =>
-    fbus.fromPort(Some(portName), buffer = BufferParams.default) {
-      (TLWidthWidget(params.beatBytes)
-        := AHBToTL())
-    } := l2FrontendAHBNode
-  }
-}
-
-/** Actually generates the corresponding IO in the concrete Module */
-trait CanHaveSlaveAHBPortModuleImp extends LazyModuleImp {
-  val outer: CanHaveSlaveAHBPort
-  val l2_frontend_bus_ahb = IO(HeterogeneousBag.fromNode(outer.l2FrontendAHBNode.out).flip)
-  (outer.l2FrontendAHBNode.out zip l2_frontend_bus_ahb) foreach { case ((bundle, _), io) => bundle <> io }
-}
-
 /** Adds a port to the system intended to master an AXI4 DRAM controller. */
 trait CanHaveMasterAXI4MemPort { this: BaseSubsystem =>
   val module: CanHaveMasterAXI4MemPortModuleImp
-  val nMemoryChannels: Int
-  private val memPortParamsOpt = p(ExtMem)
-  private val portName = "axi4"
-  private val device = new MemoryDevice
-
-  require(nMemoryChannels == 0 || memPortParamsOpt.isDefined,
-    s"Cannot have $nMemoryChannels with no memory port!")
-
-  val memAXI4Node = AXI4SlaveNode(Seq.tabulate(nMemoryChannels) { channel =>
-    val params = memPortParamsOpt.get
-    val base = AddressSet(params.base, params.size-1)
-    val filter = AddressSet(channel * cacheBlockBytes, ~((nMemoryChannels-1) * cacheBlockBytes))
-
-    AXI4SlavePortParameters(
-      slaves = Seq(AXI4SlaveParameters(
-        address       = base.intersect(filter).toList,
-        resources     = device.reg,
-        regionType    = RegionType.UNCACHED, // cacheable
-        executable    = true,
-        supportsWrite = TransferSizes(1, cacheBlockBytes),
-        supportsRead  = TransferSizes(1, cacheBlockBytes),
-        interleavedId = Some(0))), // slave does not interleave read responses
-      beatBytes = params.beatBytes)
-  })
 
   val l2cache: TLSimpleL2Cache = if (p(NL2CacheCapacity) != 0) TLSimpleL2CacheRef() else null
   private val l2node = if (p(NL2CacheCapacity) != 0) l2cache.node else TLSimpleL2Cache()
 
-  memPortParamsOpt.foreach { params =>
-    memBuses.map { m =>
-       memAXI4Node := m.toDRAMController(Some(portName)) {
-        (AXI4Dumper() := AXI4UserYanker() := AXI4IdIndexer(params.idBits) := AXI4AmpDelayer(0.99999, 1000) := TLToAXI4())
-      }
+  val memAXI4Node = p(ExtMem).map { case MemoryPortParams(memPortParams, nMemoryChannels) =>
+    val portName = "axi4"
+    val device = new MemoryDevice
+
+    val memAXI4Node = AXI4SlaveNode(Seq.tabulate(nMemoryChannels) { channel =>
+      val base = AddressSet.misaligned(memPortParams.base, memPortParams.size)
+      val filter = AddressSet(channel * mbus.blockBytes, ~((nMemoryChannels-1) * mbus.blockBytes))
+
+      AXI4SlavePortParameters(
+        slaves = Seq(AXI4SlaveParameters(
+          address       = base.flatMap(_.intersect(filter)),
+          resources     = device.reg,
+          regionType    = RegionType.UNCACHED, // cacheable
+          executable    = true,
+          supportsWrite = TransferSizes(1, mbus.blockBytes),
+          supportsRead  = TransferSizes(1, mbus.blockBytes),
+          interleavedId = Some(0))), // slave does not interleave read responses
+        beatBytes = memPortParams.beatBytes)
+    })
+
+
+    memAXI4Node := mbus.toDRAMController(Some(portName)) {
+      AXI4UserYanker() := AXI4IdIndexer(memPortParams.idBits) := TLToAXI4() := l2node
     }
+
+    memAXI4Node
   }
 }
 
@@ -176,22 +68,17 @@ trait CanHaveMasterAXI4MemPort { this: BaseSubsystem =>
 trait CanHaveMasterAXI4MemPortModuleImp extends LazyModuleImp {
   val outer: CanHaveMasterAXI4MemPort
 
-  val mem_axi4 = IO(HeterogeneousBag.fromNode(outer.memAXI4Node.in))
-  (mem_axi4 zip outer.memAXI4Node.in).foreach { case (io, (bundle, _)) => io <> bundle }
+  val mem_axi4 = outer.memAXI4Node.map(x => IO(HeterogeneousBag.fromNode(x.in)))
+  (mem_axi4 zip outer.memAXI4Node) foreach { case (io, node) =>
+    (io zip node.in).foreach { case (io, (bundle, _)) => io <> bundle }
+  }
 
   def connectSimAXIMem() {
-    (mem_axi4 zip outer.memAXI4Node.in).foreach { case (io, (_, edge)) =>
-      val mem = LazyModule(new SimAXIMem(edge, size = p(ExtMem).get.size))
-      // constrain memory bandwidth 
-      val (counterValue, counterWrap) = Counter(true.B, 4)
-      val mem_io = Module(mem.module).io.axi4.head
-      mem_io <> io
-      /*
-      mem_io.ar.valid := io.ar.valid && counterWrap
-      mem_io.aw.valid := io.aw.valid && counterWrap
-      io.ar.ready := mem_io.ar.ready && counterWrap
-      io.aw.ready := mem_io.aw.ready && counterWrap
-      */
+    (mem_axi4 zip outer.memAXI4Node).foreach { case (io, node) =>
+      (io zip node.in).foreach { case (io, (_, edge)) =>
+        val mem = LazyModule(new SimAXIMem(edge, size = p(ExtMem).get.master.size))
+        Module(mem.module).io.axi4.head <> io
+      }
     }
   }
 }
@@ -233,6 +120,7 @@ trait CanHaveMasterAXI4MMIOPortModuleImp extends LazyModuleImp {
 
   def connectSimAXIMMIO() {
     (mmio_axi4 zip outer.mmioAXI4Node.in) foreach { case (io, (_, edge)) =>
+      // test harness size capped to 4KB (ignoring p(ExtMem).get.master.size)
       val mmio_mem = LazyModule(new SimAXIMem(edge, size = 4096))
       Module(mmio_mem.module).io.axi4.head <> io
     }
@@ -336,7 +224,7 @@ class SimAXIMem(edge: AXI4EdgeParameters, size: BigInt)(implicit p: Parameters) 
   val node = AXI4MasterNode(List(edge.master))
 
   val sram = LazyModule(new AXI4RAM(AddressSet(0, size-1), beatBytes = edge.bundle.dataBits/8))
-  sram.node := AXI4Buffer() := AXI4Fragmenter() := AXI4Delayer(0, 150) := node
+  sram.node := AXI4Buffer() := AXI4Fragmenter() := node
 
   lazy val module = new LazyModuleImp(this) {
     val io = IO(new Bundle { val axi4 = HeterogeneousBag.fromNode(node.out).flip })

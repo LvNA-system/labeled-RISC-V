@@ -95,7 +95,7 @@ class TLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge: T
     def entry_data = data.map(_.asTypeOf(new EntryData))
 
     private def sectorIdx(vpn: UInt) = vpn.extract(nSectors.log2-1, 0)
-    def getData(vpn: UInt) = data(sectorIdx(vpn)).asTypeOf(new EntryData)
+    def getData(vpn: UInt) = OptimizationBarrier(data(sectorIdx(vpn)).asTypeOf(new EntryData))
     def sectorHit(vpn: UInt) = valid.orR && sectorTagMatch(vpn)
     def sectorTagMatch(vpn: UInt) = ((tag ^ vpn) >> nSectors.log2) === 0
     def hit(vpn: UInt) = {
@@ -252,9 +252,9 @@ class TLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge: T
   val r_array = Cat(true.B, priv_rw_ok & (entries.map(_.sr).asUInt | Mux(io.ptw.status.mxr, entries.map(_.sx).asUInt, UInt(0))))
   val w_array = Cat(true.B, priv_rw_ok & entries.map(_.sw).asUInt)
   val x_array = Cat(true.B, priv_x_ok & entries.map(_.sx).asUInt)
-  val pr_array = Cat(Fill(nPhysicalEntries, prot_r), normal_entries.map(_.pr).asUInt) | ptw_ae_array
-  val pw_array = Cat(Fill(nPhysicalEntries, prot_w), normal_entries.map(_.pw).asUInt) | ptw_ae_array
-  val px_array = Cat(Fill(nPhysicalEntries, prot_x), normal_entries.map(_.px).asUInt) | ptw_ae_array
+  val pr_array = Cat(Fill(nPhysicalEntries, prot_r), normal_entries.map(_.pr).asUInt) & ~ptw_ae_array
+  val pw_array = Cat(Fill(nPhysicalEntries, prot_w), normal_entries.map(_.pw).asUInt) & ~ptw_ae_array
+  val px_array = Cat(Fill(nPhysicalEntries, prot_x), normal_entries.map(_.px).asUInt) & ~ptw_ae_array
   val paa_array = Cat(Fill(nPhysicalEntries, prot_aa), normal_entries.map(_.paa).asUInt)
   val pal_array = Cat(Fill(nPhysicalEntries, prot_al), normal_entries.map(_.pal).asUInt)
   val eff_array = Cat(Fill(nPhysicalEntries, prot_eff), normal_entries.map(_.eff).asUInt)
@@ -266,19 +266,27 @@ class TLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge: T
     (if (vpnBits == vpnBitsExtended) Bool(false)
      else (io.req.bits.vaddr.asSInt < 0.S) =/= (vpn.asSInt < 0.S))
 
+  val cmd_lrsc = Bool(usingAtomics) && io.req.bits.cmd.isOneOf(M_XLR, M_XSC)
+  val cmd_amo_logical = Bool(usingAtomics) && isAMOLogical(io.req.bits.cmd)
+  val cmd_amo_arithmetic = Bool(usingAtomics) && isAMOArithmetic(io.req.bits.cmd)
+  val cmd_read = isRead(io.req.bits.cmd)
+  val cmd_write = isWrite(io.req.bits.cmd)
+  val cmd_write_perms = cmd_write ||
+    Bool(coreParams.haveCFlush) && io.req.bits.cmd === M_FLUSH_ALL // not a write, but needs write permissions
+
   val lrscAllowed = Mux(Bool(usingDataScratchpad || usingAtomicsOnlyForIO), 0.U, c_array)
   val ae_array =
     Mux(misaligned, eff_array, 0.U) |
-    Mux(Bool(usingAtomics) && io.req.bits.cmd.isOneOf(M_XLR, M_XSC), ~lrscAllowed, 0.U)
-  val ae_ld_array = Mux(isRead(io.req.bits.cmd), ae_array | ~pr_array, 0.U)
+    Mux(cmd_lrsc, ~lrscAllowed, 0.U)
+  val ae_ld_array = Mux(cmd_read, ae_array | ~pr_array, 0.U)
   val ae_st_array =
-    Mux(isWrite(io.req.bits.cmd), ae_array | ~pw_array, 0.U) |
-    Mux(Bool(usingAtomics) && isAMOLogical(io.req.bits.cmd), ~pal_array, 0.U) |
-    Mux(Bool(usingAtomics) && isAMOArithmetic(io.req.bits.cmd), ~paa_array, 0.U)
-  val ma_ld_array = Mux(misaligned && isRead(io.req.bits.cmd), ~eff_array, 0.U)
-  val ma_st_array = Mux(misaligned && isWrite(io.req.bits.cmd), ~eff_array, 0.U)
-  val pf_ld_array = Mux(isRead(io.req.bits.cmd), ~(r_array | ptw_ae_array), 0.U)
-  val pf_st_array = Mux(isWrite(io.req.bits.cmd), ~(w_array | ptw_ae_array), 0.U)
+    Mux(cmd_write_perms, ae_array | ~pw_array, 0.U) |
+    Mux(cmd_amo_logical, ~pal_array, 0.U) |
+    Mux(cmd_amo_arithmetic, ~paa_array, 0.U)
+  val ma_ld_array = Mux(misaligned && cmd_read, ~eff_array, 0.U)
+  val ma_st_array = Mux(misaligned && cmd_write, ~eff_array, 0.U)
+  val pf_ld_array = Mux(cmd_read, ~(r_array | ptw_ae_array), 0.U)
+  val pf_st_array = Mux(cmd_write_perms, ~(w_array | ptw_ae_array), 0.U)
   val pf_inst_array = ~(x_array | ptw_ae_array)
 
   val tlb_hit = real_hits.orR
@@ -299,8 +307,8 @@ class TLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge: T
   val multipleHits = PopCountAtLeast(real_hits, 2)
 
   io.req.ready := state === s_ready
-  io.resp.pf.ld := (bad_va && isRead(io.req.bits.cmd)) || (pf_ld_array & hits).orR
-  io.resp.pf.st := (bad_va && isWrite(io.req.bits.cmd)) || (pf_st_array & hits).orR
+  io.resp.pf.ld := (bad_va && cmd_read) || (pf_ld_array & hits).orR
+  io.resp.pf.st := (bad_va && cmd_write_perms) || (pf_st_array & hits).orR
   io.resp.pf.inst := bad_va || (pf_inst_array & hits).orR
   io.resp.ae.ld := (ae_ld_array & hits).orR
   io.resp.ae.st := (ae_st_array & hits).orR

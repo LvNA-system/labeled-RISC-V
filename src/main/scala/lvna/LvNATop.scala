@@ -44,9 +44,9 @@ class LvNAFPGATopModule[+L <: LvNAFPGATop](_outer: L) extends ExampleRocketSyste
     with HasControlPlaneModuleImpl
     with BindL2WayMaskModuleImp
 
-class LvNAFPGATopAHB(implicit p: Parameters) extends ExampleRocketSystemAHB
-
-class LvNAFPGATopAHBModule[+L <: LvNAFPGATopAHB](_outer: L) extends ExampleRocketSystemModuleAHBImp(_outer)
+//class LvNAFPGATopAHB(implicit p: Parameters) extends ExampleRocketSystemAHB
+//
+//class LvNAFPGATopAHBModule[+L <: LvNAFPGATopAHB](_outer: L) extends ExampleRocketSystemModuleAHBImp(_outer)
 
 class LvNABoomFPGATopModule[+L <: LvNABoomFPGATop](_outer: L) extends ExampleBoomSystemModuleImp(_outer)
   with HasControlPlaneBoomModuleImpl

@@ -28,6 +28,7 @@ case class RocketCoreParams(
   nPMPs: Int = 8,
   nPerfCounters: Int = 0,
   haveBasicCounters: Boolean = true,
+  haveCFlush: Boolean = false,
   misaWritable: Boolean = true,
   nL2TLBEntries: Int = 0,
   mtvecInit: Option[BigInt] = Some(BigInt(0)),
@@ -35,12 +36,12 @@ case class RocketCoreParams(
   fastLoadWord: Boolean = true,
   fastLoadByte: Boolean = false,
   branchPredictionModeCSR: Boolean = false,
-  tileControlAddr: Option[BigInt] = None,
   clockGate: Boolean = false,
   mvendorid: Int = 0, // 0 means non-commercial implementation
   mulDiv: Option[MulDivParams] = Some(MulDivParams()),
   fpu: Option[FPUParams] = Some(FPUParams())
 ) extends CoreParams {
+  val lgPauseCycles = 5
   val haveFSDirty = false
   val pmpGranularity: Int = 4
   val fetchWidth: Int = if (useCompressed) 2 else 1
@@ -89,12 +90,13 @@ class RocketCustomCSRs(implicit p: Parameters) extends CustomCSRs with HasRocket
 }
 
 @chiselName
-class Rocket(implicit p: Parameters) extends CoreModule()(p)
+class Rocket(tile: RocketTile)(implicit p: Parameters) extends CoreModule()(p)
     with HasRocketCoreParameters
     with HasCoreIO {
 
   val clock_en_reg = RegInit(true.B)
   val long_latency_stall = Reg(Bool())
+  val id_reg_pause = Reg(Bool())
   val imem_might_request_reg = Reg(Bool())
   val clock_en = Wire(init=true.B)
   val gated_clock =
@@ -162,6 +164,8 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     (if (xLen == 32) new I32Decode else new I64Decode) +:
     (usingVM.option(new SDecode)) ++:
     (usingDebug.option(new DebugDecode)) ++:
+    Seq(new FenceIDecode(tile.dcache.flushOnFenceI)) ++:
+    rocketParams.haveCFlush.option(new CFlushDecode) ++:
     Seq(new IDecode)
   } flatMap(_.table)
 
@@ -268,6 +272,8 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   // stall decode for fences (now, for AMO.rl; later, for AMO.aq and FENCE)
   val id_amo_aq = id_inst(0)(26)
   val id_amo_rl = id_inst(0)(25)
+  val id_fence_pred = id_inst(0)(27,24)
+  val id_fence_succ = id_inst(0)(23,20)
   val id_fence_next = id_ctrl.fence || id_ctrl.amo && id_amo_aq
   val id_mem_busy = !io.dmem.ordered || io.dmem.req.valid
   when (!id_mem_busy) { id_reg_fence := false }
@@ -374,6 +380,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     ex_ctrl := id_ctrl
     ex_reg_rvc := ibuf.io.inst(0).bits.rvc
     ex_ctrl.csr := id_csr
+    when (id_ctrl.fence && id_fence_succ === 0) { id_reg_pause := true }
     when (id_fence_next) { id_reg_fence := true }
     when (id_xcpt) { // pass PC down ALU writeback pipeline for badaddr
       ex_ctrl.alu_fn := ALU.FN_ADD
@@ -392,7 +399,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     }
     ex_reg_flush_pipe := id_ctrl.fence_i || id_csr_flush
     ex_reg_load_use := id_load_use
-    when (id_sfence) {
+    when (id_ctrl.mem_cmd.isOneOf(M_SFENCE, M_FLUSH_ALL)) {
       ex_ctrl.mem_type := Cat(id_raddr2 =/= UInt(0), id_raddr1 =/= UInt(0))
     }
 
@@ -566,8 +573,8 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   take_pc_wb := replay_wb || wb_xcpt || csr.io.eret || wb_reg_flush_pipe
 
   // writeback arbitration
-  val dmem_resp_xpu = !io.dmem.resp.bits.tag(0).toBool
-  val dmem_resp_fpu =  io.dmem.resp.bits.tag(0).toBool
+  val dmem_resp_xpu = !io.dmem.resp.bits.tag(0).asBool
+  val dmem_resp_fpu =  io.dmem.resp.bits.tag(0).asBool
   val dmem_resp_waddr = io.dmem.resp.bits.tag(5, 1)
   val dmem_resp_valid = io.dmem.resp.valid && io.dmem.resp.bits.has_data
   val dmem_resp_replay = dmem_resp_valid && io.dmem.resp.bits.replay
@@ -701,7 +708,8 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
     id_ctrl.div && (!(div.io.req.ready || (div.io.resp.valid && !wb_wxd)) || div.io.req.valid) || // reduce odds of replay
     !clock_en ||
     id_do_fence ||
-    csr.io.csr_stall
+    csr.io.csr_stall ||
+    id_reg_pause
   ctrl_killd := !ibuf.io.inst(0).valid || ibuf.io.inst(0).bits.replay || take_pc_mem_wb || ctrl_stalld || csr.io.interrupt
 
   io.imem.req.valid := take_pc
@@ -776,9 +784,12 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   io.rocc.cmd.bits.rs2 := wb_reg_rs2
 
   // gate the clock
+  val unpause = csr.io.time(rocketParams.lgPauseCycles-1, 0) === 0 || io.dmem.perf.release || take_pc
+  when (unpause) { id_reg_pause := false }
+  io.cease := csr.io.status.cease && !clock_en_reg
   if (rocketParams.clockGate) {
-    long_latency_stall := csr.io.csr_stall || io.dmem.perf.blocked
-    clock_en := clock_en_reg || (!long_latency_stall && io.imem.resp.valid)
+    long_latency_stall := csr.io.csr_stall || io.dmem.perf.blocked || id_reg_pause && !unpause
+    clock_en := clock_en_reg || ex_pc_valid || (!long_latency_stall && io.imem.resp.valid)
     clock_en_reg :=
       ex_pc_valid || mem_pc_valid || wb_pc_valid || // instruction in flight
       io.ptw.customCSRs.disableCoreClockGate || // chicken bit
@@ -794,24 +805,12 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   val icache_blocked = !(io.imem.resp.valid || RegNext(io.imem.resp.valid))
   csr.io.counters foreach { c => c.inc := RegNext(perfEvents.evaluate(c.eventSel)) }
 
-  class CoreMonitorBundle extends Bundle {
-    val hartid = UInt(width = hartIdLen)
-    val time = UInt(width = 32)
-    val valid = Bool()
-    val pc = UInt(width = vaddrBitsExtended)
-    val wrdst = UInt(width = 5)
-    val wrdata = UInt(width = xLen)
-    val wren = Bool()
-    val rd0src = UInt(width = 5)
-    val rd0val = UInt(width = xLen)
-    val rd1src = UInt(width = 5)
-    val rd1val = UInt(width = xLen)
-    val inst = UInt(width = 32)
-  }
-  val coreMonitorBundle = Wire(new CoreMonitorBundle)
+  val coreMonitorBundle = Wire(new CoreMonitorBundle(xLen))
 
+  coreMonitorBundle.clock := clock
+  coreMonitorBundle.reset := reset
   coreMonitorBundle.hartid := io.hartid
-  coreMonitorBundle.time := csr.io.time(31,0)
+  coreMonitorBundle.timer := csr.io.time(31,0)
   coreMonitorBundle.valid := csr.io.trace(0).valid && !csr.io.trace(0).exception
   coreMonitorBundle.pc := csr.io.trace(0).iaddr(vaddrBitsExtended-1, 0)
   coreMonitorBundle.wrdst := Mux(rf_wen && !(wb_set_sboard && wb_wen), rf_waddr, UInt(0))
@@ -822,8 +821,6 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   coreMonitorBundle.rd1src := wb_reg_inst(24,20)
   coreMonitorBundle.rd1val := Reg(next=Reg(next=ex_rs(1)))
   coreMonitorBundle.inst := csr.io.trace(0).insn
-
-  p(BundleMonitorKey).foreach { _ ("rocket_core_monitor", coreMonitorBundle) }
 
   val t = csr.io.trace(0)
   when (csr.io.simlog) {
@@ -855,7 +852,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   else {
     when (t.valid || t.exception) {
     printf("C%d: %d [%d] pc=[%x] W[r%d=%x][%d] R[r%d=%x] R[r%d=%x] inst=[%x] DASM(%x)\n",
-         coreMonitorBundle.hartid, coreMonitorBundle.time, coreMonitorBundle.valid,
+         coreMonitorBundle.hartid, coreMonitorBundle.timer, coreMonitorBundle.valid,
          coreMonitorBundle.pc,
          coreMonitorBundle.wrdst, coreMonitorBundle.wrdata, coreMonitorBundle.wren,
          coreMonitorBundle.rd0src, coreMonitorBundle.rd0val,
@@ -910,7 +907,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
   io.ila.rt_raddr := wb_reg_inst(24,20)
   io.ila.rt_rdata := Reg(next=Reg(next=ex_rs(1)))
   } // leaving gated-clock domain
-  withClock (gated_clock) { new RocketImpl }
+  val rocketImpl = withClock (gated_clock) { new RocketImpl }
 
   def checkExceptions(x: Seq[(Bool, UInt)]) =
     (x.map(_._1).reduce(_||_), PriorityMux(x))
@@ -953,7 +950,7 @@ class Rocket(implicit p: Parameters) extends CoreModule()(p)
 }
 
 class RegFile(n: Int, w: Int, zero: Boolean = false) {
-  private val rf = Mem(n, UInt(width = w))
+  val rf = Mem(n, UInt(width = w))
   private def access(addr: UInt) = rf(~addr(log2Up(n)-1,0))
   private val reads = ArrayBuffer[(UInt,UInt)]()
   private var canRead = true

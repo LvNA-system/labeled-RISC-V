@@ -153,6 +153,11 @@ class HellaCachePerfEvents extends Bundle {
   val grant = Bool()
   val tlbMiss = Bool()
   val blocked = Bool()
+  val canAcceptStoreThenLoad = Bool()
+  val canAcceptStoreThenRMW = Bool()
+  val canAcceptLoadThenLoad = Bool()
+  val storeBufferEmptyAfterLoad = Bool()
+  val storeBufferEmptyAfterStore = Bool()
 }
 
 // interface between D$ and processor/DTLB
@@ -181,7 +186,8 @@ class HellaCacheIO(implicit p: Parameters) extends CoreBundle()(p) {
 /** Base classes for Diplomatic TL2 HellaCaches */
 
 abstract class HellaCache(hartid: Int)(implicit p: Parameters) extends LazyModule {
-  protected val cfg = p(TileKey).dcache.get
+  private val tileParams = p(TileKey)
+  protected val cfg = tileParams.dcache.get
 
   protected def cacheClientParameters = cfg.scratch.map(x => Seq()).getOrElse(Seq(TLClientParameters(
     name          = s"Core ${hartid} DCache",
@@ -200,6 +206,10 @@ abstract class HellaCache(hartid: Int)(implicit p: Parameters) extends LazyModul
     minLatency = 1)))
 
   val module: HellaCacheModule
+
+  def flushOnFenceI = cfg.scratch.isEmpty && !node.edges.out(0).manager.managers.forall(m => !m.supportsAcquireT || !m.executable || m.regionType >= RegionType.TRACKED || m.regionType <= RegionType.UNCACHEABLE)
+
+  require(!tileParams.core.haveCFlush || cfg.scratch.isEmpty, "CFLUSH_D_L1 instruction requires a D$")
 }
 
 class HellaCacheBundle(val outer: HellaCache)(implicit p: Parameters) extends CoreBundle()(p) {
@@ -231,11 +241,10 @@ class HellaCacheModule(outer: HellaCache) extends LazyModuleImp(outer)
 trait HasHellaCache { this: BaseTile =>
   val module: HasHellaCacheModule
   implicit val p: Parameters
-  def findScratchpadFromICache: Option[AddressSet]
   var nDCachePorts = 0
   lazy val dcache: HellaCache = LazyModule(
     if(tileParams.dcache.get.nMSHRs == 0) {
-      new DCache(hartId, findScratchpadFromICache _, p(RocketCrossingKey).head.knownRatio)
+      new DCache(hartId, crossing)
     } else { new NonBlockingDCache(hartId) })
 
   tlMasterXbar.node := dcache.node
@@ -286,8 +295,8 @@ class L1MetadataArray[T <: L1Metadata](onReset: () => T)(implicit p: Parameters)
   val rst = rst_cnt < UInt(nSets)
   val waddr = Mux(rst, rst_cnt, io.write.bits.idx)
   val wdata = Mux(rst, rstVal, io.write.bits.data).asUInt
-  val wmask = Mux(rst || Bool(nWays == 1), SInt(-1), io.write.bits.way_en.asSInt).toBools
-  val rmask = Mux(rst || Bool(nWays == 1), SInt(-1), io.read.bits.way_en.asSInt).toBools
+  val wmask = Mux(rst || Bool(nWays == 1), SInt(-1), io.write.bits.way_en.asSInt).asBools
+  val rmask = Mux(rst || Bool(nWays == 1), SInt(-1), io.read.bits.way_en.asSInt).asBools
   when (rst) { rst_cnt := rst_cnt+UInt(1) }
 
   val metabits = rstVal.getWidth

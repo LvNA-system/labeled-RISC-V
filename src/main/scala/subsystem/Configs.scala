@@ -28,13 +28,24 @@ class BaseSubsystemConfig extends Config ((site, here, up) => {
   case NRocketTiles => site(RocketTilesKey).size
   case NTiles => site(RocketTilesKey).size + site(BoomTilesKey).size
   // Interconnect parameters
-  case SystemBusKey => SystemBusParams(beatBytes = site(XLen)/8, blockBytes = site(CacheBlockBytes))
-  case PeripheryBusKey => PeripheryBusParams(
+  case SystemBusKey => SystemBusParams(
+    beatBytes = site(XLen)/8,
+    blockBytes = site(CacheBlockBytes))
+  case ControlBusKey => PeripheryBusParams(
     beatBytes = site(XLen)/8,
     blockBytes = site(CacheBlockBytes),
-    errorDevice = Some(DevNullParams(List(AddressSet(0x3000, 0xfff)), maxAtomic=site(XLen)/8, maxTransfer=4096)))
-  case MemoryBusKey => MemoryBusParams(beatBytes = site(XLen)/8, blockBytes = site(CacheBlockBytes))
-  case FrontBusKey => FrontBusParams(beatBytes = site(XLen)/8, blockBytes = site(CacheBlockBytes))
+    errorDevice = Some(DevNullParams(List(AddressSet(0x3000, 0xfff)), maxAtomic=site(XLen)/8, maxTransfer=4096)),
+    replicatorMask = site(MultiChipMaskKey))
+  case PeripheryBusKey => PeripheryBusParams(
+    beatBytes = site(XLen)/8,
+    blockBytes = site(CacheBlockBytes))
+  case MemoryBusKey => MemoryBusParams(
+    beatBytes = site(XLen)/8,
+    blockBytes = site(CacheBlockBytes),
+    replicatorMask = site(MultiChipMaskKey))
+  case FrontBusKey => FrontBusParams(
+    beatBytes = site(XLen)/8,
+    blockBytes = site(CacheBlockBytes))
   // Additional device Parameters
   case BootROMParams => BootROMParams(contentFileName = "./bootrom/bootrom.img")
   case DebugModuleParams => DefaultDebugModuleParams(site(XLen))
@@ -128,8 +139,8 @@ class With1TinyCore extends Config((site, here, up) => {
   ))
 })
 
-class WithNBanksPerMemChannel(n: Int) extends Config((site, here, up) => {
-  case BankedL2Key => up(BankedL2Key, site).copy(nBanksPerChannel = n)
+class WithNBanks(n: Int) extends Config((site, here, up) => {
+  case BankedL2Key => up(BankedL2Key, site).copy(nBanks = n)
 })
 
 class WithNTrackersPerBank(n: Int) extends Config((site, here, up) => {
@@ -186,7 +197,7 @@ class WithIncoherentTiles extends Config((site, here, up) => {
   }
   case BankedL2Key => up(BankedL2Key, site).copy(coherenceManager = { subsystem =>
     val ww = LazyModule(new TLWidthWidget(subsystem.sbus.beatBytes)(subsystem.p))
-    (ww.node, ww.node, () => None)
+    (ww.node, ww.node, None)
   })
 })
 
@@ -294,11 +305,12 @@ class WithEdgeDataBits(dataBits: Int) extends Config((site, here, up) => {
 })
 
 class WithJtagDTM extends Config ((site, here, up) => {
-  case IncludeJtagDTM => true
+  case ExportDebugDMI => false
+  case ExportDebugJTAG => true
 })
 
 class WithDebugSBA extends Config ((site, here, up) => {
-  case DebugModuleParams => up(DebugModuleParams).copy(hasBusMaster = true)
+  case DebugModuleParams => up(DebugModuleParams, site).copy(hasBusMaster = true)
 })
 
 class WithNBitPeripheryBus(nBits: Int) extends Config ((site, here, up) => {
@@ -314,15 +326,15 @@ class WithNExtTopInterrupts(nExtInts: Int) extends Config((site, here, up) => {
 })
 
 class WithNMemoryChannels(n: Int) extends Config((site, here, up) => {
-  case BankedL2Key => up(BankedL2Key, site).copy(nMemoryChannels = n)
+  case ExtMem => up(ExtMem, site).map(_.copy(nMemoryChannels = n))
 })
 
 class WithExtMemBase(n: Long) extends Config((site, here, up) => {
-  case ExtMem => up(ExtMem, site).map(_.copy(base = n))
+  case ExtMem => up(ExtMem, site).map(x => x.copy(master = x.master.copy(size = n)))
 })
 
 class WithExtMemSize(n: Long) extends Config((site, here, up) => {
-  case ExtMem => up(ExtMem, site).map(_.copy(size = n))
+  case ExtMem => up(ExtMem, site).map(x => x.copy(master = x.master.copy(size = n)))
 })
 
 class WithDTS(model: String, compat: Seq[String]) extends Config((site, here, up) => {
@@ -335,11 +347,11 @@ class WithTimebase(hertz: BigInt) extends Config((site, here, up) => {
 })
 
 class WithDefaultMemPort extends Config((site, here, up) => {
-  case ExtMem => Some(MasterPortParams(
+  case ExtMem => Some(MemoryPortParams(MasterPortParams(
                       base = x"10000_0000",
                       size = x"1000_0000",
                       beatBytes = site(MemoryBusKey).beatBytes,
-                      idBits = 0))
+                      idBits = 4), 1))
 })
 
 class WithNoMemPort extends Config((site, here, up) => {
