@@ -418,6 +418,9 @@ object CSRs {
   val dcsr = 0x7b0
   val dpc = 0x7b1
   val dscratch = 0x7b2
+
+  val mstop = 0x7e1
+
   val mcycle = 0xb00
   val minstret = 0xb02
   val mhpmcounter3 = 0xb03
@@ -635,6 +638,9 @@ object CSRs {
     res += dcsr
     res += dpc
     res += dscratch
+
+    res += mstop
+
     res += mcycle
     res += minstret
     res += mhpmcounter3

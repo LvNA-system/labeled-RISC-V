@@ -22,7 +22,7 @@ class WithBoom extends Config ((site, here, up) => {
 })
 
 // Boom
-class LvNABoomLinuxConfig extends Config(
+class LvNABoomConfig extends Config(
 //  new WithPrefetcher ++
   new WithBoomNBL1(4) ++
   new WithRVC

@@ -35,7 +35,6 @@ class TLXbar(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parame
   val node = TLNexusNode(
     clientFn  = { seq =>
       val fifoIdFactory = TLXbar.relabeler()
-      println(s"$name, client fn seq size: ${seq.size}")
       seq(0).copy(
         minLatency = seq.map(_.minLatency).min,
         clients = (TLXbar.mapInputIds(seq) zip seq) flatMap { case (range, port) =>
@@ -47,7 +46,6 @@ class TLXbar(policy: TLArbiter.Policy = TLArbiter.roundRobin)(implicit p: Parame
     },
     managerFn = { seq =>
       val fifoIdFactory = TLXbar.relabeler()
-      println(s"$name, manager fn seq size: ${seq.size}")
       seq(0).copy(
         minLatency = seq.map(_.minLatency).min,
         endSinkId = TLXbar.mapOutputIds(seq).map(_.end).max,

@@ -8,7 +8,7 @@ from multiprocessing import Pool
 
 
 num_tasks = 2
-am_arch_suffix = '-riscv64-rocket.bin'
+am_arch_suffix = '-riscv64-emu.bin'
 
 # ...../fpga/emu/
 base_dir = str(Path(__file__).resolve().parents[1])
@@ -18,11 +18,13 @@ base_run_dir = pjoin(base_dir, 'run')
 # rocket/emulator/
 emulator_dir = pjoin(str(Path(__file__).resolve().parents[3]), 'emulator')
 emulator = pjoin(emulator_dir,
-                 'emulator-freechips.rocketchip.system-LvNABoomLinuxConfig')
+                 'emulator-freechips.rocketchip.system-LvNABoomConfig')
+# emulator = pjoin(emulator_dir,
+#                  'emulator-freechips.rocketchip.system-LvNABoomPrefConfig')
 emu_base = os.path.basename(emulator)
 force_run = False  # ignore time stamps
 # max_cycles = 40_000_000
-max_cycles = 5_000_000
+max_cycles = 10_000_000
 
 
 def create_emu_env(run_dir, bin_file):
@@ -42,30 +44,44 @@ def example_task(run_dir: str):
     options = [
         '+verbose',
         f'-m {max_cycles}',
-        '.',  # this is run_dir
+        run_dir,
     ]
     func_name = sys._getframe(0).f_code.co_name
-    emu(
-        _out=pjoin(run_dir, f'{emu_base}-{func_name}-stdout.txt'),
-        _err=pjoin(run_dir, f'{emu_base}-{func_name}-stderr.txt'),
-        *options,
-    )
+    err_file = pjoin(run_dir, f'{func_name}-stderr.txt')
+    def run():
+        emu(
+                _out=pjoin(run_dir, f'{func_name}-stdout.txt'),
+                _err=err_file,
+                *options,
+                )
+    def ok_even_if_abort():
+        with open(err_file) as f:
+            s = f.read()
+            if 'Stop with no error code' in s:
+                return True
+            if f'after {max_cycles} cycles' in s:
+                return True
+        return False
+
+    return run, ok_even_if_abort
 
 
 def run_benchmark(app: str):
     print(app)
-    run_dir = pjoin(base_run_dir, app)
+    run_dir = pjoin(base_run_dir, emu_base, app)
     app_dir = c.get_am_app_dir(app)
     bin_file = app_dir + f'/build/{app}{am_arch_suffix}'
 
     if not os.path.isfile(bin_file):
         os.chdir(app_dir)
-        sh.make()
+        sh.make("ARCH=riscv64-emu")
 
     create_emu_env(run_dir, bin_file)
 
+    run, ok = example_task(run_dir)
+
     c.avoid_repeating(emulator, bin_file, run_dir, force_run,
-                      example_task, run_dir)
+            ok, run)
 
 
 def main():

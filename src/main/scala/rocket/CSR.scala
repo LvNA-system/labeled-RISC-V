@@ -347,7 +347,7 @@ class CSRFile(
   (io.counters zip reg_hpmevent) foreach { case (c, e) => c.eventSel := e }
   val reg_hpmcounter = io.counters.map(c => WideCounter(CSR.hpmWidth, c.inc, reset = false))
 
-  val reg_simlog = Reg(init=Bool(true))
+  val reg_simlog = Reg(init=Bool(false))
   io.simlog := reg_simlog
   
   val reg_procdsid = RegInit(UInt(0, width = p(ProcDSidWidth)))
@@ -444,6 +444,7 @@ class CSRFile(
     CSRs.mepc -> readEPC(reg_mepc).sextTo(xLen),
     CSRs.mtval -> reg_mtval.sextTo(xLen),
     CSRs.mcause -> reg_mcause,
+    CSRs.mstop -> UInt(0),
     //CSRs.mhartid -> io.hartid)
     CSRs.mhartid -> 0.U(hartIdLen.W))
 
@@ -936,6 +937,17 @@ class CSRFile(
     when (decoded_addr(CSRs.simlog)) { reg_simlog := wdata }
     when (decoded_addr(CSRs.procdsid)) { reg_procdsid := wdata }
     when (decoded_addr(CSRs.pfctl)) { reg_pfctl := wdata }
+
+    when (decoded_addr(CSRs.mstop)) {
+      when (wdata === UInt(1)) {
+        printf("[%d] Stop with no error code\n", GTimer())
+        assert(false.B)
+      }.otherwise {
+        printf("[%d] Stop with error code: %d\n", GTimer(), wdata)
+        assert(false.B)
+      }
+    }
+
     for ((io, csr, reg) <- (io.customCSRs, customCSRs, reg_custom).zipped) {
       val mask = csr.mask.U(xLen.W)
       when (decoded_addr(csr.id)) {

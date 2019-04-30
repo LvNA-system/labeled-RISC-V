@@ -9,6 +9,7 @@ from os.path import join as pjoin
 # hex_dump == hexdump -ve '2/ "%08x " "\n"' $1 | awk '{print $2$1}' > $2
 def hex_dump(in_file, out_file):
     assert os.path.isfile(in_file)
+    print(in_file)
     with open(in_file, 'rb') as f, open(out_file, 'w') as out_f:
         chunks = iter(lambda : f.read(1), b'')
         hex_bytes = map(ba.hexlify, chunks)
@@ -40,8 +41,7 @@ def is_older(left, right):
 
 def avoid_repeating(
         emu: str, input_file: str, output_dir: str,
-        force_run: bool,
-        func, *args, **kwargs):
+        force_run: bool, ok, func):
     # this function avoid repeated run for most common situations
     input_file_n = os.path.basename(input_file)
     emu_n = os.path.basename(emu)
@@ -79,10 +79,13 @@ def avoid_repeating(
 
     if out_ts < cmd_ts or force_run:
         try:
-            func(*args, **kwargs)
+            func()
             sh.touch(out_ts_file)
         except Exception as e:
-            print(e)
+            if (ok()):
+                sh.touch(out_ts_file)
+            else:
+                print(e)
         sh.rm(running_lock_file)
     else:
         print('none of the inputs is older than output, skip!')
@@ -93,8 +96,10 @@ def avoid_repeating(
 def get_am_apps():
     assert 'AM_HOME' in os.environ.keys()
     app_dir = pjoin(os.environ['AM_HOME'], 'apps')
-    apps = os.listdir(app_dir)
-    return apps
+    apps = set(os.listdir(app_dir))
+    with open('./am_app_filter.txt') as f:
+        filters = set([line.strip() for line in f.readlines()])
+    return list(apps & filters)
 
 
 def get_am_app_dir(app: str):
