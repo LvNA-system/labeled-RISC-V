@@ -176,8 +176,8 @@ abstract class BaseTile(tileParams: TileParams, val crossing: ClockCrossingType)
   protected def makeMasterBoundaryBuffers(implicit p: Parameters) = TLBuffer(BufferParams.none)
   def crossMasterPort(tokenBucket: TokenBucketNode): TLOutwardNode = {
     val tlMasterXing = this.crossOut(crossing match {
-      case RationalCrossing(_) => this { makeMasterBoundaryBuffers } :=* tokenBucket.node := masterNode
-      case _ => tokenBucket.node := masterNode
+      case RationalCrossing(_) => this { makeMasterBoundaryBuffers } :=* masterNode
+      case _ => masterNode
     })
     tlMasterXing(crossing)
   }
