@@ -7,7 +7,7 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.system.{ExampleRocketSystem, ExampleRocketSystemModuleImp, NohypeDefault, UseEmu}
 import freechips.rocketchip.tile.XLen
-import freechips.rocketchip.util.GTimer
+import freechips.rocketchip.util.{GTimer, AsyncQueue}
 
 case object ProcDSidWidth extends Field[Int](3)
 
@@ -119,6 +119,14 @@ trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketP
   bucketIO.foreach { bio =>
     bio.enable := bucketState(bio.dsid).enable
   }
+}
+
+class CPToCore(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters
+{
+  val hartDsid = UInt(ldomDSidWidth.W)
+  val memBase = UInt(p(XLen).W)
+  val memMask = UInt(p(XLen).W)
+  val progHartId = UInt(log2Ceil(nTiles).W)
 }
 
 class ControlPlane()(implicit p: Parameters) extends LazyModule
@@ -235,10 +243,26 @@ trait HasControlPlaneModuleImpl extends HasRocketTilesModuleImp {
 
   (outer.rocketTiles zip outer.tokenBuckets).zipWithIndex.foreach { case((tile, token), i) =>
     val cpio = outer.controlPlane.module.io
-    tile.module.dsid := cpio.hartDsids(i.U)
-    tile.module.memBase := cpio.memBases(i.U)
-    tile.module.memMask := cpio.memMasks(i.U)
-    tile.module.progHartId := cpio.progHartIds(i)
+    val cp2core = Wire(new CPToCore())
+    cp2core.hartDsid := cpio.hartDsids(i)
+    cp2core.memBase := cpio.memBases(i)
+    cp2core.memMask := cpio.memMasks(i)
+    cp2core.progHartId := cpio.progHartIds(i)
+
+    val crossing = Module(new AsyncQueue(new CPToCore()))
+    crossing.io.deq_clock := tile.module.clock
+    crossing.io.deq_reset := tile.module.reset
+    crossing.io.enq_clock := outer.controlPlane.module.clock
+    crossing.io.enq_reset := outer.controlPlane.module.reset
+    crossing.io.enq.valid := true.B
+    crossing.io.enq.bits  := cp2core
+    crossing.io.deq.ready := true.B
+
+    tile.module.dsid := crossing.io.deq.bits.hartDsid
+    tile.module.memBase := crossing.io.deq.bits.memBase
+    tile.module.memMask := crossing.io.deq.bits.memMask
+    tile.module.progHartId := crossing.io.deq.bits.progHartId
+
     token.module.bucketIO <> outer.controlPlane.module.bucketIO(i)
   }
 
