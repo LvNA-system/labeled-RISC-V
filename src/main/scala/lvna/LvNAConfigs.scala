@@ -2,7 +2,7 @@
 
 package freechips.rocketchip.system
 
-import boom.common.{DefaultBoomConfig, WithRVC, WithSmallBooms}
+import boom.common.{DefaultBoomConfig, WithRVC, WithSmallBooms, WithMediumBooms, WithMegaBooms}
 import boom.system.WithNBoomCores
 import freechips.rocketchip.config.{Config, Field}
 import freechips.rocketchip.devices.tilelink.WithRocketTests
@@ -39,11 +39,29 @@ class LvNABoomConfig extends Config(
     ++ new WithDebugSBA
     ++ new BaseBoomConfig)
 
-class LvNABoomTestConfig extends Config(
+class LvNABoomPrefConfig extends Config(
   new WithPrefetcher ++
   new WithBoomNBL1(4) ++
   new WithRVC
     ++ new WithSmallBooms
+    ++ new DefaultBoomConfig
+    ++ new WithNBoomCores(1)
+    ++ new WithNL2CacheCapacity(0)
+    ++ new WithEmu
+    ++ new WithBoom
+    ++ new WithRationalRocketTiles
+    ++ new WithExtMemSize(0x8000000L) // 32MB
+    ++ new WithNoMMIOPort
+    ++ new WithJtagDTM
+    ++ new WithDebugSBA
+    ++ new BaseBoomConfig)
+
+
+class LvNABoomTestConfig extends Config(
+  new WithPrefetcher ++
+  new WithBoomNBL1(4) ++
+  new WithRVC
+    ++ new WithMediumBooms
     ++ new DefaultBoomConfig
     ++ new WithNBoomCores(1)
     ++ new WithNL2CacheCapacity(0)
