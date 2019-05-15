@@ -6,6 +6,7 @@ package freechips.rocketchip.rocket
 import Chisel._
 import Chisel.ImplicitConversions._
 import chisel3.experimental._
+import chisel3.util.experimental.BoringUtils
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.tile._
 import freechips.rocketchip.util._
@@ -16,6 +17,7 @@ import scala.collection.mutable.LinkedHashMap
 import Instructions._
 import lvna.ProcDSidWidth
 import boom.common._
+import chisel3.core.WireInit
 import ila.BoomCSRILABundle
 
 class MStatus extends Bundle {
@@ -772,6 +774,22 @@ class CSRFile(
     set_fs_dirty := true
   }
 
+  val dump_trigger = Wire(Bool())
+  dump_trigger := false.B
+  BoringUtils.addSource(dump_trigger, "DumpFlag" + hartId.toString)
+
+  val stop_next = RegInit(false.B)
+  val wdata_next = RegInit(0.U(xLen.W))
+  when (stop_next) {
+    when(wdata_next === UInt(1)) {
+      printf("[%d] Stop with no error code\n", GTimer())
+      assert(false.B)
+    }.otherwise {
+      printf("[%d] Stop with error code: %d\n", GTimer(), wdata)
+      assert(false.B)
+    }
+  }
+
   val csr_wen = io.rw.cmd.isOneOf(CSR.S, CSR.C, CSR.W)
   io.csrw_counter := Mux(coreParams.haveBasicCounters && csr_wen && (io.rw.addr.inRange(CSRs.mcycle, CSRs.mcycle + CSR.nCtr) || io.rw.addr.inRange(CSRs.mcycleh, CSRs.mcycleh + CSR.nCtr)), UIntToOH(io.rw.addr(log2Ceil(CSR.nCtr+nPerfCounters)-1, 0)), 0.U)
   when (csr_wen) {
@@ -939,13 +957,9 @@ class CSRFile(
     when (decoded_addr(CSRs.pfctl)) { reg_pfctl := wdata }
 
     when (decoded_addr(CSRs.mstop)) {
-      when (wdata === UInt(1)) {
-        printf("[%d] Stop with no error code\n", GTimer())
-        assert(false.B)
-      }.otherwise {
-        printf("[%d] Stop with error code: %d\n", GTimer(), wdata)
-        assert(false.B)
-      }
+      wdata_next := wdata
+      stop_next := true.B
+      dump_trigger := true.B
     }
 
     for ((io, csr, reg) <- (io.customCSRs, customCSRs, reg_custom).zipped) {
