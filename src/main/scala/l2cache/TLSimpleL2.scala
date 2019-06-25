@@ -14,6 +14,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import freechips.rocketchip.tilelink._
 import lvna.{HasControlPlaneParameters, CPToL2CacheIO}
+import scala.math._
 
 case class TLL2CacheParams(
   debug: Boolean = false
@@ -329,7 +330,8 @@ with HasControlPlaneParameters
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
       val repl_dsid = set_dsids_reg(repl_way)
-      val dsid_occupacy = RegInit(Vec(Seq.fill(1 << dsidWidth){ 0.U(log2Ceil(p(NL2CacheCapacity) * 1024 / blockBytes).W) }))
+      val maxWays: BigInt = p(NL2CacheCapacity) * 1024 / blockBytes
+      val dsid_occupacy = RegInit(Vec.fill(1 << dsidWidth)(0.U(maxWays.bitLength.W)))
       val requester_occupacy = dsid_occupacy(dsid)
       val victim_occupacy = dsid_occupacy(repl_dsid)
       when (state === s_tag_read) {
