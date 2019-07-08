@@ -58,6 +58,7 @@ check the full path
 ```bash
 cd ~/Downloads
 echo $(pwd)
+#/home/xxx/Dowloads
 ```
 you will get a string like this `/home/YOURNAME/Downloads`.
 **When using this path, Remember change the `YOURNAME` with your real path from the terminal.**
@@ -79,7 +80,7 @@ source /etc/profile
 ```
 ## Build
 ```bash
-cd ~/Downloads
+cd ~/Downloads/labeld-RISC-V/fpga
 mkdir build
 make -j16 sw  # change 16 to the number of cores according to your host
 ```
@@ -90,8 +91,10 @@ This is a minimal rootfs only containing a `hello` program.
 ## Run with emulator
 
 ```
-cd ../bootrom && make
-cd emu
+cd /home/YOURNAME/Downloads/labeled-RISC-V/bootrom 
+make
+cd ../fpga/emu
+make -j16 emu 
 make -j16 run-emu
 ```
 The following files will be generated
