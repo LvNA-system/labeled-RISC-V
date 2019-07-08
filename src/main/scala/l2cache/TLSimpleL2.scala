@@ -13,7 +13,8 @@ import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import freechips.rocketchip.tilelink._
-import lvna.{HasControlPlaneParameters, CPToL2CacheIO}
+import lvna.{AutoCatIOInternal, CPToL2CacheIO, HasControlPlaneParameters}
+
 import scala.math._
 
 case class TLL2CacheParams(
@@ -43,6 +44,8 @@ with HasControlPlaneParameters
     val nSets = p(NL2CacheCapacity) * 1024 / 64 / nWays
     println(s"nSets = $nSets")
     val cp = IO(new CPToL2CacheIO().flip())
+    val autocat = IO(new (AutoCatIOInternal).flip())
+
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       require(isPow2(nSets))
       require(isPow2(nWays))
@@ -325,8 +328,11 @@ with HasControlPlaneParameters
       hit_way := Bits(0)
       (0 until nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
 
+      autocat.access_valid_in := dsid === 0.U && state === s_tag_read
+      autocat.hit_vec_in := (0 until nWays).map(tag_match_way(_)).asUInt
+
       cp.dsid := dsid
-      val curr_mask = cp.waymask
+      val curr_mask = Mux(autocat.suggested_waymask_valid_out, cp.waymask, cp.waymask & autocat.suggested_waymask_out)
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
       val repl_dsid = set_dsids_reg(repl_way)

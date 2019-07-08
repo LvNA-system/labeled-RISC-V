@@ -280,4 +280,11 @@ trait BindL2WayMask extends HasRocketTiles {
 trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
   val outer: BindL2WayMask
   outer._l2.module.cp <> outer._cp.module.io.l2
+  val autocat = Module(new AutoCat)
+  autocat.io.clk_in := clock
+  autocat.io.reset_in := reset
+  autocat.io.access_valid_in := outer._l2.module.autocat.access_valid_in
+  autocat.io.hit_vec_in := outer._l2.module.autocat.hit_vec_in
+  outer._l2.module.autocat.suggested_waymask_valid_out := autocat.io.suggested_waymask_valid_out
+  outer._l2.module.autocat.suggested_waymask_out := autocat.io.suggested_waymask_out
 }
