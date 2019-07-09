@@ -18,7 +18,7 @@ class ClockedTileInputs(implicit val p: Parameters) extends ParameterizedBundle
     with HasExternallyDrivenTileConstants
     with Clocked
 
-trait HasTiles { this: BaseSubsystem =>
+trait HasTiles extends HasCoreMonitorBundles { this: BaseSubsystem =>
   implicit val p: Parameters
   val tiles: Seq[BaseTile]
   protected def tileParams: Seq[TileParams] = tiles.map(_.tileParams)
@@ -26,10 +26,28 @@ trait HasTiles { this: BaseSubsystem =>
   def hartIdList: Seq[Int] = tileParams.map(_.hartId)
   def localIntCounts: Seq[Int] = tileParams.map(_.core.nLocalInterrupts)
   def sharedMemoryTLEdge = sbus.busView
+
+  // define some nodes that are useful for collecting or driving tile interrupts
   val meipNode = p(PLICKey) match {
     case Some(_) => None
-    case None    => Some(IntSourceNode(IntSourcePortSimple(num = 1, ports = 1, sources = 1)))
+    case None    => Some(IntNexusNode(
+      sourceFn = { _ => IntSourcePortParameters(Seq(IntSourceParameters(1))) },
+      sinkFn   = { _ => IntSinkPortParameters(Seq(IntSinkParameters())) },
+      outputRequiresInput = false,
+      inputRequiresOutput = false))
   }
+
+  val tileHaltXbarNode = IntXbar(p)
+  val tileHaltSinkNode = IntSinkNode(IntSinkPortSimple())
+  tileHaltSinkNode := tileHaltXbarNode
+
+  val tileWFIXbarNode = IntXbar(p)
+  val tileWFISinkNode = IntSinkNode(IntSinkPortSimple())
+  tileWFISinkNode := tileWFIXbarNode
+
+  val tileCeaseXbarNode = IntXbar(p)
+  val tileCeaseSinkNode = IntSinkNode(IntSinkPortSimple())
+  tileCeaseSinkNode := tileCeaseXbarNode
 
   private val lookupByHartId = new LookupByHartIdImpl {
     def apply[T <: Data](f: TileParams => Option[T], hartId: UInt): T =
@@ -56,12 +74,12 @@ trait HasTiles { this: BaseSubsystem =>
   protected def connectSlavePortsToCBus(tile: BaseTile, crossing: RocketCrossingParams)(implicit valName: ValName) {
 
     DisableMonitors { implicit p =>
-      sbus.control_bus.toTile(tile.tileParams.name) {
+      cbus.toTile(tile.tileParams.name) {
         crossing.slave.blockerCtrlAddr
           .map { BasicBusBlockerParams(_, pbus.beatBytes, sbus.beatBytes) }
           .map { bbbp => LazyModule(new BasicBusBlocker(bbbp)) }
           .map { bbb =>
-            sbus.control_bus.toVariableWidthSlave(Some("bus_blocker")) { bbb.controlNode }
+            cbus.coupleTo("bus_blocker") { bbb.controlNode := TLFragmenter(cbus) := _ }
             tile.crossSlavePort() :*= bbb.node
           } .getOrElse { tile.crossSlavePort() }
       }
@@ -110,6 +128,11 @@ trait HasTiles { this: BaseSubsystem =>
         plic.intnode :=* tile.crossIntOut()
       }
     }
+
+    // 5. Reports of tile status are collected without needing to be clock-crossed
+    tileHaltXbarNode := tile.haltNode
+    tileWFIXbarNode := tile.wfiNode
+    tileCeaseXbarNode := tile.ceaseNode
   }
 
   protected def perTileOrGlobalSetting[T](in: Seq[T], n: Int): Seq[T] = in.size match {
@@ -147,6 +170,10 @@ trait HasTilesModuleImp extends LazyModuleImp
     tile.constants.reset_vector := wire.reset_vector
   }
 
-  val meip = if(outer.meipNode.isDefined) Some(IO(Bool(INPUT))) else None
-  meip.foreach { (outer.meipNode.get.out(0)._1)(0) := _ }
+  val meip = if(outer.meipNode.isDefined) Some(IO(Vec(outer.meipNode.get.out.size, Bool()).asInput)) else None
+  meip.foreach { m =>
+    m.zipWithIndex.foreach{ case (pin, i) =>
+      (outer.meipNode.get.out(i)._1)(0) := pin
+    }
+  }
 }

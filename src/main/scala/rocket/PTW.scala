@@ -49,6 +49,7 @@ class DatapathPTWIO(implicit p: Parameters) extends CoreBundle()(p)
   val pmp = Vec(nPMPs, new PMP).asInput
   val perf = new PTWPerfEvents().asOutput
   val customCSRs = coreParams.customCSRs.asInput
+  val clock_enabled = Bool(OUTPUT)
 }
 
 class PTE(implicit p: Parameters) extends CoreBundle()(p) {
@@ -91,6 +92,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
   val resp_valid = Reg(next = Vec.fill(io.requestor.size)(Bool(false)))
 
   val clock_en = state =/= s_ready || arb.io.out.valid || io.dpath.sfence.valid || io.dpath.customCSRs.disableDCacheClockGate
+  io.dpath.clock_enabled := usingVM && clock_en
   val gated_clock =
     if (!usingVM || !tileParams.dcache.get.clockGate) clock
     else ClockGate(clock, clock_en, "ptw_clock_gate")
@@ -123,7 +125,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
     Cat(r_pte.ppn, vpn_idx) << log2Ceil(xLen/8)
   }
   val fragmented_superpage_ppn = {
-    val choices = (pgLevels-1 until 0 by -1).map(i => Cat(r_pte.ppn >> (pgLevels*i), r_req.addr(pgLevels*i-1, 0)))
+    val choices = (pgLevels-1 until 0 by -1).map(i => Cat(r_pte.ppn >> (pgLevelBits*i), r_req.addr(pgLevelBits*i-1, 0)))
     choices(count)
   }
 
@@ -161,7 +163,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
 
   val l2_refill = RegNext(false.B)
   io.dpath.perf.l2miss := false
-  val (l2_hit, l2_valid, l2_pte, l2_tlb_ram) = if (coreParams.nL2TLBEntries == 0) (false.B, false.B, Wire(new PTE), None) else {
+  val (l2_hit, l2_error, l2_pte, l2_tlb_ram) = if (coreParams.nL2TLBEntries == 0) (false.B, false.B, Wire(new PTE), None) else {
     val code = new ParityCode
     require(isPow2(coreParams.nL2TLBEntries))
     val idxBits = log2Ceil(coreParams.nL2TLBEntries)
@@ -216,7 +218,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
     when (s2_valid && s2_valid_bit && s2_rdata.error) { valid := 0.U }
 
     val s2_entry = s2_rdata.uncorrected.asTypeOf(new Entry)
-    val s2_hit = s2_valid && s2_valid_bit && !s2_rdata.error && r_tag === s2_entry.tag
+    val s2_hit = s2_valid && s2_valid_bit && r_tag === s2_entry.tag
     io.dpath.perf.l2miss := s2_valid && !(s2_valid_bit && r_tag === s2_entry.tag)
     val s2_pte = Wire(new PTE)
     s2_pte := s2_entry
@@ -225,7 +227,7 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
 
     ccover(s2_hit, "L2_TLB_HIT", "L2 TLB hit")
 
-    (s2_hit, s2_valid && s2_valid_bit, s2_pte, Some(ram))
+    (s2_hit, s2_rdata.error, s2_pte, Some(ram))
   }
 
   // if SFENCE occurs during walk, don't refill PTE cache or L2 TLB until next walk
@@ -285,7 +287,8 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
       }
     }
     is (s_wait1) {
-      next_state := s_wait2
+      // This Mux is for the l2_error case; the l2_hit && !l2_error case is overriden below
+      next_state := Mux(l2_hit, s_req, s_wait2)
     }
     is (s_wait2) {
       next_state := s_wait3
@@ -313,13 +316,13 @@ class PTW(n: Int)(implicit edge: TLEdgeOut, p: Parameters) extends CoreModule()(
   }
   r_pte := OptimizationBarrier(
     Mux(io.mem.resp.valid, pte,
-    Mux(l2_hit, l2_pte,
+    Mux(l2_hit && !l2_error, l2_pte,
     Mux(state === s_fragment_superpage && !homogeneous, makePTE(fragmented_superpage_ppn, r_pte),
     Mux(state === s_req && pte_cache_hit, makePTE(pte_cache_data, l2_pte),
     Mux(arb.io.out.fire(), makePTE(io.dpath.ptbr.ppn, r_pte),
     r_pte))))))
 
-  when (l2_hit) {
+  when (l2_hit && !l2_error) {
     assert(state === s_req || state === s_wait1)
     next_state := s_ready
     resp_valid(r_req_dest) := true

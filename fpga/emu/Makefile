@@ -5,6 +5,8 @@ build_dir = $(fpga_dir)/build
 generated_dir = $(build_dir)/generated-src
 
 CONFIG ?= LvNAConfigemu
+NUMA_CONFIG ?=
+SEED ?=
 
 -include $(base_dir)/Makefrag
 
@@ -19,6 +21,8 @@ emu_gen_script = gen_bin.sh
 emu_bin_hex_file = $(build_dir)/bin.txt
 nohype_dtb = $(build_dir)/c0.dtb
 nohype_dtb_hex_file = $(build_dir)/c0.dtb.txt
+# max_cycles = 40000000
+max_cycles = 2209069
 
 $(emu): $(original_emu)
 	ln -sf $< $@
@@ -46,7 +50,8 @@ DEBUG_ARGS = +jtag_rbb_enable=1 -r 4040
 endif
 
 run-emu: $(emu) $(emu_bin_hex_file) $(nohype_dtb_hex_file)
-	cd $(dir $(emu)) && $(emu) $(DEBUG_ARGS) +verbose . 3>&1 1>&2 2>&3 | spike-dasm > $(dir $(emu))/emu.log
+	cd $(dir $(emu)) && time $< $(DEBUG_ARGS) $(SEED) +verbose -m $(max_cycles) . 3>&1 1>&2 2>&3 \
+		| spike-dasm > $(dir $(emu))/emu.log
 
 dtb-clean:
 	-rm -f $(build_dir)/c*.dtb{,.txt}

@@ -4,8 +4,20 @@ package freechips.rocketchip.system
 
 import Chisel._
 import freechips.rocketchip.config.Parameters
-import lvna.{BindL2WayMask, BindL2WayMaskModuleImp, HasControlPlane, HasControlPlaneModuleImpl}
+import lvna._
 import sifive.blocks.devices.uart._
+
+
+class LvNABoomEmuTop(implicit p: Parameters) extends ExampleBoomSystem
+    with HasPeripheryUART
+  with HasBoomControlPlane
+{
+  override lazy val module = new LvNABoomEmuTopModule(this)
+}
+
+class LvNABoomEmuTopModule[+L <: LvNABoomEmuTop](_outer: L) extends ExampleBoomSystemModuleImp(_outer)
+    with HasPeripheryUARTModuleImp
+  with HasControlPlaneBoomModuleImpl
 
 class LvNAEmuTop(implicit p: Parameters) extends ExampleRocketSystem
     with HasPeripheryUART
@@ -32,7 +44,16 @@ class LvNAFPGATopModule[+L <: LvNAFPGATop](_outer: L) extends ExampleRocketSyste
     with HasControlPlaneModuleImpl
     with BindL2WayMaskModuleImp
 
-class LvNAFPGATopAHB(implicit p: Parameters) extends ExampleRocketSystemAHB
+//class LvNAFPGATopAHB(implicit p: Parameters) extends ExampleRocketSystemAHB
+//
+//class LvNAFPGATopAHBModule[+L <: LvNAFPGATopAHB](_outer: L) extends ExampleRocketSystemModuleAHBImp(_outer)
 
-class LvNAFPGATopAHBModule[+L <: LvNAFPGATopAHB](_outer: L) extends ExampleRocketSystemModuleAHBImp(_outer)
+class LvNABoomFPGATopModule[+L <: LvNABoomFPGATop](_outer: L) extends ExampleBoomSystemModuleImp(_outer)
+  with HasControlPlaneBoomModuleImpl
+
+class LvNABoomFPGATop(implicit p: Parameters) extends ExampleBoomSystem
+    with HasBoomControlPlane
+{
+  override lazy val module = new LvNABoomFPGATopModule(this)
+}
 

@@ -69,6 +69,7 @@ class HellaCacheArbiter(n: Int)(implicit p: Parameters) extends Module
       resp.bits.tag := io.mem.resp.bits.tag >> log2Up(n)
 
       io.requestor(i).replay_next := io.mem.replay_next
+      io.requestor(i).s2_primary_miss := io.mem.s2_primary_miss
     }
   }
 }

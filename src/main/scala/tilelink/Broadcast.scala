@@ -83,7 +83,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
 
       // We always accept E
       in.e.ready := Bool(true)
-      (trackers zip UIntToOH(in.e.bits.sink).toBools) foreach { case (tracker, select) =>
+      (trackers zip UIntToOH(in.e.bits.sink).asBools) foreach { case (tracker, select) =>
         tracker.e_last := select && in.e.fire()
       }
 
@@ -93,7 +93,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
       val d_drop = d_what === DROP
       val d_hasData = edgeOut.hasData(out.d.bits)
       val d_normal = Wire(in.d)
-      val d_trackerOH = Vec(trackers.map { t => !t.idle && t.source === d_normal.bits.source }).asUInt
+      val d_trackerOH = Vec(trackers.map { t => t.need_d && t.source === d_normal.bits.source }).asUInt
 
       assert (!out.d.valid || !d_drop || out.d.bits.opcode === TLMessages.AccessAck)
 
@@ -110,7 +110,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
       // A tracker response is anything neither dropped nor a ReleaseAck
       val d_response = d_hasData || !d_what(1)
       val d_last = edgeIn.last(d_normal)
-      (trackers zip d_trackerOH.toBools) foreach { case (tracker, select) =>
+      (trackers zip d_trackerOH.asBools) foreach { case (tracker, select) =>
         tracker.d_last := select && d_normal.fire() && d_response && d_last
         tracker.probedack := select && out.d.fire() && d_drop
       }
@@ -146,6 +146,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
       putfull.valid := in.c.valid && (c_probeackdata || c_releasedata)
       putfull.bits := edgeOut.Put(Cat(put_what, put_who), in.c.bits.address, in.c.bits.size, in.c.bits.data)._2
       putfull.bits.dsid := in.c.bits.dsid
+      putfull.bits.instret := in.c.bits.instret
 
       // Combine ReleaseAck or the modified D
       TLArbiter.lowest(edgeOut, in.d, releaseack, d_normal)
@@ -198,7 +199,7 @@ class TLBroadcast(lineBytes: Int, numTrackers: Int = 4, bufferless: Boolean = fa
 
       val trackerReady = Vec(trackers.map(_.in_a.ready)).asUInt
       in.a.ready := (!a_first || !probe_busy) && (selectTracker & trackerReady).orR()
-      (trackers zip selectTracker.toBools) foreach { case (t, select) =>
+      (trackers zip selectTracker.asBools) foreach { case (t, select) =>
         t.in_a.valid := in.a.valid && select && (!a_first || !probe_busy)
         t.in_a.bits := in.a.bits
         t.in_a_first := a_first
@@ -257,6 +258,7 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
     val source = UInt(OUTPUT) // the source awaiting D response
     val line = UInt(OUTPUT)   // the line waiting for probes
     val idle = Bool(OUTPUT)
+    val need_d = Bool(OUTPUT)
   }
 
   val lineShift = log2Ceil(lineBytes)
@@ -272,6 +274,7 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
   val source  = Reg(io.in_a.bits.source)
   val address = RegInit(UInt(id << lineShift, width = io.in_a.bits.address.getWidth))
   val dsid    = Reg(io.in_a.bits.dsid)
+  val instret = Reg(UInt(width = 64))
   val count   = Reg(UInt(width = probeCountBits))
   val idle    = got_e && sent_d
 
@@ -285,6 +288,7 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
     source  := io.in_a.bits.source
     address := io.in_a.bits.address
     dsid    := io.in_a.bits.dsid
+    instret    := io.in_a.bits.instret
     count   := io.probe
   }
   when (io.d_last) {
@@ -302,6 +306,7 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
   }
 
   io.idle := idle
+  io.need_d := !sent_d
   io.source := source
   io.line := address >> lineShift
 
@@ -331,6 +336,7 @@ class TLBroadcastTracker(id: Int, lineBytes: Int, probeCountBits: Int, bufferles
   io.out_a.bits.mask    := o_data.bits.mask
   io.out_a.bits.data    := o_data.bits.data
   io.out_a.bits.dsid    := dsid
+  io.out_a.bits.instret := instret
   io.out_a.bits.corrupt := Bool(false)
 }
 

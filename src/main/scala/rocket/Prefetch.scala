@@ -1,7 +1,7 @@
 package freechips.rocketchip.rocket
 
 import Chisel._
-import freechips.rocketchip.config.{Parameters, Field}
+import freechips.rocketchip.config.{Field, MemInitAddr, Parameters}
 import freechips.rocketchip.tile._
 import freechips.rocketchip.util._
 
@@ -53,7 +53,7 @@ class Prefetcher(implicit p: Parameters) extends L1HellaCacheModule()(p)
   //def blockOffBits = lgCacheBlockBytes
   def addrToBlock(addr: UInt) : UInt = addr >> blockOffBits
 
-  val isMMIO = io.in.bits.addr < UInt(0x100000000L)
+  val isMMIO = io.in.bits.addr < p(MemInitAddr).U
   val isTypeOk = isRead(io.in.bits.cmd)
 
   val policyIO = Wire(new PrefetchPolicyIO())

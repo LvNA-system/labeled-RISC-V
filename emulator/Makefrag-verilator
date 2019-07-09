@@ -8,7 +8,11 @@ verilog = \
   $(generated_dir)/$(long_name).v \
   $(generated_dir)/$(long_name).behav_srams.v \
 
-.SECONDARY: $(firrtl) $(verilog)
+origin_verilog = \
+  $(generated_dir)/$(long_name).v \
+  $(generated_dir)/$(long_name).origin_behav_srams.v \
+
+.SECONDARY: $(firrtl) $(verilog) $(origin_verilog)
 
 $(generated_dir)/%.fir $(generated_dir)/%.d: $(FIRRTL_JAR) $(chisel_srcs) $(bootrom_img)
 	mkdir -p $(dir $@)
@@ -24,8 +28,12 @@ $(generated_dir)/$(long_name).behav_srams.v : $(generated_dir)/$(long_name).conf
   $(mem_init) $@.tmp mem_ext bin.txt $(generated_dir)/$(long_name).json > $@
 	rm -f $@.tmp
 
+$(generated_dir)/$(long_name).origin_behav_srams.v : $(generated_dir)/$(long_name).conf $(VLSI_MEM_GEN)
+	cd $(generated_dir) && \
+	$(VLSI_MEM_GEN) $(generated_dir)/$(long_name).conf > $@
+
 # Build and install our own Verilator, to work around versionining issues.
-VERILATOR_VERSION=4.004
+VERILATOR_VERSION=4.008
 VERILATOR_SRCDIR ?= verilator/src/verilator-$(VERILATOR_VERSION)
 VERILATOR_TARGET := $(abspath verilator/install/bin/verilator)
 INSTALLED_VERILATOR ?= $(VERILATOR_TARGET)
@@ -55,13 +63,14 @@ verilator: $(INSTALLED_VERILATOR)
 
 # Run Verilator to produce a fast binary to emulate this circuit.
 VERILATOR := $(INSTALLED_VERILATOR) --cc --exe
+VERILATOR_THREADS ?= 2
 VERILATOR_FLAGS := --top-module $(MODEL) \
   +define+PRINTF_COND=\$$c\(\"verbose\",\"\&\&\"\,\"done_reset\"\) \
   +define+RANDOMIZE_GARBAGE_ASSIGN \
   +define+STOP_COND=\$$c\(\"done_reset\"\) --assert \
   --output-split 20000 \
   --output-split-cfuncs 20000 \
-  --threads 4 \
+  --threads $(VERILATOR_THREADS) \
 	-Wno-STMTDLY --x-assign unique \
   -I$(vsrc) \
   -O3 -CFLAGS "$(CXXFLAGS) -DVERILATOR -DTEST_HARNESS=V$(MODEL) -include $(csrc)/verilator.h -include $(generated_dir)/$(PROJECT).$(CONFIG).plusArgs"
@@ -84,3 +93,12 @@ $(emu_debug): $(verilog) $(cppfiles) $(headers) $(generated_dir)/$(long_name).d 
 	-o $(abspath $(sim_dir))/$@ $(verilog) $(cppfiles) -LDFLAGS "$(LDFLAGS)" \
 	-CFLAGS "-I$(generated_dir_debug) -include $(model_header_debug)"
 	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir_debug)/$(long_name) -f V$(MODEL).mk
+
+$(origin_emu): $(origin_verilog) $(cppfiles) $(headers) $(INSTALLED_VERILATOR)
+	mkdir -p $(generated_dir)/$(long_name)
+	$(VERILATOR) $(VERILATOR_FLAGS) -Mdir $(generated_dir)/$(long_name) \
+	-o $(abspath $(sim_dir))/$@ $(origin_verilog) $(cppfiles) -LDFLAGS "$(LDFLAGS)" \
+	-CFLAGS "-I$(generated_dir) -include $(model_header)"
+	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -f V$(MODEL).mk
+
+
