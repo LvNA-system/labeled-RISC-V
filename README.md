@@ -12,7 +12,7 @@ We build our labeled RISC-V prototype based on rocketchip.
 sudo apt install git vim
 cd ~/Downloads
 git clone https://github.com/LvNA-system/labeled-RISC-V.git
-git submodule update
+git submodule update --init --recursive
 ```
 
 ## Sub-directories
