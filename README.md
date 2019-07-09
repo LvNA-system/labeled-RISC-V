@@ -70,7 +70,7 @@ press <kbd>G</kbd> to move to last line. press <kbd>i</kbd> to input words. Then
 ```
 export RISCV=/home/YOURNAME/Downloads/riscv-toolchain-2018.05.24
 export PATH=$PATH:$RISCV/bin
-export RISCV_ROOTFS_HOME=/home/YOURNAME/Downloads/sw
+export RISCV_ROOTFS_HOME=/home/YOURNAME/Downloads/sw/riscv-rootfs
 ```
 Then push `ESC` and input `wq!` to save this file.
 
