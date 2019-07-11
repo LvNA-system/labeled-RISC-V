@@ -1,3 +1,5 @@
+CHECK_RESULT = $(shell bash py-check.sh)
+
 base_dir = $(abspath ../..)
 fpga_dir = $(abspath ..)
 fpga_script_dir = $(fpga_dir)/scripts
