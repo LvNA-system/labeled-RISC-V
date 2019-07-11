@@ -52,7 +52,7 @@ DEBUG_ARGS = +jtag_rbb_enable=1 -r 4040
 endif
 
 run-emu: $(emu) $(emu_bin_hex_file) $(nohype_dtb_hex_file)
-	cd $(dir $(emu)) && time $< $(DEBUG_ARGS) $(SEED) +verbose -m $(max_cycles) . 3>&1 1>&2 2>&3 \
+	cd $(dir $(emu)) && LD_LIBRARY_PATH=$(RISCV)/lib time $< $(DEBUG_ARGS) $(SEED) +verbose -m $(max_cycles) . 3>&1 1>&2 2>&3 \
 		| spike-dasm > $(dir $(emu))/emu.log
 
 dtb-clean:
