@@ -20,18 +20,21 @@
 
 <details>
  <summary>Get source code</summary>
-
+<blockquote>
+ 
  ```bash
  sudo apt install git vim
  cd ~/Downloads
  git clone https://github.com/LvNA-system/labeled-RISC-V.git
  git submodule update --init --recursive
  ```
+ </blockquote>
 </details>
 
 <details>
  <summary>Install Ubuntu Packages</summary>
-
+<blockquote>
+ 
  ```bash
  sudo apt-get install autoconf automake autotools-dev curl libmpc-dev libmpfr-dev libgmp-dev libusb-1.0-0-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev device-tree-compiler pkg-config libexpat-dev
  ```
@@ -40,12 +43,13 @@
  ```bash
  sudo apt-get install openjdk-8-jdk
  ```
+ </blockquote>
 </details>
 
 <details>
  <summary>Get Tool-Chains</summary>
-
- If you are using ICT' network such as ICT_Guest or ICT_WLAN, you can download tool-chains from [http://10.30.6.127:8000/riscv-toolchain-2018.05.24.tar.gz](http://10.30.6.127:8000/riscv-toolchain-2018.05.24.tar.gz)
+ <blockquote>
+ If you are using ICT' network such as ICT_Guest or ICT_WLAN, you can download tool-chains from <a href="http://10.30.6.127:8000/riscv-toolchain-2018.05.24.tar.gz">http://10.30.6.127:8000/riscv-toolchain-2018.05.24.tar.gz</a>
 
  Extract the `tar.gz` to `~/Downloads`
 
@@ -55,18 +59,21 @@
  ├── labeld-RISC-V             
  └── riscv-toolchain-2018.05.24         
  ```
-
+</blockquote>
 </details>
 
 <details>
-<summary>Set Envelopment Variables - PATH</summary>
+<summary>Set Environment Variables - PATH</summary>
 
+<blockquote>
 check the full path
+ 
 ```bash
 cd ~/Downloads
 echo $(pwd)
 #/home/xxx/Dowloads
 ```
+
 you will get a string like this `/home/YOURNAME/Downloads`.
 **When using this path, Remember change the `YOURNAME` with your real path from the terminal.**
 
@@ -74,18 +81,21 @@ you will get a string like this `/home/YOURNAME/Downloads`.
 sudo vim /etc/bash.bashrc
 ```
 press <kbd>G</kbd> to move to last line. press <kbd>i</kbd> to input words. Then type the code into the panel.
-```
+
+```bash
 export RISCV=/home/YOURNAME/Downloads/riscv-toolchain-2018.05.24
 export PATH=$PATH:$RISCV/bin
 export RISCV_ROOTFS_HOME=/home/YOURNAME/Downloads/sw/riscv-rootfs
 ```
-Then push `ESC` and input `wq!` to save this file.
+
+Then press <kbd>ESC</kbd> and input `wq!` to save this file.
 
 Make it come into effect.
+
 ```bash
 source /etc/bash.bashrc
 ```
-
+</blockquote>
 </details>
 
 
@@ -98,7 +108,7 @@ mkdir build
 make -j16 sw  # change 16 to the number of cores according to your host
 ```
 If it is the first time you run this command, note that you will be asked to pull these repos under `../../sw`.
-Note that the `RISCV_ROOTFS_HOME` environment variable  has been manually set at before step.
+Note that the `RISCV_ROOTFS_HOME` environment variable  has been manually set at the STEP `Set Environment Variables - PATH`.
 
 After that, `linux.bin` will be generated under `build/`.
 This is a minimal rootfs only containing a `hello` program.
