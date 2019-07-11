@@ -114,7 +114,7 @@ trait HasTokenBucketPlane extends HasControlPlaneParameters with HasTokenBucketP
   private val bucket_debug = false
 
   val bucketParams = RegInit(Vec(Seq.fill(nDSID){
-    Cat(128.U(tokenBucketSizeWidth.W), 8.U(tokenBucketFreqWidth.W), 1.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
+    Cat(128.U(tokenBucketSizeWidth.W), 128.U(tokenBucketFreqWidth.W), 128.U(tokenBucketSizeWidth.W)).asTypeOf(new BucketBundle)
   }))
 
   val bucketState = RegInit(Vec(Seq.fill(nDSID){
