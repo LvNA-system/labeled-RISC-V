@@ -3,12 +3,11 @@
 package freechips.rocketchip.tile
 
 import Chisel._
-import chisel3.core.Input
 import freechips.rocketchip.config._
 import freechips.rocketchip.rocket._
 import freechips.rocketchip.subsystem.NTiles
 import freechips.rocketchip.util._
-import util._
+import ila.{BoomCSRILABundle, FPGATraceBaseBundle, FPGATraceExtraBundle, ILABundle}
 import lvna.HasControlPlaneParameters
 
 case object XLen extends Field[Int]
@@ -37,10 +36,10 @@ trait CoreParams {
   val haveBasicCounters: Boolean
   val haveFSDirty: Boolean
   val misaWritable: Boolean
+  val haveCFlush: Boolean
   val nL2TLBEntries: Int
   val mtvecInit: Option[BigInt]
   val mtvecWritable: Boolean
-  val tileControlAddr: Option[BigInt]
   def customCSRs(implicit p: Parameters): CustomCSRs = new CustomCSRs
 
   def instBytes: Int = instBits / 8
@@ -95,8 +94,9 @@ abstract class CoreBundle(implicit val p: Parameters) extends ParameterizedBundl
   with HasCoreParameters
 
 class CoreInterrupts(implicit p: Parameters) extends TileInterrupts()(p) {
-  val buserror = coreParams.tileControlAddr.map(a => Bool())
+  val buserror = tileParams.beuAddr.map(a => Bool())
 }
+
 
 trait HasCoreIO extends HasTileParameters with HasControlPlaneParameters {
   implicit val p: Parameters
@@ -108,10 +108,18 @@ trait HasCoreIO extends HasTileParameters with HasControlPlaneParameters {
     val fpu = new FPUCoreIO().flip
     val rocc = new RoCCCoreIO().flip
     val procdsid = UInt(OUTPUT, procDSidWidth)
+    val instret = UInt(OUTPUT, 64)
 
     val ila = new ILABundle()
     val prefetch_enable = Bool(OUTPUT)
     val trace = Vec(coreParams.retireWidth, new TracedInstruction).asOutput
     val progHartId = UInt(INPUT, log2Ceil(p(NTiles)).W)
+
+    // TODO [WHZ] Make debug ports configurable
+    // val core_debug = new CoreDebugIO()
+    val csr_ila = new BoomCSRILABundle()
+    val fpga_trace = new FPGATraceBaseBundle(1)
+    val fpga_trace_ex = new FPGATraceExtraBundle()
+    val cease = Bool().asOutput
   }
 }

@@ -16,7 +16,7 @@ generated_dir = $(build_dir)/generated-src
 
 MODEL ?= TestHarness
 BOARD ?= zcu102
-CONFIG = LvNAFPGAConfig$(BOARD)
+CONFIG ?= LvNAFPGAConfig$(BOARD)
 
 #--------------------------------------------------------------------
 # Rocket-chip verilog source generation
@@ -39,6 +39,7 @@ rocketchip_rtl = rtl/rocket/rocketchip_board_$(BOARD).v
 $(rocketchip_rtl): $(gen_rtl) $(srams_rtl) $(other_rtl)
 	cat $^ > $@
 	sed -i -e 's/_\(aw\|ar\|w\|r\|b\)_\(\|bits_\)/_\1/g' $@
+	sed -i -e 's/LvNABoomFPGATop/LvNAFPGATop/g' $@
 
 verilog: $(rocketchip_rtl)
 

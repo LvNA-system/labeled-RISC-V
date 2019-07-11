@@ -14,11 +14,13 @@ LDFLAGS := $(LDFLAGS) -L$(RISCV)/lib -Wl,-rpath,$(RISCV)/lib -L$(abspath $(sim_d
 
 emu = emulator-$(PROJECT)-$(CONFIG)
 emu_debug = emulator-$(PROJECT)-$(CONFIG)-debug
+origin_emu = emulator-$(PROJECT)-$(CONFIG)-origin # without init mem
 
 include $(sim_dir)/Makefrag-verilator
 
 all: $(emu)
 debug: $(emu_debug)
+emu_origin: $(origin_emu)
 
 clean:
 	rm -rf *.o *.a emulator-* $(generated_dir) $(generated_dir_debug) DVEfiles $(output_dir)
@@ -33,11 +35,11 @@ ifneq ($(filter run% %.run %.out %.vpd %.vcd,$(MAKECMDGOALS)),)
 -include $(generated_dir)/$(long_name).d
 endif
 
-$(output_dir)/%.run: $(output_dir)/% $(emu)
-	./$(emu) +max-cycles=$(timeout_cycles) $< 2> /dev/null 2> $@ && [ $$PIPESTATUS -eq 0 ]
+$(output_dir)/%.run: $(output_dir)/% $(origin_emu)
+	./$(origin_emu) +max-cycles=$(timeout_cycles) $< 2> /dev/null 2> $@ && [ $$PIPESTATUS -eq 0 ]
 
-$(output_dir)/%.out: $(output_dir)/% $(emu)
-	./$(emu) +max-cycles=$(timeout_cycles) +verbose $< $(disasm) $@ && [ $$PIPESTATUS -eq 0 ]
+$(output_dir)/%.out: $(output_dir)/% $(origin_emu)
+	./$(origin_emu) +max-cycles=$(timeout_cycles) +verbose $< $(disasm) $@ && [ $$PIPESTATUS -eq 0 ]
 
 $(output_dir)/%.vcd: $(output_dir)/% $(emu_debug)
 	./$(emu_debug) +max-cycles=$(timeout_cycles) +verbose -v$@ $< $(disasm) $(patsubst %.vcd,%.out,$@) && [ $$PIPESTATUS -eq 0 ]

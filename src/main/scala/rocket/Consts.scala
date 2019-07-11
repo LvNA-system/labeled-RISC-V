@@ -6,6 +6,17 @@ import Chisel._
 import freechips.rocketchip.util._
 import scala.math._
 
+trait ControlOpConstants {
+  val CT_SZ         = 3
+  def CT_X          = BitPat("b???")
+  def CT_Call       = UInt(0, 3)
+  def CT_Ret        = UInt(1, 3)
+  def CT_Br_Backw   = UInt(2, 3)
+  def CT_Br_Forw    = UInt(3, 3)
+  def CT_J_Backw    = UInt(4, 3)
+  def CT_J_Foww     = UInt(5, 3)
+}
+
 trait ScalarOpConstants {
   val MT_SZ = 3
   def MT_X  = BitPat("b???")

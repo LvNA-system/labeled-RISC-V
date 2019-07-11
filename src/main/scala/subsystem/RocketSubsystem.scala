@@ -8,10 +8,12 @@ import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.devices.debug.{HasPeripheryDebug, HasPeripheryDebugModuleImp}
 import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.diplomaticobjectmodel.model.{OMComponent, OMInterruptTarget}
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.interrupts._
 import freechips.rocketchip.util._
+import ila.{BoomCSRILABundle, FPGATraceBaseBundle, FPGATraceExtraBundle}
 import lvna.TokenBucketNode
 
 // TODO: how specific are these to RocketTiles?
@@ -22,10 +24,6 @@ case class RocketCrossingParams(
     crossingType: ClockCrossingType = SynchronousCrossing(),
     master: TileMasterPortParams = TileMasterPortParams(),
     slave: TileSlavePortParams = TileSlavePortParams()) {
-  def knownRatio: Option[Int] = crossingType match {
-    case RationalCrossing(_) => Some(2)
-    case _ => None
-  }
 }
 
 case object RocketTilesKey extends Field[Seq[RocketTileParams]](Nil)
@@ -44,7 +42,7 @@ trait HasRocketTiles extends HasTiles
   // according to the specified type of clock crossing.
   // Note that we also inject new nodes into the tile itself,
   // also based on the crossing type.
-  val tokenBuckets = Seq.fill(p(NTiles)){ LazyModule(new TokenBucketNode()) }
+  val tokenBuckets = Seq.fill(p(NRocketTiles)){ LazyModule(new TokenBucketNode()) }
   val rocketTiles = rocketTileParams.zip(crossings).zip(tokenBuckets).map { case ((tp, crossing), tokenBucket) =>
     val rocket = LazyModule(new RocketTile(tp, crossing.crossingType)(augmentedTileParameters(tp)))
       .suggestName(tp.name)
@@ -55,6 +53,16 @@ trait HasRocketTiles extends HasTiles
 
     rocket
   }
+
+  def coreMonitorBundles = (rocketTiles map { t =>
+    t.module.core.rocketImpl.coreMonitorBundle
+  }).toList
+
+  def getOMRocketInterruptTargets(): Seq[OMInterruptTarget] =
+    rocketTiles.flatMap(c => c.cpuDevice.getInterruptTargets())
+
+  def getOMRocketCores(resourceBindingsMap: ResourceBindingsMap): Seq[OMComponent] =
+    rocketTiles.flatMap(c => c.cpuDevice.getOMComponents(resourceBindingsMap))
 }
 
 trait HasRocketTilesModuleImp extends HasTilesModuleImp
@@ -79,4 +87,13 @@ class RocketSubsystemModuleImp[+L <: RocketSubsystem](_outer: L) extends BaseSub
     wire.hartid := UInt(i)
     wire.reset_vector := global_reset_vector
   }
+
+  // head: single core only
+  val ila = IO(new BoomCSRILABundle())
+  ila := _outer.tiles.head.module.ila
+
+  val fpga_trace = IO(new FPGATraceBaseBundle(1))
+  val fpga_trace_ex = IO(new FPGATraceExtraBundle())
+  fpga_trace := _outer.tiles.head.module.fpga_trace
+  fpga_trace_ex := _outer.tiles.head.module.fpga_trace_ex
 }

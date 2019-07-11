@@ -65,7 +65,7 @@ class AddressAdjuster(mask: BigInt)(implicit p: Parameters) extends LazyModule {
         val container = remote.managers.find { r => l.address.forall { la => r.address.exists(_.contains(la)) } }
         require (!container.isEmpty, s"There is no remote manager which contains the addresses of ${l.name} (${l.address})")
         val r = container.get
-        require (l.regionType <= r.regionType,  s"Device ${l.name} cannot be ${l.regionType} when ${r.name} is ${r.regionType}")
+        require (l.regionType >= r.regionType,  s"Device ${l.name} cannot be ${l.regionType} when ${r.name} is ${r.regionType}")
         require (!l.executable || r.executable, s"Device ${l.name} cannot be executable if ${r.name} is not")
         require (!l.mayDenyPut || r.mayDenyPut, s"Device ${l.name} cannot deny Put if ${r.name} does not")
         require (!l.mayDenyGet || r.mayDenyGet, s"Device ${l.name} cannot deny Get if ${r.name} does not")
@@ -111,22 +111,21 @@ class AddressAdjuster(mask: BigInt)(implicit p: Parameters) extends LazyModule {
         minLatency = local.minLatency min remote.minLatency)
     })
 
-  lazy val module = new LazyModuleImp(this) {
-    val io = IO(new Bundle {
-      val local_address = UInt(bits.size.W)
-    })
+  val chip_id = BundleBridgeSink[UInt]()
 
+  lazy val module = new LazyModuleImp(this) {
     require (node.edges.in.size == 1)
     require (node.edges.out.size == 2)
 
     val (parent, parentEdge) = node.in(0)
     val (remote, remoteEdge) = node.out(0)
     val (local,  localEdge)  = node.out(1)
-    require (localEdge.manager.beatBytes == remoteEdge.manager.beatBytes)
+    require (localEdge.manager.beatBytes == remoteEdge.manager.beatBytes,
+      s"Port width mismatch ${localEdge.manager.beatBytes} (${localEdge.manager.managers.map(_.name)}) != ${remoteEdge.manager.beatBytes} (${remoteEdge.manager.managers.map(_.name)})")
 
     // Which address within the mask routes to local devices?
-    val local_address = (bits zip io.local_address.toBools).foldLeft(0.U) {
-      case (acc, (bit, sel)) => acc | Mux(sel, 0.U, bit.U)
+    val local_address = (bits zip chip_id.bundle.asBools).foldLeft(0.U) {
+      case (acc, (bit, sel)) => acc | Mux(sel, bit.U, 0.U)
     }
 
     // Route A by address, but reroute unsupported operations
@@ -162,9 +161,15 @@ class AddressAdjuster(mask: BigInt)(implicit p: Parameters) extends LazyModule {
 
     // Rewrite sink in D
     val sink_threshold = localEdge.manager.endSinkId.U // more likely to be 0 than remote.endSinkId
-    val local_d  = WireInit(chiselTypeOf(parent.d), local.d) // type-cast, because 'sink' width differs
-    val remote_d = WireInit(chiselTypeOf(parent.d), remote.d)
-    remote_d.bits.sink := remote.d.bits.sink + sink_threshold
+    val local_d  = Wire(chiselTypeOf(parent.d)) // type-cast, because 'sink' width differs
+    local.d.ready := local_d.ready
+    local_d.valid := local.d.valid
+    local_d.bits  := local.d.bits
+    val remote_d = Wire(chiselTypeOf(parent.d))
+    remote.d.ready := remote_d.ready
+    remote_d.valid := remote.d.valid
+    remote_d.bits := remote.d.bits
+    remote_d.bits.sink := remote.d.bits.sink +& sink_threshold
     TLArbiter.robin(parentEdge, parent.d, local_d, remote_d)
 
     if (parentEdge.manager.anySupportAcquireB && parentEdge.client.anySupportProbe) {
@@ -188,6 +193,7 @@ class AddressAdjuster(mask: BigInt)(implicit p: Parameters) extends LazyModule {
       remote.e.valid := parent.e.valid && !e_local
       local .e.bits  := parent.e.bits
       remote.e.bits  := parent.e.bits
+      remote.e.bits.sink := parent.e.bits.sink - sink_threshold
     }
   }
 }

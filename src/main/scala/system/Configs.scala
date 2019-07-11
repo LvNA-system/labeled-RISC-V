@@ -4,9 +4,8 @@
 package freechips.rocketchip.system
 
 import Chisel._
-import freechips.rocketchip.config.Config
+import freechips.rocketchip.config.{Config, LvNADirtyConfig}
 import freechips.rocketchip.subsystem._
-import freechips.rocketchip.devices.debug.{IncludeJtagDTM, JtagDTMKey}
 import freechips.rocketchip.diplomacy._
 
 class WithJtagDTMSystem extends freechips.rocketchip.subsystem.WithJtagDTM
@@ -19,7 +18,19 @@ class BaseConfig extends Config(
   new WithTimebase(BigInt(1000000)) ++ // 1 MHz
   new WithDTS("freechips,rocketchip-unknown", Nil) ++
   new WithNExtTopInterrupts(2) ++
-  new BaseSubsystemConfig()
+  new BaseSubsystemConfig() ++
+  new LvNADirtyConfig()
+)
+
+class BaseBoomConfig extends Config(
+  new WithDefaultMemPort() ++
+  new WithDefaultMMIOPort() ++
+  new WithDefaultSlavePort() ++
+  new WithTimebase(BigInt(1000000)) ++ // 1 MHz
+  new WithDTS("ict,boom-unknown", Nil) ++
+  new WithNExtTopInterrupts(2) ++
+  new BaseSubsystemConfig() ++
+  new LvNADirtyConfig()
 )
 
 class DefaultConfig extends Config(new WithNBigCores(1) ++ new BaseConfig)
@@ -31,13 +42,13 @@ class DefaultSmallConfig extends Config(new WithNSmallCores(1) ++ new BaseConfig
 class DefaultRV32Config extends Config(new WithRV32 ++ new DefaultConfig)
 
 class DualBankConfig extends Config(
-  new WithNBanksPerMemChannel(2) ++ new BaseConfig)
+  new WithNBanks(2) ++ new BaseConfig)
 
 class DualChannelConfig extends Config(new WithNMemoryChannels(2) ++ new BaseConfig)
 
 class DualChannelDualBankConfig extends Config(
   new WithNMemoryChannels(2) ++
-  new WithNBanksPerMemChannel(2) ++ new BaseConfig)
+  new WithNBanks(4) ++ new BaseConfig)
 
 class RoccExampleConfig extends Config(new WithRoccExample ++ new DefaultConfig)
 
@@ -59,6 +70,7 @@ class DualCoreConfig extends Config(
 class TinyConfig extends Config(
   new WithNoMemPort ++
   new WithNMemoryChannels(0) ++
+  new WithNBanks(0) ++
   new With1TinyCore ++
   new BaseConfig)
 
@@ -72,6 +84,7 @@ class MMIOPortOnlyConfig extends Config(
   new WithNoSlavePort ++
   new WithNoMemPort ++
   new WithNMemoryChannels(0) ++
+  new WithNBanks(0) ++
   new WithIncoherentTiles ++
   new WithScratchpadsOnly ++
   new DefaultConfig
@@ -83,6 +96,7 @@ class WithRTCPeriod(nCycles: Int) extends Config((site, here, up) => {
 })
 
 class BaseFPGAConfig extends Config(new BaseConfig)
+class BaseBoomFPGAConfig extends Config(new BaseBoomConfig)
 
 class DefaultFPGAConfig extends Config(new WithNSmallCores(1) ++ new BaseFPGAConfig)
 class DefaultFPGASmallConfig extends Config(new DefaultFPGAConfig)

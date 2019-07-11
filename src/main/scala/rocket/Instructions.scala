@@ -101,6 +101,8 @@ object Instructions {
   def DRET               = BitPat("b01111011001000000000000001110011")
   def SFENCE_VMA         = BitPat("b0001001??????????000000001110011")
   def WFI                = BitPat("b00010000010100000000000001110011")
+  def CEASE              = BitPat("b00110000010100000000000001110011")
+  def CFLUSH_D_L1        = BitPat("b111111000000?????000000001110011")
   def CSRRW              = BitPat("b?????????????????001?????1110011")
   def CSRRS              = BitPat("b?????????????????010?????1110011")
   def CSRRC              = BitPat("b?????????????????011?????1110011")
@@ -374,9 +376,9 @@ object CSRs {
   val sscratch = 0x140
   val sepc = 0x141
   val scause = 0x142
-  val sbadaddr = 0x143
+  val stval = 0x143
   val sip = 0x144
-  val sptbr = 0x180
+  val satp = 0x180
   val mstatus = 0x300
   val misa = 0x301
   val medeleg = 0x302
@@ -387,7 +389,7 @@ object CSRs {
   val mscratch = 0x340
   val mepc = 0x341
   val mcause = 0x342
-  val mbadaddr = 0x343
+  val mtval = 0x343
   val mip = 0x344
   val pmpcfg0 = 0x3a0
   val pmpcfg1 = 0x3a1
@@ -416,6 +418,9 @@ object CSRs {
   val dcsr = 0x7b0
   val dpc = 0x7b1
   val dscratch = 0x7b2
+
+  val mstop = 0x7e1
+
   val mcycle = 0xb00
   val minstret = 0xb02
   val mhpmcounter3 = 0xb03
@@ -591,9 +596,9 @@ object CSRs {
     res += sscratch
     res += sepc
     res += scause
-    res += sbadaddr
+    res += stval
     res += sip
-    res += sptbr
+    res += satp
     res += mstatus
     res += misa
     res += medeleg
@@ -604,7 +609,7 @@ object CSRs {
     res += mscratch
     res += mepc
     res += mcause
-    res += mbadaddr
+    res += mtval
     res += mip
     res += pmpcfg0
     res += pmpcfg1
@@ -633,6 +638,9 @@ object CSRs {
     res += dcsr
     res += dpc
     res += dscratch
+
+    res += mstop
+
     res += mcycle
     res += minstret
     res += mhpmcounter3
