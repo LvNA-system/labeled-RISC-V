@@ -17,7 +17,7 @@
 
 ## Build RISC-V image
 
-* Initialize all submodules and build riscv-tools according to the instructions of [README.md under the root directory of this repo](../README.md).
+* Initialize all submodules and build riscv-tools according to the instructions of [README-rocketchip.md under the root directory of this repo](../README-rocketchip.md).
   * Please also install the linux-gnu toolchain
 * Build riscv-pk (which contains the bootloader), riscv-linux and riscv-rootfs with the following commands
 ```
