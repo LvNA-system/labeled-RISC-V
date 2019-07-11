@@ -48,6 +48,7 @@ LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
 
 ROOTFS_PATH = $(SW_PATH)/riscv-rootfs
+RFS_ENV = RISCV_ROOTFS_HOME=$(ROOTFS_PATH)
 
 #--------------------------------------------------------------------
 # BBL rules
@@ -75,12 +76,12 @@ $(BBL_BUILD_PATH): $(BBL_PAYLOAD) | $(BBL_REPO_PATH)
 $(BBL_ELF_BUILD): | $(BBL_BUILD_PATH)
 	cd $(@D) && \
 		git checkout $(BBL_BUILD_COMMIT) && \
-		($(MAKE) || (git checkout @{-1}; false)) && \
+		($(RFS_ENV) $(MAKE) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 bbl-clean:
 	-rm $(BBL_ELF) $(BBL_BIN)
-	-$(MAKE) clean -C $(BBL_BUILD_PATH)
+	-$(RFS_ENV) $(MAKE) clean -C $(BBL_BUILD_PATH)
 
 .PHONY: bbl bbl-clean $(BBL_ELF_BUILD)
 
@@ -92,7 +93,7 @@ $(LINUX_REPO_PATH): | $(SW_PATH)
 	mkdir -p $@
 	@/bin/echo -e "\033[1;31mBy default, a shallow clone with only 1 commit history is performed, since the commit history is very large.\nThis is enough for building the project.\nTo fetch full history, run 'git fetch --unshallow' under $(LINUX_REPO_PATH).\033[0m"
 	git clone --depth 1 https://github.com/LvNA-system/riscv-linux.git $@
-	cd $@ && make ARCH=riscv emu_defconfig
+	cd $@ && $(RFS_ENV) $(MAKE) ARCH=riscv emu_defconfig
 
 $(ROOTFS_PATH): | $(SW_PATH)
 	mkdir -p $@
@@ -105,15 +106,15 @@ $(LINUX_ELF): $(LINUX_ELF_BUILD)
 	ln -sf $(abspath $<) $@
 
 $(LINUX_ELF_BUILD): | $(LINUX_REPO_PATH) $(ROOTFS_PATH)
-	$(MAKE) -C $(ROOTFS_PATH)
+	$(RFS_ENV) $(MAKE) -C $(ROOTFS_PATH)
 	cd $(@D) && \
 		git checkout $(LINUX_BUILD_COMMIT) && \
-		(($(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
+		(($(RFS_ENV) $(MAKE) CROSS_COMPILE=$(RISCV_PREFIX) ARCH=riscv vmlinux) || (git checkout @{-1}; false)) && \
 		git checkout @{-1}
 
 linux-clean:
 	-rm $(LINUX_ELF)
-	-$(MAKE) clean -C $(LINUX_REPO_PATH)
+	-$(RFS_ENV) $(MAKE) clean -C $(LINUX_REPO_PATH)
 
 .PHONY: linux linux-clean $(LINUX_ELF_BUILD)
 
@@ -125,6 +126,6 @@ linux-clean:
 sw: bbl
 
 sw-clean: bbl-clean linux-clean
-	-$(MAKE) -C $(ROOTFS_PATH) clean
+	-$(RFS_ENV) $(MAKE) -C $(ROOTFS_PATH) clean
 
 .PHONY: sw sw-clean
