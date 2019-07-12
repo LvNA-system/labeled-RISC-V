@@ -27,6 +27,7 @@ CONFIG ?= LvNAFPGAConfig$(BOARD)
 gen_rtl = $(generated_dir)/$(long_name).v
 srams_rtl = $(generated_dir)/$(long_name).behav_srams.v
 other_rtl = $(base_dir)/src/main/resources/vsrc/AsyncResetReg.v \
+            $(base_dir)/src/main/resources/vsrc/EICG_wrapper.v \
             $(base_dir)/src/main/resources/vsrc/plusarg_reader.v
 
 $(gen_rtl):
