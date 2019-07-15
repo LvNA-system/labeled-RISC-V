@@ -1,4 +1,4 @@
-set device xczu19eg-ffvc1760-2-i-es2
+set device xczu19eg-ffvc1760-2-i
 set board fidus:none:part0:2.0
 
 set script_dir  [file dirname [info script]]
