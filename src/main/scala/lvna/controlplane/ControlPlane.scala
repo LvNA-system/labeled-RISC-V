@@ -2,13 +2,17 @@ package lvna
 
 import Chisel._
 import boom.system.{HasBoomTiles, HasBoomTilesModuleImp}
-import chisel3.core.{IO, Input, Output}
+import chisel3.core.{IO, Input, Output, WireInit}
 import freechips.rocketchip.config.{Field, Parameters}
-import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
+import freechips.rocketchip.diplomacy.{AddressSet, LazyModule, LazyModuleImp, SimpleDevice}
 import freechips.rocketchip.subsystem._
 import freechips.rocketchip.system.UseEmu
 import freechips.rocketchip.tile.XLen
-import freechips.rocketchip.util.{GTimer, AsyncQueue}
+import freechips.rocketchip.tilelink.TLRegisterNode
+import freechips.rocketchip.util.{AsyncQueue, GTimer}
+import freechips.rocketchip.devices.debug.DMI_RegAddrs._
+import freechips.rocketchip.devices.debug.RWNotify
+import freechips.rocketchip.regmapper.{RegField, RegReadFn, RegWriteFn}
 
 object log2Safe {
   def apply(n: BigInt): Int = {
@@ -29,7 +33,7 @@ trait HasControlPlaneParameters {
   val dsidWidth = ldomDSidWidth + procDSidWidth
   val nDSID = 1 << dsidWidth
   val cycle_counter_width = 64
-  val cacheCapacityWidth = log2Safe(p(NL2CacheCapacity) * 1024 / 64)
+  val cacheCapacityWidth = log2Safe(p(NL2CacheCapacity) * 1024 / 64) + 1
 }
 
 /**
@@ -166,13 +170,21 @@ class CPToCore(implicit val p: Parameters) extends Bundle with HasControlPlanePa
   val progHartId = UInt(log2Safe(nTiles).W)
 }
 
-class ControlPlane()(implicit p: Parameters) extends LazyModule
+class ControlPlane(tlBeatBytes: Int)(implicit p: Parameters) extends LazyModule
 with HasControlPlaneParameters
 with HasTokenBucketParameters
 {
   private val memAddrWidth = p(XLen)
   private val instAddrWidth = p(XLen)
   private val totalBW = if (p(UseEmu)) 55*8 else 20*8
+
+
+  val tlNode = TLRegisterNode(
+    address = Seq(AddressSet(0x20000, 0xffff)),
+    device = new SimpleDevice("control-plane", Seq("LvNA,test", "LvNA,test")),
+    beatBytes = tlBeatBytes
+  )
+
 
   override lazy val module = new LazyModuleImp(this) with HasTokenBucketPlane {
     val io = IO(new Bundle {
@@ -231,7 +243,7 @@ with HasTokenBucketParameters
     }
 
     val mem_base_lo_tmp = RegInit(0.U(32.W))
-    val mem_mask_lo_tmp = RegInit(~0.U(32.W))
+    val mem_mask_lo_tmp = RegInit((~0.U(32.W)).asUInt)
 
     when (io.cp.memBaseLoWen) {
       mem_base_lo_tmp := io.cp.updateData
@@ -268,6 +280,48 @@ with HasTokenBucketParameters
     when (io.cp.waymaskWen) {
       waymasks(currDsid) := io.cp.updateData
     }
+
+
+    // TL node
+    def offset(addr: Int): Int = { (addr - CP_HART_DSID) << 2 }
+
+    val traffic_read = WireInit(false.B)
+    val timestamp_buffered = Reg(UInt(cycle_counter_width.W))
+    when (traffic_read) {
+      timestamp_buffered := timer
+    }
+
+    tlNode.regmap(
+      offset(CP_HART_DSID)   -> Seq(RegField(32, hartDsids(hartSel))),
+      offset(CP_HART_SEL)    -> Seq(RegField(32, hartSel)),
+      offset(CP_DSID_COUNT)  -> Seq(RegField(32, (1 << dsidWidth).U, ())),
+      offset(CP_MEM_BASE_LO) -> Seq(RegField(32, memBases(hartSel)(31, 0), mem_base_lo_tmp)),
+      offset(CP_MEM_BASE_HI) -> Seq(RegField(32, memBases(hartSel)(memAddrWidth - 1, 32), (valid: Bool, data: UInt) => {
+        when (valid) {
+          memBases(hartSel) := Cat(data, mem_base_lo_tmp)
+        }
+        true.B
+      })),
+      offset(CP_MEM_MASK_LO) -> Seq(RegField(32, memMasks(hartSel)(31, 0), mem_mask_lo_tmp)),
+      offset(CP_MEM_MASK_HI) -> Seq(RegField(32, memMasks(hartSel)(memAddrWidth - 1, 32), (valid: Bool, data: UInt) => {
+          when (valid) {
+            memMasks(hartSel) := Cat(data, mem_mask_lo_tmp)
+          }
+          true.B
+        }
+      )),
+      offset(CP_BUCKET_FREQ) -> Seq(RegField(32, bucketParams(currDsid).freq)),
+      offset(CP_BUCKET_SIZE) -> Seq(RegField(32, bucketParams(currDsid).size)),
+      offset(CP_BUCKET_INC)  -> Seq(RegField(32, bucketParams(currDsid).inc)),
+      offset(CP_TRAFFIC)     -> Seq(RWNotify(32, bucketState(currDsid).traffic, Wire(UInt()), traffic_read, Wire(Bool()))),
+      offset(CP_WAYMASK)     -> Seq(RegField(32, waymasks(currDsid))),
+      offset(CP_L2_CAPACITY) -> Seq(RegField(32, io.l2.capacity, ())),
+      offset(CP_DSID_SEL)    -> Seq(RegField(32, currDsid)),
+      offset(CP_HART_ID)     -> Seq(RegField(32, progHartIds(hartSel))),
+      offset(CP_TIMER_LO)    -> Seq(RegField(32, timestamp_buffered(31, 0), ())),
+      offset(CP_TIMER_HI)    -> Seq(RegField(32, timestamp_buffered(63, 32), ())),
+    )
+
 
     if (false) {
     // AutoMBA goes here
@@ -477,13 +531,19 @@ with HasTokenBucketParameters
 
 trait HasControlPlane extends HasRocketTiles {
   this: BaseSubsystem =>
-  val controlPlane = LazyModule(new ControlPlane())
+  val controlPlane = LazyModule(new ControlPlane(cbus.beatBytes))
+  cbus.toVariableWidthSlave(Some("ControlPlane")) {
+    controlPlane.tlNode
+  }
 }
 
 
 trait HasBoomControlPlane extends HasBoomTiles {
   this: BaseSubsystem =>
-  val controlPlane = LazyModule(new ControlPlane())
+  val controlPlane = LazyModule(new ControlPlane(cbus.beatBytes))
+  cbus.toVariableWidthSlave(Some("ControlPlane")) {
+    controlPlane.tlNode
+  }
 }
 
 
