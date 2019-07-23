@@ -368,6 +368,51 @@ with HasControlPlaneParameters
 
       val need_data_read = read_hit || write_hit || read_miss_writeback || write_miss_writeback
 
+      class MissStat() extends Bundle {
+        val miss = UInt(32.W)
+        val total = UInt(32.W)
+      }
+
+      val miss_stat_array = DescribedSRAM(
+        name = "miss_stat",
+        desc = "L2 cache miss stat",
+        size = 1 << dsidWidth,
+        data = new MissStat()
+      )
+
+      val miss_stat_origin = miss_stat_array.read(dsid, state === s_tag_read_resp)
+
+      val miss_stat_update = Wire(new MissStat())
+      miss_stat_update.miss := miss_stat_origin.miss + Mux(hit, 0.U, 1.U)
+      miss_stat_update.total := miss_stat_origin.total + 1.U
+
+      val miss_stat_query = miss_stat_array.read(cp.capacity_dsid, cp.req_miss_en)
+      cp.req_miss := miss_stat_query.miss
+      cp.req_total := miss_stat_query.total
+      when (RegNext(cp.req_miss_en)) {
+        log("query miss stat dsid %d miss %d total %d", cp.capacity_dsid, miss_stat_query.miss, miss_stat_query.total)
+      }
+
+      val reset_miss_stat = cp.stat_reset || reset
+      val miss_stat_iter = Reg(UInt(dsidWidth.W))
+      when (reset_miss_stat) {
+        miss_stat_iter := miss_stat_iter + 1.U
+      }.otherwise{
+        miss_stat_iter := 0.U
+      }
+      val miss_stat_init = Wire(new MissStat())
+      miss_stat_init.miss := 0.U
+      miss_stat_init.total := 0.U
+      val miss_stat_idx = Mux(reset_miss_stat, miss_stat_iter, dsid)
+      val miss_stat_data = Mux(reset_miss_stat, miss_stat_init, miss_stat_update)
+      when (state === s_tag_read || reset_miss_stat) {
+        when (reset_miss_stat) {
+          log("iter %d, miss_stat_data %x", miss_stat_idx, miss_stat_data.asUInt)
+        }
+        miss_stat_array.write(miss_stat_idx, miss_stat_data)
+      }
+
+
       when (state === s_tag_read) {
         log("hit: %d idx: %x curr_state_reg: %x waymask: %x hit_way: %x repl_way: %x", hit, idx, curr_state_reg, curr_mask, hit_way, repl_way)
         when (ren) {

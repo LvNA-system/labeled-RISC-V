@@ -90,6 +90,11 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val PC                  = UInt(OUTPUT, p(XLen))
 
   val assertDebugInt      = Bool(INPUT)
+
+  val l2_miss_en        = Bool(INPUT)
+  val l2_req_miss       = UInt(OUTPUT, 32)
+  val l2_req_total      = UInt(OUTPUT, 32)
+  val l2_stat_reset_wen = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -98,6 +103,10 @@ class CPToL2CacheIO(implicit val p: Parameters) extends Bundle with HasControlPl
   val dsid = Input(UInt(dsidWidth.W))  // DSID from requests L2 cache received
   val capacity = Input(UInt(cacheCapacityWidth.W))  // Count on way numbers
   val capacity_dsid = Output(UInt(dsidWidth.W))  // Capacity query dsid
+  val req_miss = Input(UInt(32.W))
+  val req_miss_en = Output(Bool())
+  val req_total = Input(UInt(32.W))
+  val stat_reset = Output(Bool())
 }
 
 class BucketState(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters with HasTokenBucketParameters {
@@ -281,6 +290,22 @@ with HasTokenBucketParameters
       waymasks(currDsid) := io.cp.updateData
     }
 
+    // Miss
+    val l2_stat_reset = RegInit(false.B)
+    val sbus_l2_miss_en = Wire(Bool())
+    val miss_en = sbus_l2_miss_en || io.cp.l2_miss_en
+
+    io.l2.req_miss_en := miss_en
+    io.l2.stat_reset := l2_stat_reset
+
+    when (io.cp.l2_stat_reset_wen) {
+      l2_stat_reset := io.cp.updateData
+    }
+
+    io.cp.l2_req_miss := RegEnable(io.l2.req_miss, RegNext(RegNext(miss_en)))    // Wait miss_stat sram addr changes
+    io.cp.l2_req_total := RegEnable(io.l2.req_total, RegNext(RegNext(miss_en)))  // Wait miss_stat sram addr changes
+
+
 
     // TL node
     def offset(addr: Int): Int = { (addr - CP_HART_DSID) << 2 }
@@ -320,6 +345,10 @@ with HasTokenBucketParameters
       offset(CP_HART_ID)     -> Seq(RegField(32, progHartIds(hartSel))),
       offset(CP_TIMER_LO)    -> Seq(RegField(32, timestamp_buffered(31, 0), ())),
       offset(CP_TIMER_HI)    -> Seq(RegField(32, timestamp_buffered(63, 32), ())),
+      offset(CP_L2_REQ_EN)   -> Seq(RWNotify(1, WireInit(false.B), WireInit(false.B), sbus_l2_miss_en, Wire(Bool()))),
+      offset(CP_L2_REQ_MISS) -> Seq(RegField.r(32, io.l2.req_miss)),
+      offset(CP_L2_REQ_TOTAL)-> Seq(RegField.r(32, io.l2.req_total)),
+      offset(CP_L2_STAT_RESET)->Seq(RWNotify(1, WireInit(false.B), l2_stat_reset, Wire(Bool()), WireInit(false.B))),
     )
 
 

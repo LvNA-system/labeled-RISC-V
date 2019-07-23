@@ -410,6 +410,15 @@ object DMI_RegAddrs {
 
 
   def CP_HART_ID = 0x7b
+
+  /* L2 Miss */
+  def CP_L2_REQ_MISS = 0x7c
+
+  def CP_L2_REQ_TOTAL = 0x7d
+
+  def CP_L2_STAT_RESET = 0x7e
+
+  def CP_L2_REQ_EN = 0x7f
 }
 
 class DMSTATUSFields extends Bundle {
