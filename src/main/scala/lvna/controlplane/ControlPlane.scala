@@ -13,6 +13,7 @@ import freechips.rocketchip.util.{AsyncQueue, GTimer}
 import freechips.rocketchip.devices.debug.DMI_RegAddrs._
 import freechips.rocketchip.devices.debug.RWNotify
 import freechips.rocketchip.regmapper.{RegField, RegReadFn, RegWriteFn}
+import chisel3.util.Fill
 
 object log2Safe {
   def apply(n: BigInt): Int = {
@@ -95,6 +96,9 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val l2_req_miss       = UInt(OUTPUT, 32)
   val l2_req_total      = UInt(OUTPUT, 32)
   val l2_stat_reset_wen = Bool(INPUT)
+
+  val autocat_en        = Bool(OUTPUT)
+  val autocat_wen       = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -306,6 +310,13 @@ with HasTokenBucketParameters
     io.cp.l2_req_total := RegEnable(io.l2.req_total, RegNext(RegNext(miss_en)))  // Wait miss_stat sram addr changes
 
 
+    // Autocat
+    val autocat_en_reg = RegInit(true.B)
+    val autocat_en = IO(Output(Bool()))
+    autocat_en := autocat_en_reg
+    when (io.cp.autocat_wen) {
+      autocat_en_reg := io.cp.updateData
+    }
 
     // TL node
     def offset(addr: Int): Int = { (addr - CP_HART_DSID) << 2 }
@@ -349,6 +360,12 @@ with HasTokenBucketParameters
       offset(CP_L2_REQ_MISS) -> Seq(RegField.r(32, io.l2.req_miss)),
       offset(CP_L2_REQ_TOTAL)-> Seq(RegField.r(32, io.l2.req_total)),
       offset(CP_L2_STAT_RESET)->Seq(RWNotify(1, WireInit(false.B), l2_stat_reset, Wire(Bool()), WireInit(false.B))),
+      offset(CP_AUTOCAT_EN)  -> Seq(RegField.w(1, (valid: Bool, data: UInt) => {
+        when (valid) {
+          autocat_en_reg := data
+        }
+        true.B
+      })),
     )
 
 
@@ -640,8 +657,9 @@ trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
     val cat = Module(new autocat)
     cat.io.clk_in := clock
     cat.io.reset_in := reset
-    cat.io.access_valid_in := outer._l2.module.autocat.access_valid_in
+    cat.io.access_valid_in := outer._cp.module.autocat_en && outer._l2.module.autocat.access_valid_in
     cat.io.hit_vec_in := outer._l2.module.autocat.hit_vec_in
-    outer._l2.module.autocat.suggested_waymask_out := cat.io.suggested_waymask_out
+    outer._l2.module.autocat.suggested_waymask_out :=
+      Mux(outer._cp.module.autocat_en, cat.io.suggested_waymask_out, Fill(p(NL2CacheWays), 1.U))
   }
 }

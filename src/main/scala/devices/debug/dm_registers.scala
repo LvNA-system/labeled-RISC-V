@@ -386,6 +386,8 @@ object DMI_RegAddrs {
 
   def CP_TIMER_HI = 0x57
 
+  def CP_AUTOCAT_EN = 0x58
+
   def CORE_PC_HI    = 0x70
 
   def CORE_PC_LO    = 0x71

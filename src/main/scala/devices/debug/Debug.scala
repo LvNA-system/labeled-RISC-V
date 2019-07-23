@@ -1112,6 +1112,8 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_L2_REQ_MISS << 2) -> Seq(RegField.r(32,            io.cp.l2_req_miss)),
       (CP_L2_REQ_TOTAL<< 2) -> Seq(RegField.r(32,            io.cp.l2_req_total)),
 
+      (CP_AUTOCAT_EN  << 2) -> Seq(RWNotify(1, io.cp.autocat_en, io.cp.updateData, WireInit(false.B), io.cp.autocat_wen)),
+
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))
     )
 
