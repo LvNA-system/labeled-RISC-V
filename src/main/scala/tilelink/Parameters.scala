@@ -6,7 +6,7 @@ import Chisel._
 import chisel3.internal.sourceinfo.SourceInfo
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.util.{RationalDirection,AsyncQueueParams}
+import freechips.rocketchip.util.{RationalDirection,AsyncQueueParams, groupByIntoSeq}
 import scala.math.max
 
 case class TLManagerParameters(
@@ -31,7 +31,8 @@ case class TLManagerParameters(
   alwaysGrantsT:      Boolean = false, // typically only true for CacheCork'd read-write devices
   // If fifoId=Some, all accesses sent to the same fifoId are executed and ACK'd in FIFO order
   // Note: you can only rely on this FIFO behaviour if your TLClientParameters include requestFifo
-  fifoId:             Option[Int] = None)
+  fifoId:             Option[Int] = None,
+  device: Option[Device] = None)
 {
   require (!address.isEmpty, "Address cannot be empty")
   address.foreach { a => require (a.finite, "Address must be finite") }
@@ -102,7 +103,7 @@ case class TLManagerPortParameters(
   def maxTransfer = managers.map(_.maxTransfer).max
   def mayDenyGet = managers.exists(_.mayDenyGet)
   def mayDenyPut = managers.exists(_.mayDenyPut)
-  
+
   // Operation sizes supported by all outward Managers
   val allSupportAcquireT   = managers.map(_.supportsAcquireT)  .reduce(_ intersect _)
   val allSupportAcquireB   = managers.map(_.supportsAcquireB)  .reduce(_ intersect _)
@@ -138,10 +139,12 @@ case class TLManagerPortParameters(
   }
 
   // Compute the simplest AddressSets that decide a key
-  def fastPropertyGroup[K](p: TLManagerParameters => K): Map[K, Seq[AddressSet]] = {
-    val groups = managers.map(m => (p(m), m.address)).groupBy(_._1).mapValues(_.flatMap(_._2))
-    val reductionMask = AddressDecoder(groups.values.toList)
-    groups.mapValues(seq => AddressSet.unify(seq.map(_.widen(~reductionMask)).distinct))
+  def fastPropertyGroup[K](p: TLManagerParameters => K): Seq[(K, Seq[AddressSet])] = {
+    val groups = groupByIntoSeq(managers.map(m => (p(m), m.address)))( _._1).map { case (k, vs) =>
+      k -> vs.flatMap(_._2)
+    }
+    val reductionMask = AddressDecoder(groups.map(_._2))
+    groups.map { case (k, seq) => k -> AddressSet.unify(seq.map(_.widen(~reductionMask)).distinct) }
   }
   // Select a property
   def fastProperty[K, D <: Data](address: UInt, p: TLManagerParameters => K, d: K => D): D =
@@ -161,9 +164,12 @@ case class TLManagerPortParameters(
       lgSize:  UInt,
       range:   Option[TransferSizes]): Bool = {
     def trim(x: TransferSizes) = range.map(_.intersect(x)).getOrElse(x)
-    val supportCases = managers.groupBy(m => trim(member(m))).mapValues(_.flatMap(_.address))
-    val mask = if (safe) ~BigInt(0) else AddressDecoder(supportCases.values.toList)
-    val simplified = supportCases.mapValues(seq => AddressSet.unify(seq.map(_.widen(~mask)).distinct))
+    // groupBy returns an unordered map, convert back to Seq and sort the result for determinism
+    val supportCases = groupByIntoSeq(managers)(m => trim(member(m))).map { case (k, vs) =>
+      k -> vs.flatMap(_.address)
+    }
+    val mask = if (safe) ~BigInt(0) else AddressDecoder(supportCases.map(_._2))
+    val simplified = supportCases.map { case (k, seq) => k -> AddressSet.unify(seq.map(_.widen(~mask)).distinct) }
     simplified.map { case (s, a) =>
       (Bool(Some(s) == range) || s.containsLg(lgSize)) &&
       a.map(_.contains(address)).reduce(_||_)
@@ -195,19 +201,21 @@ case class TLManagerPortParameters(
 
 case class TLClientParameters(
   name:                String,
-  sourceId:            IdRange       = IdRange(0,1),
-  nodePath:            Seq[BaseNode] = Seq(),
-  requestFifo:         Boolean       = false, // only a request, not a requirement. applies to A, not C.
+  sourceId:            IdRange         = IdRange(0,1),
+  nodePath:            Seq[BaseNode]   = Seq(),
+  requestFifo:         Boolean         = false, // only a request, not a requirement. applies to A, not C.
+  visibility:          Seq[AddressSet] = Seq(AddressSet(0, ~0)), // everything
   // Supports both Probe+Grant of these sizes
-  supportsProbe:       TransferSizes = TransferSizes.none,
-  supportsArithmetic:  TransferSizes = TransferSizes.none,
-  supportsLogical:     TransferSizes = TransferSizes.none,
-  supportsGet:         TransferSizes = TransferSizes.none,
-  supportsPutFull:     TransferSizes = TransferSizes.none,
-  supportsPutPartial:  TransferSizes = TransferSizes.none,
-  supportsHint:        TransferSizes = TransferSizes.none)
+  supportsProbe:       TransferSizes   = TransferSizes.none,
+  supportsArithmetic:  TransferSizes   = TransferSizes.none,
+  supportsLogical:     TransferSizes   = TransferSizes.none,
+  supportsGet:         TransferSizes   = TransferSizes.none,
+  supportsPutFull:     TransferSizes   = TransferSizes.none,
+  supportsPutPartial:  TransferSizes   = TransferSizes.none,
+  supportsHint:        TransferSizes   = TransferSizes.none)
 {
   require (!sourceId.isEmpty)
+  require (!visibility.isEmpty)
   require (supportsPutFull.contains(supportsPutPartial))
   // We only support these operations if we support Probe (ie: we're a cache)
   require (supportsProbe.contains(supportsArithmetic))
@@ -216,6 +224,8 @@ case class TLClientParameters(
   require (supportsProbe.contains(supportsPutFull))
   require (supportsProbe.contains(supportsPutPartial))
   require (supportsProbe.contains(supportsHint))
+
+  visibility.combinations(2).foreach { case Seq(x,y) => require (!x.overlaps(y), s"$x and $y overlap.") }
 
   val maxTransfer = List(
     supportsProbe.max,
@@ -227,8 +237,8 @@ case class TLClientParameters(
 }
 
 case class TLClientPortParameters(
-  clients:       Seq[TLClientParameters],
-  minLatency:    Int = 0) // Only applies to B=>C
+  clients:    Seq[TLClientParameters],
+  minLatency: Int = 0) // Only applies to B=>C
 {
   require (!clients.isEmpty)
   require (minLatency >= 0)
@@ -373,7 +383,7 @@ case class TLRationalEdgeParameters(client: TLRationalClientPortParameters, mana
 
 object ManagerUnification
 {
-  def apply(managers: Seq[TLManagerParameters]) = {
+  def apply(managers: Seq[TLManagerParameters]): List[TLManagerParameters] = {
     // To be unified, devices must agree on all of these terms
     case class TLManagerKey(
       resources:          Seq[Resource],
@@ -413,4 +423,16 @@ object ManagerUnification
     }
     map.values.map(m => m.copy(address = AddressSet.unify(m.address))).toList
   }
+}
+
+case class TLBufferParams(
+  a: BufferParams = BufferParams.none,
+  b: BufferParams = BufferParams.none,
+  c: BufferParams = BufferParams.none,
+  d: BufferParams = BufferParams.none,
+  e: BufferParams = BufferParams.none
+) extends DirectedBuffers[TLBufferParams] {
+  def copyIn(x: BufferParams) = this.copy(b = x, d = x)
+  def copyOut(x: BufferParams) = this.copy(a = x, c = x, e = x)
+  def copyInOut(x: BufferParams) = this.copyIn(x).copyOut(x)
 }

@@ -58,7 +58,7 @@ case class IdRange(start: Int, end: Int) extends Ordered[IdRange]
   def shift(x: Int) = IdRange(start+x, end+x)
   def size = end - start
   def isEmpty = end == start
-  
+
   def range = start until end
 }
 
@@ -90,13 +90,13 @@ case class TransferSizes(min: Int, max: Int)
     else { UInt(log2Ceil(min)) <= x && x <= UInt(log2Ceil(max)) }
 
   def contains(x: TransferSizes) = x.none || (min <= x.min && x.max <= max)
-  
+
   def intersect(x: TransferSizes) =
     if (x.max < min || max < x.min) TransferSizes.none
     else TransferSizes(scala.math.max(min, x.min), scala.math.min(max, x.max))
 
   override def toString() = "TransferSizes[%d, %d]".format(min, max)
- 
+
 }
 
 object TransferSizes {
@@ -155,6 +155,7 @@ case class AddressSet(base: BigInt, mask: BigInt) extends Ordered[AddressSet]
       Seq(this)
     } else {
       val new_inflex = ~x.mask & mask
+      // !!! this fractures too much; find a better algorithm
       val fracture = AddressSet.enumerateMask(new_inflex).flatMap(m => intersect(AddressSet(m, ~new_inflex)))
       fracture.filter(!_.overlaps(x))
     }
@@ -223,9 +224,9 @@ object AddressSet
   }
 
   def enumerateMask(mask: BigInt): Seq[BigInt] = {
-    def helper(id: BigInt): Seq[BigInt] =
-      if (id == mask) Seq(id) else id +: helper(((~mask | id) + 1) & mask)
-    helper(0)
+    def helper(id: BigInt, tail: Seq[BigInt]): Seq[BigInt] =
+      if (id == mask) (id +: tail).reverse else helper(((~mask | id) + 1) & mask, id +: tail)
+    helper(0, Nil)
   }
 
   def enumerateBits(mask: BigInt): Seq[BigInt] = {
@@ -298,4 +299,10 @@ case class RationalCrossing(direction: RationalDirection = FastToSlow) extends C
 case class AsynchronousCrossing(depth: Int = 8, sourceSync: Int = 3, sinkSync: Int = 3, safe: Boolean = true, narrow: Boolean = false) extends ClockCrossingType
 {
   def asSinkParams = AsyncQueueParams(depth, sinkSync, safe, narrow)
+}
+
+trait DirectedBuffers[T] {
+  def copyIn(x: BufferParams): T
+  def copyOut(x: BufferParams): T
+  def copyInOut(x: BufferParams): T
 }

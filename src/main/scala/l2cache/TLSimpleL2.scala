@@ -91,7 +91,7 @@ with HasControlPlaneParameters
       val tagMSB = tagLSB + tagBits - 1
 
       val rst_cnt = RegInit(0.asUInt(log2Up(2 * nSets + 1).W))
-      val rst = (rst_cnt < UInt(2 * nSets)) && !reset.toBool
+      val rst = (rst_cnt < UInt(2 * nSets)) && !reset.asBool
       when (rst) { rst_cnt := rst_cnt + 1.U }
 
       val s_idle :: s_gather_write_data :: s_send_bresp :: s_update_meta :: s_tag_read_req :: s_tag_read_resp :: s_tag_read :: s_merge_put_data :: s_data_read :: s_data_write :: s_wait_ram_awready :: s_do_ram_write :: s_wait_ram_bresp :: s_wait_ram_arready :: s_do_ram_read :: s_data_resp :: Nil = Enum(UInt(), 16)
@@ -149,6 +149,7 @@ with HasControlPlaneParameters
 
       val in_opcode = in.a.bits.opcode
       val in_dsid = in.a.bits.dsid
+      val in_instret = in.a.bits.instret
       val in_addr = in.a.bits.address
       val in_id   = in.a.bits.source
       val in_len_shift = in.a.bits.size >= innerBeatBits.U
@@ -169,6 +170,7 @@ with HasControlPlaneParameters
       val id = Reg(UInt(innerIdWidth.W))
       val opcode = Reg(UInt(3.W))
       val dsid = RegInit(((1 << dsidWidth) - 1).U(dsidWidth.W))
+      val instret = Reg(UInt(64.W))
       val size_reg = Reg(UInt(width=in.a.bits.params.sizeBits))
       
       val ren = RegInit(N)
@@ -198,6 +200,7 @@ with HasControlPlaneParameters
           id := in_id
           opcode := in_opcode
           dsid := in_dsid
+          instret := in_instret
           size_reg := in.a.bits.size
 
           // gather_curr_beat_reg := start_beat
@@ -213,6 +216,7 @@ with HasControlPlaneParameters
           id := in_id
           opcode := in_opcode
           dsid := in_dsid
+          instret := in_instret
           size_reg := in.a.bits.size
 
           // gather_curr_beat_reg := start_beat
@@ -332,7 +336,7 @@ with HasControlPlaneParameters
       autocat.hit_vec_in := (0 until nWays).map(tag_match_way(_)).asUInt
 
       cp.dsid := dsid
-      val curr_mask = Mux(autocat.suggested_waymask_valid_out, cp.waymask, cp.waymask & autocat.suggested_waymask_out)
+      val curr_mask = cp.waymask & Mux(dsid === 0.U, autocat.suggested_waymask_out, ~autocat.suggested_waymask_out).asUInt
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
       val repl_dsid = set_dsids_reg(repl_way)
@@ -342,6 +346,11 @@ with HasControlPlaneParameters
       val victim_occupacy = dsid_occupacy(repl_dsid)
       when (state === s_tag_read) {
         log("req_dsid %d occ %d repl_dsid %d occ %d way %d", dsid, requester_occupacy, repl_dsid, victim_occupacy, repl_way)
+      }
+
+      val pre_state = RegNext(state)
+      when (state === s_tag_read || pre_state === s_tag_read) {
+        log("suggested_waymask_out %b\n", autocat.suggested_waymask_out)
       }
 
       cp.capacity := dsid_occupacy(cp.capacity_dsid)
@@ -619,6 +628,7 @@ with HasControlPlaneParameters
 
       out.a.bits.opcode  := out_opcode
       out.a.bits.dsid    := dsid
+      out.a.bits.instret := instret
       out.a.bits.param   := UInt(0)
       out.a.bits.size    := outerBurstLen.U
       out.a.bits.source  := 0.asUInt(outerIdWidth.W)

@@ -3,7 +3,7 @@
 package freechips.rocketchip.devices.tilelink
 
 import Chisel._
-import freechips.rocketchip.config.{Field, Parameters}
+import freechips.rocketchip.config.{Field, Parameters, Config}
 import freechips.rocketchip.system.{UseEmu}
 import freechips.rocketchip.subsystem.{BaseSubsystem, HasResetVectorWire, ExtMem}
 import freechips.rocketchip.diplomacy._
@@ -19,7 +19,14 @@ case class BootROMParams(
   size: Int = 0x10000,
   hang: BigInt = 0x10040,
   contentFileName: String)
+
 case object BootROMParams extends Field[BootROMParams]
+
+case object UseRocketTests extends Field[Boolean](false)
+
+class WithRocketTests extends Config((site, here, up) => {
+  case UseRocketTests => true
+})
 
 class TLROM(val base: BigInt, val size: Int, contentsDelayed: => Seq[Byte], executable: Boolean = true, beatBytes: Int = 4,
   resources: Seq[Resource] = new SimpleDevice("rom", Seq("sifive,rom0")).reg("mem"))(implicit p: Parameters) extends LazyModule
@@ -69,9 +76,9 @@ trait HasPeripheryBootROM { this: BaseSubsystem =>
     rom.array() ++ dtb.contents
   }
 
-  val bootrom = LazyModule(new TLROM(params.address, params.size, contents, true, sbus.control_bus.beatBytes))
+  val bootrom = LazyModule(new TLROM(params.address, params.size, contents, true, cbus.beatBytes))
 
-  sbus.control_bus.toVariableWidthSlave(Some("bootrom")){ bootrom.node }
+  bootrom.node := cbus.coupleTo("bootrom"){ TLFragmenter(cbus) := _ }
 }
 
 /** Subsystem will power-on running at 0x10040 (BootROM) */
