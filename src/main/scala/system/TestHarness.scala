@@ -101,6 +101,9 @@ class TestHarness()(implicit p: Parameters) extends Module {
     dut.coreclk := dut.clock
   }
 
+  dut.mem_part_en := true.B
+  dut.distinct_hart_dsid_en := true.B
+
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
   dut.connectSimAXIMem()

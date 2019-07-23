@@ -35,7 +35,7 @@ class LvNABoomConfig extends Config(
     ++ new WithEmu
     ++ new WithBoom
     ++ new WithRationalRocketTiles
-    ++ new WithExtMemSize(0x8000000L) // 32MB
+    ++ new WithExtMemSize(0x8000000L * 2) // 32MB
     ++ new WithNoMMIOPort
     ++ new WithJtagDTM
     ++ new WithDebugSBA
