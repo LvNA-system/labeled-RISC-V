@@ -97,8 +97,11 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val l2_req_total      = UInt(OUTPUT, 32)
   val l2_stat_reset_wen = Bool(INPUT)
 
+  import AutoCatConstants._
   val autocat_en        = Bool(OUTPUT)
   val autocat_wen       = Bool(INPUT)
+  val autocat_reset_bin_power = UInt(OUTPUT, resetBinPowerWidth)
+  val autocat_reset_bin_power_wen = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -311,10 +314,15 @@ with HasTokenBucketParameters
 
 
     // Autocat
+    import AutoCatConstants._
     val autocat_en_reg = RegInit(true.B)
+    val autocat_reset_bin_power_reg = RegInit(10.U(resetBinPowerWidth.W))
     io.cp.autocat_en := autocat_en_reg
     when (io.cp.autocat_wen) {
       autocat_en_reg := io.cp.updateData
+    }
+    when (io.cp.autocat_reset_bin_power_wen) {
+      autocat_reset_bin_power_reg := io.cp.updateData
     }
 
     // TL node
@@ -365,6 +373,7 @@ with HasTokenBucketParameters
         }
         true.B
       })),
+      offset(CP_AUTOCAT_RESET_BIN_POWER) -> Seq(RegField(resetBinPowerWidth, autocat_reset_bin_power_reg)),
     )
 
 
@@ -657,6 +666,7 @@ trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
     cat.io.clk_in := clock
     cat.io.reset_in := reset
     cat.io.access_valid_in := outer._cp.module.io.cp.autocat_en && outer._l2.module.autocat.access_valid_in
+    cat.io.reset_bin_power := outer._cp.module.io.cp.autocat_reset_bin_power
     cat.io.hit_vec_in := outer._l2.module.autocat.hit_vec_in
     outer._l2.module.autocat.suggested_waymask_out :=
       Mux(outer._cp.module.io.cp.autocat_en, cat.io.suggested_waymask_out, Fill(p(NL2CacheWays), 1.U))

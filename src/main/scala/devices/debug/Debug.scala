@@ -20,7 +20,7 @@ import freechips.rocketchip.subsystem.{NL2CacheWays, NTiles}
 import freechips.rocketchip.system.UseEmu
 import freechips.rocketchip.tile.XLen
 import ila.BoomCSRILABundle
-import lvna.{ControlPlaneIO, HasControlPlaneParameters}
+import lvna.{AutoCatConstants, ControlPlaneIO, HasControlPlaneParameters}
 import freechips.rocketchip.diplomaticobjectmodel.DiplomaticObjectModelAddressing
 import freechips.rocketchip.diplomaticobjectmodel.model._
 
@@ -1113,6 +1113,7 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_L2_REQ_TOTAL<< 2) -> Seq(RegField.r(32,            io.cp.l2_req_total)),
 
       (CP_AUTOCAT_EN  << 2) -> Seq(RWNotify(1, io.cp.autocat_en, io.cp.updateData, WireInit(false.B), io.cp.autocat_wen)),
+      (CP_AUTOCAT_RESET_BIN_POWER << 2) -> Seq(RWNotify(AutoCatConstants.resetBinPowerWidth, io.cp.autocat_reset_bin_power, io.cp.updateData, WireInit(false.B), io.cp.autocat_reset_bin_power_wen)),
 
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))
     )

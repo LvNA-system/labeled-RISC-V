@@ -2,12 +2,14 @@ module autocat
 #(
     parameter CACHE_ASSOCIATIVITY = 16, // currently only support 16-way fix configuration
     parameter COUNTER_WIDTH       = 32,
-    parameter RESET_BIN_POWER     = 9,  // 2^20 is about 1M requests
     parameter ALLOWED_GAP         = 500
 )
 (
     input                                                       clk_in,
     input                                                       reset_in,
+
+    // 2's power of reset limit
+    input      [6                                   - 1 : 0]    reset_bin_power,
 
     input                                                       access_valid_in,
     input      [CACHE_ASSOCIATIVITY                 - 1 : 0]    hit_vec_in,
@@ -20,7 +22,7 @@ reg                               access_valid_pre;
 reg [CACHE_ASSOCIATIVITY - 1 : 0] hit_vec_pre;
 reg [63                      : 0] access_counter;
 
-wire request_limit            = access_counter == 2 ** RESET_BIN_POWER;
+wire request_limit            = access_counter == (1 << reset_bin_power);
 wire reset_with_request_limit = reset_in | request_limit;
 
 
@@ -90,7 +92,7 @@ generate
     for(gen = 0; gen < CACHE_ASSOCIATIVITY; gen = gen + 1)
     begin
         assign post_calc_counter_flatted[gen * COUNTER_WIDTH +: COUNTER_WIDTH] =
-               post_sort_counter_flatted[gen * COUNTER_WIDTH +: COUNTER_WIDTH] >> (RESET_BIN_POWER - 4);
+               post_sort_counter_flatted[gen * COUNTER_WIDTH +: COUNTER_WIDTH] >> (reset_bin_power - 4);
     end
 endgenerate
 

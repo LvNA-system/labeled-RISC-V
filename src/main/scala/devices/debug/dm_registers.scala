@@ -388,6 +388,8 @@ object DMI_RegAddrs {
 
   def CP_AUTOCAT_EN = 0x58
 
+  def CP_AUTOCAT_RESET_BIN_POWER = 0x59
+
   def CORE_PC_HI    = 0x70
 
   def CORE_PC_LO    = 0x71

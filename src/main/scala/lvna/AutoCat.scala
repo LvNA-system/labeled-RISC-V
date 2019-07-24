@@ -2,10 +2,19 @@ package lvna
 
 import chisel3._
 
+object AutoCatConstants {
+  val resetBinPowerWidth = 6 // 2^0 ~ 2^63 is enough.
+  val nrL2Ways = 16 // Currently fixed.
+}
+
 class AutoCatIOInternal extends Bundle {
+  import AutoCatConstants._
+
   val access_valid_in = Input(Bool())
-  val hit_vec_in = Input(UInt(16.W))
-  val suggested_waymask_out = Output(UInt(16.W))
+  // 2's power of reset limit, say, update suggested waymask per 2^reset_bin_power cycles.
+  val reset_bin_power = Input(UInt(resetBinPowerWidth.W))
+  val hit_vec_in = Input(UInt(nrL2Ways.W))
+  val suggested_waymask_out = Output(UInt(nrL2Ways.W))
 }
 
 class autocat extends BlackBox {
