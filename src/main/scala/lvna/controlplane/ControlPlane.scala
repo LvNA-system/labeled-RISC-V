@@ -312,8 +312,7 @@ with HasTokenBucketParameters
 
     // Autocat
     val autocat_en_reg = RegInit(true.B)
-    val autocat_en = IO(Output(Bool()))
-    autocat_en := autocat_en_reg
+    io.cp.autocat_en := autocat_en_reg
     when (io.cp.autocat_wen) {
       autocat_en_reg := io.cp.updateData
     }
@@ -657,9 +656,9 @@ trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
     val cat = Module(new autocat)
     cat.io.clk_in := clock
     cat.io.reset_in := reset
-    cat.io.access_valid_in := outer._cp.module.autocat_en && outer._l2.module.autocat.access_valid_in
+    cat.io.access_valid_in := outer._cp.module.io.cp.autocat_en && outer._l2.module.autocat.access_valid_in
     cat.io.hit_vec_in := outer._l2.module.autocat.hit_vec_in
     outer._l2.module.autocat.suggested_waymask_out :=
-      Mux(outer._cp.module.autocat_en, cat.io.suggested_waymask_out, Fill(p(NL2CacheWays), 1.U))
+      Mux(outer._cp.module.io.cp.autocat_en, cat.io.suggested_waymask_out, Fill(p(NL2CacheWays), 1.U))
   }
 }
