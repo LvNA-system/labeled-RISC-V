@@ -332,7 +332,7 @@ with HasControlPlaneParameters
       hit_way := Bits(0)
       (0 until nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
 
-      autocat.access_valid_in := dsid === 0.U && state === s_tag_read
+      autocat.access_valid_in := dsid === cp.autocat_watching_dsid && state === s_tag_read
       autocat.hit_vec_in := (0 until nWays).map(tag_match_way(_)).asUInt
 
       cp.dsid := dsid

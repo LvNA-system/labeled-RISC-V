@@ -102,6 +102,9 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val autocat_wen       = Bool(INPUT)
   val autocat_reset_bin_power = UInt(OUTPUT, resetBinPowerWidth)
   val autocat_reset_bin_power_wen = Bool(INPUT)
+  val autocat_suggested_waymask = UInt(OUTPUT, nrL2Ways)
+  val autocat_watching_dsid = UInt(OUTPUT, dsidWidth)
+  val autocat_watching_dsid_wen = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -114,6 +117,9 @@ class CPToL2CacheIO(implicit val p: Parameters) extends Bundle with HasControlPl
   val req_miss_en = Output(Bool())
   val req_total = Input(UInt(32.W))
   val stat_reset = Output(Bool())
+
+  val autocat_watching_dsid = Output(UInt(dsidWidth.W))
+  val autocat_suggested_waymask = Input(UInt(p(NL2CacheWays).W))
 }
 
 class BucketState(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters with HasTokenBucketParameters {
@@ -213,6 +219,7 @@ with HasTokenBucketParameters
       val mem_part_en = Bool().asInput
       val distinct_hart_dsid_en = Bool().asInput
       val progHartIds = Vec(nTiles, UInt(log2Safe(nTiles).W)).asOutput
+      val autocat_watching_change = Bool().asOutput
     })
 
     val hartSel   = RegInit(0.U(ldomDSidWidth.W))
@@ -317,12 +324,18 @@ with HasTokenBucketParameters
     import AutoCatConstants._
     val autocat_en_reg = RegInit(true.B)
     val autocat_reset_bin_power_reg = RegInit(10.U(resetBinPowerWidth.W))
+    val autocat_watching_dsid = RegInit(0.U(dsidWidth.W))
+    val watch_change = WireInit(false.B)
+    io.autocat_watching_change := watch_change || io.cp.autocat_watching_dsid_wen
     io.cp.autocat_en := autocat_en_reg
     when (io.cp.autocat_wen) {
       autocat_en_reg := io.cp.updateData
     }
     when (io.cp.autocat_reset_bin_power_wen) {
       autocat_reset_bin_power_reg := io.cp.updateData
+    }
+    when (io.cp.autocat_watching_dsid_wen) {
+      autocat_watching_dsid := io.cp.updateData
     }
 
     // TL node
@@ -369,6 +382,8 @@ with HasTokenBucketParameters
       offset(CP_L2_STAT_RESET)->Seq(RWNotify(1, WireInit(false.B), l2_stat_reset, Wire(Bool()), WireInit(false.B))),
       offset(CP_AUTOCAT_EN)  -> Seq(RegField(1, autocat_en_reg)),
       offset(CP_AUTOCAT_RESET_BIN_POWER) -> Seq(RegField(resetBinPowerWidth, autocat_reset_bin_power_reg)),
+      offset(CP_AUTOCAT_SUGGEST_WAYMASK) -> Seq(RegField.r(nrL2Ways, io.l2.autocat_suggested_waymask)),
+      offset(CP_AUTOCAT_WATCHING_DSID) -> Seq(RWNotify(dsidWidth, autocat_watching_dsid, autocat_watching_dsid, WireInit(false.B), watch_change)),
     )
 
 
@@ -659,7 +674,7 @@ trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
     outer._l2.module.cp <> outer._cp.module.io.l2
     val cat = Module(new autocat)
     cat.io.clk_in := clock
-    cat.io.reset_in := reset
+    cat.io.reset_in := reset || outer._cp.module.io.autocat_watching_change
     cat.io.access_valid_in := outer._cp.module.io.cp.autocat_en && outer._l2.module.autocat.access_valid_in
     cat.io.reset_bin_power := outer._cp.module.io.cp.autocat_reset_bin_power
     cat.io.hit_vec_in := outer._l2.module.autocat.hit_vec_in
