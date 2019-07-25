@@ -367,12 +367,7 @@ with HasTokenBucketParameters
       offset(CP_L2_REQ_MISS) -> Seq(RegField.r(32, io.l2.req_miss)),
       offset(CP_L2_REQ_TOTAL)-> Seq(RegField.r(32, io.l2.req_total)),
       offset(CP_L2_STAT_RESET)->Seq(RWNotify(1, WireInit(false.B), l2_stat_reset, Wire(Bool()), WireInit(false.B))),
-      offset(CP_AUTOCAT_EN)  -> Seq(RegField.w(1, (valid: Bool, data: UInt) => {
-        when (valid) {
-          autocat_en_reg := data
-        }
-        true.B
-      })),
+      offset(CP_AUTOCAT_EN)  -> Seq(RegField(1, autocat_en_reg)),
       offset(CP_AUTOCAT_RESET_BIN_POWER) -> Seq(RegField(resetBinPowerWidth, autocat_reset_bin_power_reg)),
     )
 
