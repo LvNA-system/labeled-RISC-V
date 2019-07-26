@@ -8,7 +8,7 @@ Refer to www.wiki.xilinx.com/Fetch+Sources for more information.
 This step is only needed for zynqmp. If your target board is zynq, skip this step.
 
 ```
-git clone --depth 1 -b xilinx-v2017.4 https://github.com/xilinx/arm-trusted-firmware
+git clone --depth 1 -b xilinx-v2019.1 https://github.com/xilinx/arm-trusted-firmware
 cd arm-trusted-firmware
 make PLAT=zynqmp RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf-
 mkdir -p path-to-labeled-RISC-V/fpga/boot/build/zynqmp
@@ -23,7 +23,7 @@ make PLAT=zynqmp RESET_TO_BL31=1 clean
 ## Build u-boot
 
 ```
-git clone --depth 1 -b xilinx-v2017.4 https://github.com/xilinx/u-boot-xlnx
+git clone --depth 1 -b xilinx-v2019.1 https://github.com/xilinx/u-boot-xlnx
 cd u-boot-xlnx
 
 # for zynqmp
@@ -77,7 +77,7 @@ Vivado -> File -> Export -> Export Hardware
 ```
 * set the correct path of device tree repo
 ```
-git clone --depth 1 -b xilinx-v2017.4 https://github.com/xilinx/device-tree-xlnx
+git clone --depth 1 -b xilinx-v2019.1 https://github.com/xilinx/device-tree-xlnx
 # modify the `device_tree_repo_path` variable in `mk.tcl` to the repo just cloned
 ```
 * generate BOOT.BIN and device tree source
@@ -91,26 +91,26 @@ Find `BOOT.BIN` and `dts` under `path-to-labeled-RISC-V/fpga/boot/build/myprojec
 ## Build linux kernel
 
 ```
-git clone --depth 1 -b xilinx-v2017.4 https://github.com/xilinx/linux-xlnx
+git clone --depth 1 -b xilinx-v2019.1 https://github.com/xilinx/linux-xlnx
 cd linux-xlnx
 
 # for zynqmp
 make ARCH=arm64 xilinx_zynqmp_defconfig # can be found under linux-xlnx/arch/arm64/configs/
-make ARCH=arm64 menuconfig
-  General setup -> Cross-compiler tool prefix: `aarch64-linux-gnu-`
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- menuconfig
+  Kernel hacking -> unchoose `Fliter access to /dev/mem`
   General setup -> unchoose `Initial RAM filesystem and RAM disk (initramfs/initrd) support`
-make ARCH=arm64 -j16
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j16
 # Find `Image` under `linux-xlnx/arch/arm64/boot/`
 
 
 # for zynq
 make ARCH=arm xilinx_zynq_defconfig # can be found under linux-xlnx/arch/arm/configs/
-make ARCH=arm menuconfig
-  General setup -> Cross-compiler tool prefix: `arm-linux-gnueabihf-`
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig
+  Kernel hacking -> unchoose `Fliter access to /dev/mem`
   General setup -> unchoose `Initial RAM filesystem and RAM disk (initramfs/initrd) support`
   Devices Drivers -> Character devices -> Serial drivers -> choose `Xilinx uartilite serial port support`
                                                          -> then choose `Support for console on Xilinx uartlite serial port`
-make ARCH=arm -j16
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j16
 # Find `Image` under `linux-xlnx/arch/arm/boot/`
 ```
 
@@ -175,6 +175,8 @@ sudo chroot /mnt /bin/bash
 passwd
 apt-get update
 apt-get install net-tools openssh-server vim build-essential minicom tmux libreadline-dev
+# fix long delay of openssh server
+apt-get install haveged
 # for nfs
 apt-get install nfs-common autofs
 exit
