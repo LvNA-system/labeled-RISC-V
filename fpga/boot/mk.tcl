@@ -44,7 +44,12 @@ switch -regexp -- $brd {
   }
 }
 
-generate_app -hw $hw_design -os standalone -proc $processor -app ${arch}_fsbl -compile -sw fsbl -dir ${build_dir}/fsbl
+generate_app -hw $hw_design -os standalone -proc $processor -app ${arch}_fsbl -sw fsbl -dir ${build_dir}/fsbl
+if {$brd == "sidewinder"} {
+  # see bug-list.md
+  exec sed -i -e "s/0x03FFFFFFU, 0x02000FFFU);/0x03FFFFFFU, 0x03FFFFFFU);/g" ${build_dir}/fsbl/psu_init.c
+}
+if { [catch { exec make -C ${build_dir}/fsbl } msg ] } { }
 
 exec mkdir -p ${script_dir}/build/${arch}
 exec ln -sf ${build_dir}/fsbl/executable.elf ${script_dir}/build/${arch}/fsbl.elf
