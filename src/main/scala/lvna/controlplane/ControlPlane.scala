@@ -328,6 +328,9 @@ with HasTokenBucketParameters
     val watch_change = WireInit(false.B)
     io.autocat_watching_change := watch_change || io.cp.autocat_watching_dsid_wen
     io.cp.autocat_en := autocat_en_reg
+    io.cp.autocat_suggested_waymask := io.l2.autocat_suggested_waymask
+    io.cp.autocat_watching_dsid := autocat_watching_dsid
+    io.l2.autocat_watching_dsid := autocat_watching_dsid
     when (io.cp.autocat_wen) {
       autocat_en_reg := io.cp.updateData
     }
@@ -678,6 +681,7 @@ trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
     cat.io.access_valid_in := outer._cp.module.io.cp.autocat_en && outer._l2.module.autocat.access_valid_in
     cat.io.reset_bin_power := outer._cp.module.io.cp.autocat_reset_bin_power
     cat.io.hit_vec_in := outer._l2.module.autocat.hit_vec_in
+    outer._cp.module.io.l2.autocat_suggested_waymask := cat.io.suggested_waymask_out
     outer._l2.module.autocat.suggested_waymask_out :=
       Mux(outer._cp.module.io.cp.autocat_en, cat.io.suggested_waymask_out, Fill(p(NL2CacheWays), 1.U))
   }
