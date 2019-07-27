@@ -27,10 +27,8 @@ class TokenBucketNodeImp(outer: TokenBucketNode) extends LazyModuleImp(outer) {
   bucketIO.fire := out.a.ready && out.a.valid && !phy
   bucketIO.size := (1.U << in.a.bits.size) >> 6
 
-//  out.a.valid := in.a.valid && (phy || bucketIO.enable)
-//  in.a.ready := out.a.ready && (phy || bucketIO.enable)
-  out.a.valid := in.a.valid
-  in.a.ready := out.a.ready
+  out.a.valid := in.a.valid && (phy || bucketIO.enable)
+  in.a.ready := out.a.ready && (phy || bucketIO.enable)
   if (DEBUG_TB_FETCH) {
     when(in.a.valid && !out.a.valid) {
       printf(p"request blocked by token bucket: 0x${Hexadecimal(in.a.bits.address)}\n")
