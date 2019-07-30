@@ -360,8 +360,8 @@ class WithNoMemPort extends Config((site, here, up) => {
 
 class WithDefaultMMIOPort extends Config((site, here, up) => {
   case ExtBus => Some(MasterPortParams(
-                      base = x"6000_0000",
-                      size = x"2000_0000",
+                      base = x"4000_0000",
+                      size = x"4000_0000",
                       beatBytes = site(MemoryBusKey).beatBytes,
                       idBits = 0))
 })
