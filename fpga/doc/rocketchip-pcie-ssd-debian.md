@@ -147,7 +147,7 @@ set_property PACKAGE_PIN AB34 [get_ports {CLK_IN_D_clk_p[0]}]
 ```
 注意根据rocketchip的中断连接情况修改`interrupts`属性
 
-节点属性的介绍可以参考[这里](https://elinux.org/Device_Tree_Usage#PCI_Address_Translation for more details)
+节点属性的介绍可以参考[这里](https://elinux.org/Device_Tree_Usage#PCI_Address_Translation)
 
 ## 安装debian
 
