@@ -1,10 +1,11 @@
 
 # 在rocketchip中启动debian
 
-## 准备材料
+## 准备
 
 * sidewinder-100开发板
 * M.2协议的SSD (我们使用三星V-NAND SSD 970 EVO NVMe M.2 500GB)
+* 支持M.2转USB的硬盘盒
 
 注意: zcu102由于FPGA封装引脚不带PCIe的I/O, 因此不支持在PL实例化PCIe控制器, 故无法采用此方法(需要使用扩展卡)
 
@@ -63,6 +64,16 @@
 
 #### 其它选卡保持默认
 
+#### 说明
+
+1. 细节可参考[sidewinder文档](https://solutions.inrevium.com/products/pdf/SW100_003_UserGuide_1_0e.pdf)
+  * 第24页`SFF AND PCIE HOST EXCLUSIVITY`小节, 我们使用Figure26中所示的J110插槽
+  * 根据Figure27, 可得知需要选择GTY Quad 128和X0Y2等位置
+2. 据说是查阅PCIe文档得知
+3. 我们的rocketchip的物理内存在4GB以上, 需要64 Bit才能访问
+4. 不能太小, 否则不够给设备分配地址空间
+5. 我们的rockethcip的物理内存从0x100000000开始, 这里的设置需要一致
+
 ### 连接IP核
 
 * `S_AXI_B`和`S_AXI_LITE`接入rocketchip的MMIO
@@ -95,20 +106,6 @@ set_property PACKAGE_PIN AB34 [get_ports {CLK_IN_D_clk_p[0]}]
 ```
 
 `pcie_mgt`的约束已经体现在上文GT Quad的选择中, 故无需额外添加约束
-
-### 说明
-
-1. 细节可参考[sidewinder文档](https://solutions.inrevium.com/products/pdf/SW100_003_UserGuide_1_0e.pdf)
-  * 第24页`SFF AND PCIE HOST EXCLUSIVITY`小节, 我们使用Figure26中所示的J110插槽
-  * 根据Figure27, 可得知需要选择GTY Quad 128和X0Y2等位置
-2. 据说是查阅PCIe文档得知
-3. 我们的rocketchip的物理内存在4GB以上, 需要64 Bit才能访问
-4. 不能太小, 否则不够给设备分配地址空间
-5. 我们的rockethcip的物理内存从0x100000000开始, 这里的设置需要一致
-
-## 插入SSD
-
-将SSD插入sidewinder-100的J110插槽, 具体安装方式可查阅SSD的说明书
 
 ## 内核驱动
 
@@ -152,19 +149,23 @@ set_property PACKAGE_PIN AB34 [get_ports {CLK_IN_D_clk_p[0]}]
 
 节点属性的介绍可以参考[这里](https://elinux.org/Device_Tree_Usage#PCI_Address_Translation for more details)
 
+## 安装debian
+
+通过硬盘盒将SSD接入x86主机, 对SSD进行分区和格式化, 并将debian安装到SSD中.
+* 安装和改动需要qemu-riscv64-static, 建议在debian 10或ubuntu 19.04的系统(可尝试使用docker)中进行操作.
+* 一些步骤可以参考[BOOT.BIN的准备流程中的SD卡部分](../boot/README.md).
+* debian的安装可以参考[debian社区的安装指南](https://wiki.debian.org/RISC-V#debootstrap).
+* 安装后, 通过chroot进入, 进行修改root密码, 更新fstab文件等操作, 具体可以参考[BOOT.BIN的准备流程中的SD卡部分](../boot/README.md).
+
+## 插入SSD
+
+将SSD插入sidewinder-100的J110插槽, 具体安装方式可查阅SSD的说明书
+
 ## PCI扫描日志
 
 可参考[这里](https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18842034/ZynqMP+Linux+PL+PCIe+Root+Port#ZynqMPLinuxPLPCIeRootPort-KernelConsoleOutput)
 
 启动后, 可以通过`cat /proc/iomem`查看pci和nvme的地址映射分配情况, 通过`cat /proc/interrupts`查看pci和nvme的中断情况
-
-## 安装debian
-
-在x86上对SSD进行分区和格式化, 并将debian安装到SSD中.
-* 安装和改动需要qemu-riscv64-static, 建议在debian 10的系统(可尝试使用docker)中进行操作.
-* 一些步骤可以参考[BOOT.BIN的准备流程中的SD卡部分](../boot/README.md).
-* debian的安装可以参考[debian社区的安装指南](https://wiki.debian.org/RISC-V#debootstrap).
-* 安装后, 通过chroot进入, 进行修改root密码, 更新fstab文件等操作, 具体可以参考[BOOT.BIN的准备流程中的SD卡部分](../boot/README.md).
 
 ## 在rocketchip上启动debian
 
