@@ -1,8 +1,7 @@
 module autocat
 #(
     parameter CACHE_ASSOCIATIVITY = 16, // currently only support 16-way fix configuration
-    parameter COUNTER_WIDTH       = 32,
-    parameter ALLOWED_GAP         = 500
+    parameter COUNTER_WIDTH       = 32
 )
 (
     input                                                       clk_in,
@@ -10,10 +9,9 @@ module autocat
 
     // 2's power of reset limit
     input      [6                                   - 1 : 0]    reset_bin_power,
-
+    input      [32                                  - 1 : 0]    allowed_gap,
     input                                                       access_valid_in,
     input      [CACHE_ASSOCIATIVITY                 - 1 : 0]    hit_vec_in,
-
     output reg [CACHE_ASSOCIATIVITY                 - 1 : 0]    suggested_waymask_out
 );
 
@@ -22,7 +20,7 @@ reg                               access_valid_pre;
 reg [CACHE_ASSOCIATIVITY - 1 : 0] hit_vec_pre;
 reg [63                      : 0] access_counter;
 
-wire request_limit            = access_counter == (1 << reset_bin_power);
+wire request_limit            = access_counter == 2 ** reset_bin_power;
 wire reset_with_request_limit = reset_in | request_limit;
 
 
@@ -34,12 +32,11 @@ begin
         access_valid_pre    <= 0;
         hit_vec_pre         <= 0;
     end
-
     else
     begin
         access_valid_pre    <= access_valid_in;
         hit_vec_pre         <= hit_vec_in;
-        
+
         if(~access_valid_pre & access_valid_in)
             access_counter <= access_counter + 1'b1;
     end
@@ -49,9 +46,8 @@ wire [CACHE_ASSOCIATIVITY * COUNTER_WIDTH - 1 : 0] counter_flatted;
 wire [CACHE_ASSOCIATIVITY * COUNTER_WIDTH - 1 : 0] post_sort_counter_flatted;
 
 // hit counter array
-generate
 genvar gen;
-
+generate
 for(gen = 0; gen < CACHE_ASSOCIATIVITY; gen = gen + 1)
 begin
     reg [COUNTER_WIDTH - 1 : 0] hit_counter;
@@ -61,16 +57,15 @@ begin
     begin
         if(reset_with_request_limit)
         begin
+            $fwrite(32'h80000002, "counter %d: %d\n", gen, hit_counter);
             hit_counter <= 0;
         end
-
-        else if(|(~hit_vec_pre[gen:0] & hit_vec_in[gen:0]))
+        else if(hit_vec_in[gen:gen]) // Per-way hit counting
         begin
             hit_counter <= hit_counter + 1'b1;
         end
     end
 end
-
 endgenerate
 
 // sort all the hit counters
@@ -88,12 +83,22 @@ sorter
 );
 
 wire [CACHE_ASSOCIATIVITY * COUNTER_WIDTH - 1 : 0] post_calc_counter_flatted;
+
+integer index;
 generate
-    for(gen = 0; gen < CACHE_ASSOCIATIVITY; gen = gen + 1)
+for(gen = 0; gen < CACHE_ASSOCIATIVITY; gen = gen + 1)
+begin
+    reg [COUNTER_WIDTH - 1:0] sum;
+    always@*
     begin
-        assign post_calc_counter_flatted[gen * COUNTER_WIDTH +: COUNTER_WIDTH] =
-               post_sort_counter_flatted[gen * COUNTER_WIDTH +: COUNTER_WIDTH] >> (reset_bin_power - 4);
+        sum = 'd0;
+        for (index = 0; index <= gen; index = index + 1)
+        begin
+            sum = sum + post_sort_counter_flatted[index * COUNTER_WIDTH +: COUNTER_WIDTH];
+        end
     end
+    assign post_calc_counter_flatted[gen * COUNTER_WIDTH +: COUNTER_WIDTH] = sum >> (reset_bin_power - 4);
+end
 endgenerate
 
 integer loop_index;
@@ -105,8 +110,8 @@ begin : Find
 
     for(loop_index = 0; loop_index < CACHE_ASSOCIATIVITY; loop_index = loop_index + 1)
     begin
-        if(post_calc_counter_flatted[loop_index * COUNTER_WIDTH +: COUNTER_WIDTH] + ALLOWED_GAP >=
-           post_calc_counter_flatted[(CACHE_ASSOCIATIVITY - 1) * COUNTER_WIDTH +: COUNTER_WIDTH])
+        if(post_calc_counter_flatted[loop_index * COUNTER_WIDTH +: COUNTER_WIDTH] + allowed_gap >=
+        post_calc_counter_flatted[(CACHE_ASSOCIATIVITY - 1) * COUNTER_WIDTH +: COUNTER_WIDTH])
         begin
             /* verilator lint_off WIDTH */
             first_best_partition = loop_index;
@@ -117,27 +122,39 @@ begin : Find
 end
 
 always@(posedge clk_in)
+begin : FindX
+    for(loop_index = 0; loop_index < CACHE_ASSOCIATIVITY; loop_index = loop_index + 1)
+    begin
+        if (reset_with_request_limit) begin
+            $fwrite(32'h80000002, "%d origin sorted %d, faltter %d\n", loop_index,
+                post_sort_counter_flatted[loop_index * COUNTER_WIDTH +: COUNTER_WIDTH],
+            post_calc_counter_flatted[loop_index * COUNTER_WIDTH +: COUNTER_WIDTH]);
+        end
+    end
+end
+
+always@(posedge clk_in)
 begin
     if(reset_in)
     begin
         suggested_waymask_out       <= 16'b1111_1111_1111_1111;
     end
-
     else if(request_limit)
     begin
         for(loop_index = 0; loop_index < CACHE_ASSOCIATIVITY; loop_index = loop_index + 1)
         begin
             /* verilator lint_off WIDTH */
-            if(first_best_partition >= loop_index) begin
-            /* verilator lint_on WIDTH */
+            if(first_best_partition >= loop_index)
+            begin
+                /* verilator lint_on WIDTH */
                 suggested_waymask_out[loop_index] <= 1'b1;
             end
-            else begin
+            else
+            begin
                 suggested_waymask_out[loop_index] <= 1'b0;
                 $fwrite(32'h80000002, "suggest updating, loop_index %d\n", loop_index);
             end
         end
     end
 end
-
 endmodule

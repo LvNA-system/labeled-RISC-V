@@ -394,6 +394,10 @@ object DMI_RegAddrs {
 
   def CP_AUTOCAT_WATCHING_DSID = 0x5b
 
+  def CP_AUTOCAT_SET = 0x5c
+
+  def CP_AUTOCAT_GAP = 0x5d
+
   def CORE_PC_HI    = 0x70
 
   def CORE_PC_LO    = 0x71

@@ -8,6 +8,7 @@
 package freechips.rocketchip.subsystem
 
 import Chisel._
+import chisel3.core.WireInit
 import chisel3.util.IrrevocableIO
 import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
@@ -332,11 +333,23 @@ with HasControlPlaneParameters
       hit_way := Bits(0)
       (0 until nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
 
-      autocat.access_valid_in := dsid === cp.autocat_watching_dsid && state === s_tag_read
+      val autocat_is_sampling = WireInit((idx & cp.autocat_set) === cp.autocat_set)
+      autocat.access_valid_in := dsid === cp.autocat_watching_dsid && autocat_is_sampling && state === s_tag_read
       autocat.hit_vec_in := (0 until nWays).map(tag_match_way(_)).asUInt
 
       cp.dsid := dsid
-      val curr_mask = cp.waymask & Mux(dsid === 0.U, autocat.suggested_waymask_out, ~autocat.suggested_waymask_out).asUInt
+      val curr_mask = Wire(UInt(nWays.W))
+      curr_mask := cp.waymask // default
+      when (cp.autocat_en) {
+        when (!autocat_is_sampling) {  // not sampling, under control
+          when (dsid === cp.autocat_watching_dsid) {
+            curr_mask := cp.waymask & autocat.suggested_waymask_out
+          }.otherwise {
+            curr_mask := cp.waymask & (~autocat.suggested_waymask_out).asUInt
+          }
+        }
+      }
+
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
       val repl_dsid = set_dsids_reg(repl_way)

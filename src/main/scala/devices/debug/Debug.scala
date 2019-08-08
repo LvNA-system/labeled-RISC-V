@@ -1116,6 +1116,8 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_AUTOCAT_RESET_BIN_POWER << 2) -> Seq(RWNotify(AutoCatConstants.resetBinPowerWidth, io.cp.autocat_reset_bin_power, io.cp.updateData, WireInit(false.B), io.cp.autocat_reset_bin_power_wen)),
       (CP_AUTOCAT_SUGGEST_WAYMASK << 2) -> Seq(RegField.r(AutoCatConstants.nrL2Ways, io.cp.autocat_suggested_waymask)),
       (CP_AUTOCAT_WATCHING_DSID << 2) -> Seq(RWNotify(dsidWidth, io.cp.autocat_watching_dsid, io.cp.updateData, WireInit(false.B), io.cp.autocat_watching_dsid_wen)),
+      (CP_AUTOCAT_SET << 2) -> Seq(RWNotify(32, io.cp.autocat_set, io.cp.updateData, WireInit(false.B), io.cp.autocat_set_wen)),
+      (CP_AUTOCAT_GAP << 2) -> Seq(RWNotify(32, io.cp.autocat_gap, io.cp.updateData, WireInit(false.B), io.cp.autocat_gap_wen)),
 
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))
     )
