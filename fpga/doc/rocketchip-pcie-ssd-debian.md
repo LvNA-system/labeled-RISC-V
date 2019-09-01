@@ -1,4 +1,3 @@
-
 # 在rocketchip中启动debian
 
 ## 准备
@@ -77,6 +76,8 @@
 ### 连接IP核
 
 * `S_AXI_B`和`S_AXI_LITE`接入rocketchip的MMIO
+  * `S_AXI_B` 是访问 PCIe 内部空间的接口，其在 rocketchip 中的地址映射应与 AXI BAR (Base Address Register) 里的设置保持一致
+  * `S_AXI_LITE` 是访问 PCIe 控制器的接口，只需要在 rocketchip 内分配地址映射，选项卡中无需配置
 * `M_AXI_B`接入rocketchip的L2 frontend bus
 * `axi_aclk`, `axi_aresetn`和`axi_ctl_aresetn`是相应AXI通道的时钟和复位, 连接AXI通道时需要使用Interconnect或Clock Converter进行时钟域的转换
 * `sys_clk`和`sys_clk_gt`: 实例化IP核`Utility Buffer`, 其C Buf Type选择IBUFDSGTE, 然后连接如下:
@@ -86,6 +87,7 @@
 * `sys_rst_n`可连接`zynqmp.pl_resetn0`
 * 为`pcie_mgt`创建Interface Pin, 连出block design即可, 无需连到顶层
 * `interrupt_out`, `interrupt_out_msi_vec0to31`和`interrupt_out_msi_vec32to63`是中断信号, 接入到rocketchip的中断输入
+  * 按上述顺序从低位到高位排列，命名对应下文 dts 中的 misc, msi0, msi1.
 
 ### 分配地址空间
 
@@ -95,7 +97,7 @@
 * `S_AXI_LITE`:
   * Range 不小于512MB, 见[Xilinx的解决方案](https://www.xilinx.com/Attachment/Xilinx_Answer_70854_LFAR_PL_Bridge_RP_IP_Setup.pdf)
 * `M_AXI_B`, 可分配全地址空间, 因为rocketchip内部会对地址范围进行检查
-* 必要时需要扩大rocketchip.MMIO的地址空间
+* **必要时需要扩大rocketchip.MMIO的地址空间**
 
 ### 添加约束
 
@@ -145,16 +147,35 @@ set_property PACKAGE_PIN AB34 [get_ports {CLK_IN_D_clk_p[0]}]
   };
 };
 ```
-注意根据rocketchip的中断连接情况修改`interrupts`属性
+
+关键属性（即对应的硬件配置）的说明如下：
+
+1. `interrupt-parent` 指向系统的 `interrupt-controller`，在 rocketchip 中其通常位于 `/soc/interrupt-controller` 且标签为 `L0`；
+2. `interrupt-names` 和 `interrupts` 的设置表示 PCIe IP 核的中断信号 `interrupt_out`, `interrupt_out_msi_vec0to31`和`interrupt_out_msi_vec32to63`
+分别对应 rocketchip 外部中断的第 3、4、5 位（从 1 开始）；
+3. `ranges` 表示 rocketchip 的 `{0x0, 0x70000000}` 起始地址到 PCIe 的 `{0x00000000, 0x70000000}`，长度 `{0x00000000 0x10000000}`，`0x03000000` 表示 PCIe 相关配置。
+所以 `S_AXI_B` 起始地址和 PCIe 选项卡的 AXI BAR 要设置成 `0x70000000`；
+4. `reg` 表示控制器的地址空间，所以 `S_AXI_LITE` 起始地址要设置成 `0x40000000`。
+
+可以根据实际硬件连接情况更改对应的关键参数。
 
 节点属性的介绍可以参考[这里](https://elinux.org/Device_Tree_Usage#PCI_Address_Translation)
 
 ## 安装debian
 
 通过硬盘盒将SSD接入x86主机, 对SSD进行分区和格式化, 并将debian安装到SSD中.
+
 * 安装和改动需要qemu-riscv64-static, 建议在debian 10或ubuntu 19.04的系统(可尝试使用docker)中进行操作.
-* 一些步骤可以参考[BOOT.BIN的准备流程中的SD卡部分](../boot/README.md).
-* debian的安装可以参考[debian社区的安装指南](https://wiki.debian.org/RISC-V#debootstrap).
+* 创建好分区后，将其挂在到任意目录，比如 /tmp/ssd
+  * 一些步骤可以参考[BOOT.BIN的准备流程中的SD卡部分](../boot/README.md).
+* 安装并执行 debootstrap 即可：
+  * 参考[debian社区的安装指南](https://wiki.debian.org/RISC-V#debootstrap).
+
+```
+sudo apt-get install debootstrap qemu-user-static binfmt-support debian-ports-archive-keyring
+sudo debootstrap --arch=riscv64 --keyring /usr/share/keyrings/debian-ports-archive-keyring.gpg --include=debian-ports-archive-keyring unstable /tmp/ssd http://deb.debian.org/debian-ports
+```
+
 * 安装后, 通过chroot进入, 进行修改root密码, 更新fstab文件等操作, 具体可以参考[BOOT.BIN的准备流程中的SD卡部分](../boot/README.md).
 
 ## 插入SSD
