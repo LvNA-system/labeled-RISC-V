@@ -158,7 +158,8 @@ path-to-labeled-RISC-V/fpga/boot/build/myproject-your-target-board/dts $ cat top
 ```
 * compile the dts to dtb
 ```
-dtc -I dts -O dtb -o system.dtb top.dts
+cpp -nostdinc -I include -undef -x assembler-with-cpp top.dts top.dts.preprocessed
+dtc -O dtb -I dts -o system.dtb top.dts.preprocessed
 ```
 
 ## Build rootfs in SD card

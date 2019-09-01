@@ -154,6 +154,7 @@ class LvNAFPGAConfigzcu102 extends Config(
 class LvNAFPGAConfigsidewinder extends Config(
   new WithNonblockingL1(8)
   ++ new WithNL2CacheCapacity(2048)
+  ++ new WithNExtTopInterrupts(5)
   ++ new WithNBigCores(4)
   ++ new WithRationalRocketTiles
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
