@@ -8,12 +8,14 @@
 package freechips.rocketchip.subsystem
 
 import Chisel._
+import chisel3.core.WireInit
 import chisel3.util.IrrevocableIO
 import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.util._
 import freechips.rocketchip.tilelink._
-import lvna.{HasControlPlaneParameters, CPToL2CacheIO}
+import lvna.{AutoCatIOInternal, CPToL2CacheIO, HasControlPlaneParameters}
+
 import scala.math._
 
 case class TLL2CacheParams(
@@ -43,6 +45,8 @@ with HasControlPlaneParameters
     val nSets = p(NL2CacheCapacity) * 1024 / 64 / nWays
     println(s"nSets = $nSets")
     val cp = IO(new CPToL2CacheIO().flip())
+    val autocat = IO(new (AutoCatIOInternal).flip())
+
     (node.in zip node.out) foreach { case ((in, edgeIn), (out, edgeOut)) =>
       require(isPow2(nSets))
       require(isPow2(nWays))
@@ -329,8 +333,23 @@ with HasControlPlaneParameters
       hit_way := Bits(0)
       (0 until nWays).foreach(i => when (tag_match_way(i)) { hit_way := Bits(i) })
 
+      val autocat_is_sampling = WireInit((idx & cp.autocat_set) === cp.autocat_set)
+      autocat.access_valid_in := dsid === cp.autocat_watching_dsid && autocat_is_sampling && state === s_tag_read
+      autocat.hit_vec_in := (0 until nWays).map(tag_match_way(_)).asUInt
+
       cp.dsid := dsid
-      val curr_mask = cp.waymask
+      val curr_mask = Wire(UInt(nWays.W))
+      curr_mask := cp.waymask // default
+      when (cp.autocat_en) {
+        when (!autocat_is_sampling) {  // not sampling, under control
+          when (dsid === cp.autocat_watching_dsid) {
+            curr_mask := cp.waymask & autocat.suggested_waymask_out
+          }.otherwise {
+            curr_mask := cp.waymask & (~autocat.suggested_waymask_out).asUInt
+          }
+        }
+      }
+
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
       val repl_dsid = set_dsids_reg(repl_way)
@@ -340,6 +359,11 @@ with HasControlPlaneParameters
       val victim_occupacy = dsid_occupacy(repl_dsid)
       when (state === s_tag_read) {
         log("req_dsid %d occ %d repl_dsid %d occ %d way %d", dsid, requester_occupacy, repl_dsid, victim_occupacy, repl_way)
+      }
+
+      val pre_state = RegNext(state)
+      when (state === s_tag_read || pre_state === s_tag_read) {
+        log("suggested_waymask_out %b\n", autocat.suggested_waymask_out)
       }
 
       cp.capacity := dsid_occupacy(cp.capacity_dsid)
@@ -356,6 +380,51 @@ with HasControlPlaneParameters
       val write_miss_no_writeback = write_miss && !need_writeback
 
       val need_data_read = read_hit || write_hit || read_miss_writeback || write_miss_writeback
+
+      class MissStat() extends Bundle {
+        val miss = UInt(32.W)
+        val total = UInt(32.W)
+      }
+
+      val miss_stat_array = DescribedSRAM(
+        name = "miss_stat",
+        desc = "L2 cache miss stat",
+        size = 1 << dsidWidth,
+        data = new MissStat()
+      )
+
+      val miss_stat_origin = miss_stat_array.read(dsid, state === s_tag_read_resp)
+
+      val miss_stat_update = Wire(new MissStat())
+      miss_stat_update.miss := miss_stat_origin.miss + Mux(hit, 0.U, 1.U)
+      miss_stat_update.total := miss_stat_origin.total + 1.U
+
+      val miss_stat_query = miss_stat_array.read(cp.capacity_dsid, cp.req_miss_en)
+      cp.req_miss := miss_stat_query.miss
+      cp.req_total := miss_stat_query.total
+      when (RegNext(cp.req_miss_en)) {
+        log("query miss stat dsid %d miss %d total %d", cp.capacity_dsid, miss_stat_query.miss, miss_stat_query.total)
+      }
+
+      val reset_miss_stat = cp.stat_reset || reset
+      val miss_stat_iter = Reg(UInt(dsidWidth.W))
+      when (reset_miss_stat) {
+        miss_stat_iter := miss_stat_iter + 1.U
+      }.otherwise{
+        miss_stat_iter := 0.U
+      }
+      val miss_stat_init = Wire(new MissStat())
+      miss_stat_init.miss := 0.U
+      miss_stat_init.total := 0.U
+      val miss_stat_idx = Mux(reset_miss_stat, miss_stat_iter, dsid)
+      val miss_stat_data = Mux(reset_miss_stat, miss_stat_init, miss_stat_update)
+      when (state === s_tag_read || reset_miss_stat) {
+        when (reset_miss_stat) {
+          log("iter %d, miss_stat_data %x", miss_stat_idx, miss_stat_data.asUInt)
+        }
+        miss_stat_array.write(miss_stat_idx, miss_stat_data)
+      }
+
 
       when (state === s_tag_read) {
         log("hit: %d idx: %x curr_state_reg: %x waymask: %x hit_way: %x repl_way: %x", hit, idx, curr_state_reg, curr_mask, hit_way, repl_way)

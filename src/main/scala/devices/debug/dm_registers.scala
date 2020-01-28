@@ -386,6 +386,18 @@ object DMI_RegAddrs {
 
   def CP_TIMER_HI = 0x57
 
+  def CP_AUTOCAT_EN = 0x58
+
+  def CP_AUTOCAT_RESET_BIN_POWER = 0x59
+
+  def CP_AUTOCAT_SUGGEST_WAYMASK = 0x5a
+
+  def CP_AUTOCAT_WATCHING_DSID = 0x5b
+
+  def CP_AUTOCAT_SET = 0x5c
+
+  def CP_AUTOCAT_GAP = 0x5d
+
   def CORE_PC_HI    = 0x70
 
   def CORE_PC_LO    = 0x71
@@ -410,6 +422,15 @@ object DMI_RegAddrs {
 
 
   def CP_HART_ID = 0x7b
+
+  /* L2 Miss */
+  def CP_L2_REQ_MISS = 0x7c
+
+  def CP_L2_REQ_TOTAL = 0x7d
+
+  def CP_L2_STAT_RESET = 0x7e
+
+  def CP_L2_REQ_EN = 0x7f
 }
 
 class DMSTATUSFields extends Bundle {

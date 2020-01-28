@@ -20,7 +20,7 @@ import freechips.rocketchip.subsystem.{NL2CacheWays, NTiles}
 import freechips.rocketchip.system.UseEmu
 import freechips.rocketchip.tile.XLen
 import ila.BoomCSRILABundle
-import lvna.{ControlPlaneIO, HasControlPlaneParameters}
+import lvna.{AutoCatConstants, ControlPlaneIO, HasControlPlaneParameters}
 import freechips.rocketchip.diplomaticobjectmodel.DiplomaticObjectModelAddressing
 import freechips.rocketchip.diplomaticobjectmodel.model._
 
@@ -1106,6 +1106,18 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
 
       (CORE_CSR_PENDING_INT_HI     << 2) -> Seq(RegField.r(32,   io.zid(io.cp.hartSel).reg_mip(63, 32),   RegFieldDesc("1", "1"))),
       (CORE_CSR_PENDING_INT_LO     << 2) -> Seq(RegField.r(32,   io.zid(io.cp.hartSel).reg_mip(31, 0),   RegFieldDesc("1", "1"))),
+
+      (CP_L2_STAT_RESET<<2) -> Seq(RWNotify(1,               WireInit(false.B),     io.cp.updateData, WireInit(false.B), io.cp.l2_stat_reset_wen)),
+      (CP_L2_REQ_EN   << 2) -> Seq(RWNotify(1,               WireInit(0.U),         WireInit(0.U),    io.cp.l2_miss_en,  WireInit(false.B))),
+      (CP_L2_REQ_MISS << 2) -> Seq(RegField.r(32,            io.cp.l2_req_miss)),
+      (CP_L2_REQ_TOTAL<< 2) -> Seq(RegField.r(32,            io.cp.l2_req_total)),
+
+      (CP_AUTOCAT_EN  << 2) -> Seq(RWNotify(1, io.cp.autocat_en, io.cp.updateData, WireInit(false.B), io.cp.autocat_wen)),
+      (CP_AUTOCAT_RESET_BIN_POWER << 2) -> Seq(RWNotify(AutoCatConstants.resetBinPowerWidth, io.cp.autocat_reset_bin_power, io.cp.updateData, WireInit(false.B), io.cp.autocat_reset_bin_power_wen)),
+      (CP_AUTOCAT_SUGGEST_WAYMASK << 2) -> Seq(RegField.r(AutoCatConstants.nrL2Ways, io.cp.autocat_suggested_waymask)),
+      (CP_AUTOCAT_WATCHING_DSID << 2) -> Seq(RWNotify(dsidWidth, io.cp.autocat_watching_dsid, io.cp.updateData, WireInit(false.B), io.cp.autocat_watching_dsid_wen)),
+      (CP_AUTOCAT_SET << 2) -> Seq(RWNotify(32, io.cp.autocat_set, io.cp.updateData, WireInit(false.B), io.cp.autocat_set_wen)),
+      (CP_AUTOCAT_GAP << 2) -> Seq(RWNotify(32, io.cp.autocat_gap, io.cp.updateData, WireInit(false.B), io.cp.autocat_gap_wen)),
 
       (CP_DSID_SEL    << 2) -> Seq(RWNotify(dsidWidth,       io.cp.dsidSel,         io.cp.updateData, WireInit(false.B), io.cp.dsidSelWen,   None))
     )

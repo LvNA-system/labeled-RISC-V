@@ -3,6 +3,7 @@ package lvna
 import Chisel._
 import boom.system.{HasBoomTiles, HasBoomTilesModuleImp}
 import chisel3.core.{IO, Input, Output, WireInit}
+import chisel3.experimental.chiselName
 import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule, LazyModuleImp, SimpleDevice}
 import freechips.rocketchip.subsystem._
@@ -13,6 +14,7 @@ import freechips.rocketchip.util.{AsyncQueue, GTimer}
 import freechips.rocketchip.devices.debug.DMI_RegAddrs._
 import freechips.rocketchip.devices.debug.RWNotify
 import freechips.rocketchip.regmapper.{RegField, RegReadFn, RegWriteFn}
+import chisel3.util.Fill
 
 object log2Safe {
   def apply(n: BigInt): Int = {
@@ -90,6 +92,24 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val PC                  = UInt(OUTPUT, p(XLen))
 
   val assertDebugInt      = Bool(INPUT)
+
+  val l2_miss_en        = Bool(INPUT)
+  val l2_req_miss       = UInt(OUTPUT, 32)
+  val l2_req_total      = UInt(OUTPUT, 32)
+  val l2_stat_reset_wen = Bool(INPUT)
+
+  import AutoCatConstants._
+  val autocat_en        = Bool(OUTPUT)
+  val autocat_wen       = Bool(INPUT)
+  val autocat_reset_bin_power = UInt(OUTPUT, resetBinPowerWidth)
+  val autocat_reset_bin_power_wen = Bool(INPUT)
+  val autocat_suggested_waymask = UInt(OUTPUT, nrL2Ways)
+  val autocat_watching_dsid = UInt(OUTPUT, dsidWidth)
+  val autocat_watching_dsid_wen = Bool(INPUT)
+  val autocat_set       = UInt(OUTPUT, 32)
+  val autocat_set_wen   = Bool(INPUT)
+  val autocat_gap = UInt(OUTPUT, 32)
+  val autocat_gap_wen = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -98,6 +118,15 @@ class CPToL2CacheIO(implicit val p: Parameters) extends Bundle with HasControlPl
   val dsid = Input(UInt(dsidWidth.W))  // DSID from requests L2 cache received
   val capacity = Input(UInt(cacheCapacityWidth.W))  // Count on way numbers
   val capacity_dsid = Output(UInt(dsidWidth.W))  // Capacity query dsid
+  val req_miss = Input(UInt(32.W))
+  val req_miss_en = Output(Bool())
+  val req_total = Input(UInt(32.W))
+  val stat_reset = Output(Bool())
+
+  val autocat_watching_dsid = Output(UInt(dsidWidth.W))
+  val autocat_suggested_waymask = Input(UInt(p(NL2CacheWays).W))
+  val autocat_set = Output(UInt(32.W))
+  val autocat_en = Output(Bool())
 }
 
 class BucketState(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters with HasTokenBucketParameters {
@@ -197,6 +226,7 @@ with HasTokenBucketParameters
       val mem_part_en = Bool().asInput
       val distinct_hart_dsid_en = Bool().asInput
       val progHartIds = Vec(nTiles, UInt(log2Safe(nTiles).W)).asOutput
+      val autocat_watching_change = Bool().asOutput
     })
 
     val hartSel   = RegInit(0.U(ldomDSidWidth.W))
@@ -281,6 +311,65 @@ with HasTokenBucketParameters
       waymasks(currDsid) := io.cp.updateData
     }
 
+    // Miss
+    val l2_stat_reset = RegInit(false.B)
+    val sbus_l2_miss_en = Wire(Bool())
+    val miss_en = sbus_l2_miss_en || io.cp.l2_miss_en
+
+    io.l2.req_miss_en := miss_en
+    io.l2.stat_reset := l2_stat_reset
+
+    when (io.cp.l2_stat_reset_wen) {
+      l2_stat_reset := io.cp.updateData
+    }
+
+    io.cp.l2_req_miss := RegEnable(io.l2.req_miss, RegNext(RegNext(miss_en)))    // Wait miss_stat sram addr changes
+    io.cp.l2_req_total := RegEnable(io.l2.req_total, RegNext(RegNext(miss_en)))  // Wait miss_stat sram addr changes
+
+
+    // Autocat
+    import AutoCatConstants._
+
+    @chiselName
+    def cpRegTmpl(init: UInt, enable: Bool): UInt = RegEnable(io.cp.updateData, init, enable)
+
+    io.cp.autocat_suggested_waymask := io.l2.autocat_suggested_waymask
+
+    /**
+      * AutoCat Enable
+      */
+    val autocat_en_reg = cpRegTmpl(false.B, io.cp.autocat_wen)
+    io.cp.autocat_en := autocat_en_reg
+    io.l2.autocat_en := autocat_en_reg
+
+    /**
+      * Decide autocat refresh cycles: 2**(value)
+      */
+    val autocat_reset_bin_power_reg = cpRegTmpl(10.U(resetBinPowerWidth.W), io.cp.autocat_reset_bin_power_wen)
+    io.cp.autocat_reset_bin_power := autocat_reset_bin_power_reg
+
+    /**
+      * The label autocat are serving.
+      * Updating this field will refresh autocat's way hit counters.
+      */
+    val autocat_watching_dsid = cpRegTmpl(0.U(dsidWidth.W), io.cp.autocat_watching_dsid_wen)
+    io.cp.autocat_watching_dsid := autocat_watching_dsid
+    io.l2.autocat_watching_dsid := autocat_watching_dsid
+    val watch_change = WireInit(false.B)
+    io.autocat_watching_change := watch_change || io.cp.autocat_watching_dsid_wen
+
+    /**
+      * The allowed hits gap between current allocated ways to full-occupied.
+      */
+    val autocat_gap = cpRegTmpl(500.U(32.W), io.cp.autocat_gap_wen)
+    io.cp.autocat_gap := autocat_gap
+
+    private val l2SetCnt: BigInt = p(NL2CacheCapacity) * 1024 / p(NL2CacheWays) / p(CacheBlockBytes)
+    private val l2SetBits = l2SetCnt.bitLength
+    println(s"cp: l2SetCnt $l2SetCnt, l2SetBits $l2SetBits")
+    val autocat_set_sampling_mask = cpRegTmpl(0xf.U(l2SetBits.W), io.cp.autocat_set_wen)
+    io.cp.autocat_set := autocat_set_sampling_mask
+    io.l2.autocat_set := autocat_set_sampling_mask
 
     // TL node
     def offset(addr: Int): Int = { (addr - CP_HART_DSID) << 2 }
@@ -320,6 +409,16 @@ with HasTokenBucketParameters
       offset(CP_HART_ID)     -> Seq(RegField(32, progHartIds(hartSel))),
       offset(CP_TIMER_LO)    -> Seq(RegField(32, timestamp_buffered(31, 0), ())),
       offset(CP_TIMER_HI)    -> Seq(RegField(32, timestamp_buffered(63, 32), ())),
+      offset(CP_L2_REQ_EN)   -> Seq(RWNotify(1, WireInit(false.B), WireInit(false.B), sbus_l2_miss_en, Wire(Bool()))),
+      offset(CP_L2_REQ_MISS) -> Seq(RegField.r(32, io.l2.req_miss)),
+      offset(CP_L2_REQ_TOTAL)-> Seq(RegField.r(32, io.l2.req_total)),
+      offset(CP_L2_STAT_RESET)->Seq(RWNotify(1, WireInit(false.B), l2_stat_reset, Wire(Bool()), WireInit(false.B))),
+      offset(CP_AUTOCAT_EN)  -> Seq(RegField(1, autocat_en_reg)),
+      offset(CP_AUTOCAT_RESET_BIN_POWER) -> Seq(RegField(resetBinPowerWidth, autocat_reset_bin_power_reg)),
+      offset(CP_AUTOCAT_SUGGEST_WAYMASK) -> Seq(RegField.r(nrL2Ways, io.l2.autocat_suggested_waymask)),
+      offset(CP_AUTOCAT_WATCHING_DSID) -> Seq(RWNotify(dsidWidth, autocat_watching_dsid, autocat_watching_dsid, WireInit(false.B), watch_change)),
+      offset(CP_AUTOCAT_SET)  -> Seq(RegField(32, autocat_set_sampling_mask)),
+      offset(CP_AUTOCAT_GAP) -> Seq(RegField(32, autocat_gap)),
     )
 
 
@@ -606,8 +705,29 @@ trait BindL2WayMask extends HasRocketTiles {
 
 trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
   val outer: BindL2WayMask
-
   if (p(NL2CacheCapacity) != 0) {
     outer._l2.module.cp <> outer._cp.module.io.l2
+    val cat = Module(new autocat)
+    val cpio = outer._cp.module.io
+    val l2 = outer._l2.module
+
+    cat.io.clk_in := clock
+    cat.io.reset_in := reset || cpio.autocat_watching_change
+    cat.io.access_valid_in := cpio.cp.autocat_en && l2.autocat.access_valid_in
+    cat.io.reset_bin_power := cpio.cp.autocat_reset_bin_power
+    cat.io.allowed_gap := cpio.cp.autocat_gap
+    cat.io.hit_vec_in := l2.autocat.hit_vec_in
+    cpio.l2.autocat_suggested_waymask := cat.io.suggested_waymask_out
+    l2.autocat.suggested_waymask_out :=
+      Mux(cpio.cp.autocat_en, cat.io.suggested_waymask_out, Fill(p(NL2CacheWays), 1.U))
+
+    when (cat.io.access_valid_in) {
+      printf("hit_vec_in %b\n", cat.io.hit_vec_in)
+    }
+
+    val pre_way = RegNext(cat.io.suggested_waymask_out)
+    when (pre_way =/= cat.io.suggested_waymask_out) {
+      printf("suggested waymask %b\n", cat.io.suggested_waymask_out)
+    }
   }
 }
