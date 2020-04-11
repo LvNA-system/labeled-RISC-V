@@ -330,7 +330,7 @@ class WithNMemoryChannels(n: Int) extends Config((site, here, up) => {
 })
 
 class WithExtMemBase(n: Long) extends Config((site, here, up) => {
-  case ExtMem => up(ExtMem, site).map(x => x.copy(master = x.master.copy(size = n)))
+  case ExtMem => up(ExtMem, site).map(x => x.copy(master = x.master.copy(base = n)))
 })
 
 class WithExtMemSize(n: Long) extends Config((site, here, up) => {
