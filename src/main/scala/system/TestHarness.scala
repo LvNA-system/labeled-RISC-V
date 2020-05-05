@@ -8,6 +8,7 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.devices.debug.Debug
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.amba.axi4._
+import freechips.rocketchip.subsystem._
 
 class SimFront()(implicit p: Parameters) extends Module {
   val io = new Bundle {
@@ -92,6 +93,8 @@ class TestHarness()(implicit p: Parameters) extends Module {
     val success = Bool(OUTPUT)
   }
 
+  val chip = Module(LazyModule(new ChiplinkTop).module)
+
   // Weird compilation failure...
   // val dut = Module(LazyModule(if (p(UseEmu)) new LvNAEmuTop else new LvNAFPGATop).module)
   val dut = if (p(UseEmu)) Module(LazyModule(new LvNAEmuTop).module) else Module(LazyModule(new LvNAFPGATop).module)
@@ -101,6 +104,8 @@ class TestHarness()(implicit p: Parameters) extends Module {
     dut.coreclk := dut.clock
   }
 
+  dut.io_chip.b2c <> chip.fpga_io.c2b
+  chip.fpga_io.b2c <> dut.io_chip.c2b
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
   dut.connectSimAXIMem()

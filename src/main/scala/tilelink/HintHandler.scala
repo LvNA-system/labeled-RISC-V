@@ -55,6 +55,9 @@ class TLHintHandler(passthrough: Boolean = true)(implicit p: Parameters) extends
         val repeater = Module(new Repeater(in.a.bits))
         val mux = Wire(chiselTypeOf(in.a))
 
+        mux.bits.dsid := 0.U
+        mux.bits.instret := 0.U
+
         repeater.io.repeat := mapPP && !edgeIn.last(out.a)
         repeater.io.enq <> in.a
         // Work-around broken chisel3 <>

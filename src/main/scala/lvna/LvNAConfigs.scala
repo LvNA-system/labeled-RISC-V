@@ -119,7 +119,7 @@ class LvNAConfigemu extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
   ++ new WithNL2CacheCapacity(256)
-  ++ new WithNBigCores(2)
+  ++ new WithNBigCores(1)
   ++ new WithEmu
   ++ new WithRationalRocketTiles
   ++ new WithExtMemSize(0x8000000L) // 32MB
@@ -143,7 +143,7 @@ class LvNAFPGAConfigzcu102 extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
   ++ new WithNL2CacheCapacity(2048)
-  ++ new WithNBigCores(4)
+  ++ new WithNBigCores(1)
   ++ new WithRationalRocketTiles
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
   ++ new WithExtMemSize(0x80000000L)  // 2GB
