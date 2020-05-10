@@ -6,7 +6,8 @@ import json
 def get_mem_info(filename):
     config = json.loads(open(filename, 'r').read())
     n_tiles = len([t for t in config['cpus'].keys() if t.startswith('cpu@')])
-    mem_size = config['memory@100000000']['reg'][0]['size']
+    #mem_size = config['memory@100000000']['reg'][0]['size']
+    mem_size = 0x8000000
     return n_tiles, mem_size
 
 class MemInitGen:

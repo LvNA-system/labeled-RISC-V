@@ -32,8 +32,8 @@ case object ExtIn extends Field[Option[SlavePortParams]](None)
 trait CanHaveMasterAXI4MemPort { this: BaseSubsystem with HasChiplinkPort =>
   val module: CanHaveMasterAXI4MemPortModuleImp
 
-  val l2cache: TLSimpleL2Cache = if (p(NL2CacheCapacity) != 0) TLSimpleL2CacheRef() else null
-  private val l2node = if (p(NL2CacheCapacity) != 0) l2cache.node else TLSimpleL2Cache()
+  //private val l2cache: TLSimpleL2Cache = if (p(NL2CacheCapacity) != 0) TLSimpleL2CacheRef() else null
+  //private val l2node = if (p(NL2CacheCapacity) != 0) l2cache.node else TLSimpleL2Cache()
   
   val memAXI4Node = p(ExtMem).map { case MemoryPortParams(memPortParams, nMemoryChannels) =>
     val portName = "axi4"
@@ -57,7 +57,7 @@ trait CanHaveMasterAXI4MemPort { this: BaseSubsystem with HasChiplinkPort =>
 
     memAXI4Node := AXI4UserYanker() := AXI4IdIndexer(memPortParams.idBits) := TLToAXI4() := TLAtomicAutomata(passthrough=false) := mchipBar
     mbus.toDRAMController(Some(portName)) {
-      mchipBar := filter_c := l2node
+      mchipBar := filter_c
     }
 
     memAXI4Node
@@ -70,6 +70,7 @@ trait CanHaveMasterAXI4MemPortModuleImp extends LazyModuleImp {
 
   val mem_axi4 = outer.memAXI4Node.map(x => IO(HeterogeneousBag.fromNode(x.in)))
   (mem_axi4 zip outer.memAXI4Node) foreach { case (io, node) =>
+
     (io zip node.in).foreach { case (io, (bundle, _)) => io <> bundle }
   }
 
@@ -107,7 +108,7 @@ trait CanHaveMasterAXI4MMIOPort { this: BaseSubsystem =>
         := AXI4Deinterleaver(sbus.blockBytes)
         := AXI4IdIndexer(params.idBits)
         := TLToAXI4()
-        := TLAtomicAutomata(passthrough=false) 
+        := TLAtomicAutomata(passthrough=false)
         )
     }
   }

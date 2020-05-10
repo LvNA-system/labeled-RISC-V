@@ -601,13 +601,13 @@ trait HasControlPlaneBoomModuleImpl extends HasBoomTilesModuleImp {
 trait BindL2WayMask extends HasRocketTiles {
   this: BaseSubsystem with HasControlPlane with CanHaveMasterAXI4MemPort =>
   val _cp = controlPlane
-  val _l2 = l2cache
+  //val _l2 = l2cache
 }
 
 trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
   val outer: BindL2WayMask
 
-  if (p(NL2CacheCapacity) != 0) {
-    outer._l2.module.cp <> outer._cp.module.io.l2
-  }
+  //if (p(NL2CacheCapacity) != 0) {
+  //  outer._l2.module.cp <> outer._cp.module.io.l2
+  //}
 }

@@ -23,7 +23,6 @@ class LvNABoomEmuTopModule[+L <: LvNABoomEmuTop](_outer: L) extends ExampleBoomS
 class LvNAEmuTop(implicit p: Parameters) extends ExampleRocketSystem
     with HasPeripheryUART
     with HasControlPlane
-    with BindL2WayMask
 {
   override lazy val module = new LvNAEmuTopModule(this)
 }
@@ -31,13 +30,11 @@ class LvNAEmuTop(implicit p: Parameters) extends ExampleRocketSystem
 class LvNAEmuTopModule[+L <: LvNAEmuTop](_outer: L) extends ExampleRocketSystemModuleImp(_outer)
     with HasPeripheryUARTModuleImp
     with HasControlPlaneModuleImpl
-    with BindL2WayMaskModuleImp
 
 
 class LvNAFPGATop(implicit p: Parameters) extends ExampleRocketSystem
     with HasControlPlane
     with HasChiplinkPort
-    with BindL2WayMask
 {
   override lazy val module = new LvNAFPGATopModule(this)
 }
@@ -45,7 +42,6 @@ class LvNAFPGATop(implicit p: Parameters) extends ExampleRocketSystem
 class LvNAFPGATopModule[+L <: LvNAFPGATop](_outer: L) extends ExampleRocketSystemModuleImp(_outer)
     with HasControlPlaneModuleImpl
     with HasChiplinkPortImpl
-    with BindL2WayMaskModuleImp
 
 //class LvNAFPGATopAHB(implicit p: Parameters) extends ExampleRocketSystemAHB
 //

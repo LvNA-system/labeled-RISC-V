@@ -56,9 +56,6 @@ class ExampleBoomSystemModuleImp[+L <: ExampleBoomSystem](_outer: L) extends Boo
 class ExampleRocketSystem(implicit p: Parameters) extends RocketSubsystem
     with HasAsyncExtInterrupts
     with HasChiplinkPort
-    with CanHaveMasterAXI4MemPort
-    with CanHaveMasterAXI4MMIOPort
-    with CanHaveSlaveAXI4Port
     with HasPeripheryBootROM {
   override lazy val module = new ExampleRocketSystemModuleImp(this)
 
@@ -86,9 +83,6 @@ class ExampleRocketSystemModuleImp[+L <: ExampleRocketSystem](_outer: L) extends
     with HasRTCModuleImp
     with HasExtInterruptsModuleImp
     with HasChiplinkPortImpl
-    with CanHaveMasterAXI4MemPortModuleImp
-    with CanHaveMasterAXI4MMIOPortModuleImp
-    with CanHaveSlaveAXI4PortModuleImp
     with HasPeripheryBootROMModuleImp
     with DontTouch
 
