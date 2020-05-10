@@ -16,6 +16,7 @@ import scala.math.max
 case object TileId extends Field[Int]
 
 class GroundTestSubsystem(implicit p: Parameters) extends BaseSubsystem
+    with HasChiplinkPort
     with CanHaveMasterAXI4MemPort {
   val tileParams = p(GroundTestTilesKey)
   val tiles = tileParams.zipWithIndex.map { case(c, i) => LazyModule(
@@ -49,6 +50,7 @@ class GroundTestSubsystem(implicit p: Parameters) extends BaseSubsystem
 }
 
 class GroundTestSubsystemModuleImp[+L <: GroundTestSubsystem](_outer: L) extends BaseSubsystemModuleImp(_outer)
+    with HasChiplinkPortImpl
     with CanHaveMasterAXI4MemPortModuleImp {
   val success = IO(Bool(OUTPUT))
 

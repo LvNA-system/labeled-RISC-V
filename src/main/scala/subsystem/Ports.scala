@@ -29,12 +29,12 @@ case object ExtIn extends Field[Option[SlavePortParams]](None)
 ///// The following traits add ports to the sytem, in some cases converting to different interconnect standards
 
 /** Adds a port to the system intended to master an AXI4 DRAM controller. */
-trait CanHaveMasterAXI4MemPort { this: BaseSubsystem =>
+trait CanHaveMasterAXI4MemPort { this: BaseSubsystem with HasChiplinkPort =>
   val module: CanHaveMasterAXI4MemPortModuleImp
 
   val l2cache: TLSimpleL2Cache = if (p(NL2CacheCapacity) != 0) TLSimpleL2CacheRef() else null
   private val l2node = if (p(NL2CacheCapacity) != 0) l2cache.node else TLSimpleL2Cache()
-
+  
   val memAXI4Node = p(ExtMem).map { case MemoryPortParams(memPortParams, nMemoryChannels) =>
     val portName = "axi4"
     val device = new MemoryDevice
@@ -55,9 +55,9 @@ trait CanHaveMasterAXI4MemPort { this: BaseSubsystem =>
         beatBytes = memPortParams.beatBytes)
     })
 
-
-    memAXI4Node := mbus.toDRAMController(Some(portName)) {
-      AXI4UserYanker() := AXI4IdIndexer(memPortParams.idBits) := TLToAXI4() := l2node
+    memAXI4Node := AXI4UserYanker() := AXI4IdIndexer(memPortParams.idBits) := TLToAXI4() := TLAtomicAutomata(passthrough=false) := mchipBar
+    mbus.toDRAMController(Some(portName)) {
+      mchipBar := filter_c := l2node
     }
 
     memAXI4Node
@@ -106,7 +106,9 @@ trait CanHaveMasterAXI4MMIOPort { this: BaseSubsystem =>
         := AXI4UserYanker()
         := AXI4Deinterleaver(sbus.blockBytes)
         := AXI4IdIndexer(params.idBits)
-        := TLToAXI4())
+        := TLToAXI4()
+        := TLAtomicAutomata(passthrough=false) 
+        )
     }
   }
 }

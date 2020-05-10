@@ -34,7 +34,14 @@ class TLSimpleL2Cache(param: TLL2CacheParams)(implicit p: Parameters) extends La
 with HasControlPlaneParameters
 {
   val node = TLAdapterNode(
-    clientFn = { c => c.copy(clients = c.clients map { c2 => c2.copy(sourceId = IdRange(0, 1))} )}
+    clientFn = { c => c.copy(clients = Seq(c.clients(0).copy(sourceId = IdRange(0, 1)))) },
+    managerFn = { m => m.copy(
+      managers = m.managers.map { m2 => m2.copy(
+        supportsAcquireB = TransferSizes.none,
+        supportsAcquireT = TransferSizes.none,
+        supportsArithmetic = TransferSizes.none
+      )},
+    endSinkId = 0)}
   )
 
   lazy val module = new LazyModuleImp(this) {

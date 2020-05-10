@@ -70,7 +70,23 @@ class TLFragmenter(val minSize: Int, val maxSize: Int, val alwaysMin: Boolean = 
         val managers  = manager.managers
         val beatBytes = manager.beatBytes
         val fifoId = managers(0).fifoId
+        if (!fifoId.isDefined) {
+          println(s"not define fifoId: ${this}")
+        }
+        if (!managers.map(_.fifoId == fifoId).reduce(_ && _)) {
+          println(s"bad fifoid ${fifoId}")
+          println(s"${managers}")
+          println(s"${managers.map(_.fifoId)}")
+        }
         require (fifoId.isDefined && managers.map(_.fifoId == fifoId).reduce(_ && _))
+        if (manager.anySupportAcquireB) {
+          for (m <- manager.managers) {
+            if (!m.supportsAcquireB.none) {
+              println("bad manager")
+              println(s"${m}")
+            }
+          }
+        }
         require (!manager.anySupportAcquireB)
 
         require (minSize >= beatBytes, s"TLFragmenter (with parent $parent) can't support fragmenting ($minSize) to sub-beat ($beatBytes) accesses")

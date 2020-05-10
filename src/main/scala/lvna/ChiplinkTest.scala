@@ -14,7 +14,7 @@ import sifive.blocks.devices.chiplink._
 object ChiplinkParam {
   val addr_uh = AddressSet(0x80000000L, 0x10000000L - 1)
   // Must have a cacheable address sapce.
-  val addr_c = AddressSet(0x90000000L, 0x10000000L - 1)
+  val addr_c = AddressSet(0x90000000L, 0x1000000L - 1)
 }
 
 
@@ -28,14 +28,34 @@ trait HasChiplinkPort { this: BaseSubsystem =>
   val chiplink = LazyModule(new ChipLink(chiplinkParam))
   val linksink = chiplink.ioNode.makeSink // Must call makeSink under LazyModule context.
 
+  val mchipBar = TLXbar()
+
+  private val mmioParam = p(ExtBus).get
+  private def filtering_uh(m: TLManagerParameters) = {
+    if (m.address.exists(a=>ChiplinkParam.addr_uh.overlaps(a))) Some(m) else None
+  }
+  private def filtering_mmio(c: TLClientParameters) = {
+    if (!c.supportsProbe) Some(c) else None
+  }
+  val filter_uh = TLFilter(filtering_uh, filtering_mmio)
+
+  private def filtering_c(m: TLManagerParameters) = {
+    if (!m.address.exists(a=>ChiplinkParam.addr_uh.overlaps(a))) Some(m) else None
+  }
+  val filter_c = TLFilter(filtering_c)
+
+
   // Attach chiplink as a master to system bus.
-  chiplink.node := sbus.coupleTo("chiplinkOut"){ o => TLFIFOFixer(TLFIFOFixer.all) := TLWidthWidget(8) := o }
+  sbus.coupleTo("chiplinkOut"){ o => mchipBar := filter_uh := o }
+
+  chiplink.node := TLFIFOFixer(TLFIFOFixer.all) := TLWidthWidget(8) := mchipBar
 
   // Fake bus to serve chiplink's strict manager requirements.
   val chipbar = TLXbar()
-  val chiperr = LazyModule(new TLError(DevNullParams(Seq(AddressSet(0x90000000L, 0x10000000L - 1)), 64, 64, region = RegionType.TRACKED)))
-  chipbar := chiplink.node
-  chiperr.node := chipbar
+  val chiperr = LazyModule(new TLError(DevNullParams(Seq(AddressSet(0x91000000L, 0x1000000L - 1)), 64, 64, region = RegionType.TRACKED)))
+  chiperr.node := TLWidthWidget(8) := chipbar
+  chipbar := TLFIFOFixer(TLFIFOFixer.all) := /*TLFragmenter(8, 64) := */ TLWidthWidget(4) := TLHintHandler() := chiplink.node
+  //mbus.coupleFrom("chiplinkIn") { i => i := chipbar }
 }
 
 trait HasChiplinkPortImpl extends LazyModuleImp {

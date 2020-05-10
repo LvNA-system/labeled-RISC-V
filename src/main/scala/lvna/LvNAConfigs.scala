@@ -143,7 +143,7 @@ class LvNAFPGAConfigzcu102 extends Config(
   new WithoutFPU
   ++ new WithNonblockingL1(8)
   ++ new WithNL2CacheCapacity(2048)
-  ++ new WithNBigCores(1)
+  ++ new WithNBigCores(2)
   ++ new WithRationalRocketTiles
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
   ++ new WithExtMemSize(0x80000000L)  // 2GB
