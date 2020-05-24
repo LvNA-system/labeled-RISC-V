@@ -109,61 +109,62 @@ class TestHarness()(implicit p: Parameters) extends Module {
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
   chip.connectSimAXIMem()
-  //dut.connectSimAXIMMIO()
+  chip.connectSimAXIMMIO()
+  chip.l2_frontend_bus_axi4.foreach( q => q := DontCare ) // Overridden in next line
   Debug.connectDebug(dut.debug, clock, reset, io.success)
 
   val enableFrontBusTraffic = false
   val frontBusAccessAddr = 0x10000fc00L
 
   if (!enableFrontBusTraffic) {
-    //dut.l2_frontend_bus_axi4.foreach(_.tieoff)
+    chip.l2_frontend_bus_axi4.foreach(_.tieoff)
   }
   else {
-    //val axi = dut.l2_frontend_bus_axi4.head
-    //axi.r.ready := Bool(true)
-    //axi.b.ready := Bool(true)
-    //axi.ar.valid := Bool(false)
+    val axi = chip.l2_frontend_bus_axi4.head
+    axi.r.ready := Bool(true)
+    axi.b.ready := Bool(true)
+    axi.ar.valid := Bool(false)
 
-    //val IDLE = 0
-    //val WADDR = 1
-    //val state = RegInit(IDLE.U)
-    //val awvalid = RegInit(false.B)
-    //val wvalid = RegInit(false.B)
-    //val wlast = RegInit(false.B)
-    //val next_state = Wire(state.cloneType)
-    //state := next_state
-    //val (value, timeout) = Counter(state === IDLE.U, 300)
-    //when(state === IDLE.U) {
-    //  next_state := Mux(timeout, WADDR.U, IDLE.U)
-    //}.elsewhen(state === WADDR.U) {
-    //  awvalid := true.B
-    //  wvalid := true.B
-    //  wlast := true.B
-    //  when(axi.aw.fire()) {
-    //    awvalid := false.B
-    //    wvalid := false.B
-    //    wlast := false.B
-    //    next_state := IDLE.U
-    //  }.otherwise {
-    //    next_state := WADDR.U
-    //  }
-    //}.otherwise {
-    //  printf("Unexpected frontend axi state: %d", state)
-    //}
+    val IDLE = 0
+    val WADDR = 1
+    val state = RegInit(IDLE.U)
+    val awvalid = RegInit(false.B)
+    val wvalid = RegInit(false.B)
+    val wlast = RegInit(false.B)
+    val next_state = Wire(state.cloneType)
+    state := next_state
+    val (value, timeout) = Counter(state === IDLE.U, 300)
+    when(state === IDLE.U) {
+      next_state := Mux(timeout, WADDR.U, IDLE.U)
+    }.elsewhen(state === WADDR.U) {
+      awvalid := true.B
+      wvalid := true.B
+      wlast := true.B
+      when(axi.aw.fire()) {
+        awvalid := false.B
+        wvalid := false.B
+        wlast := false.B
+        next_state := IDLE.U
+      }.otherwise {
+        next_state := WADDR.U
+      }
+    }.otherwise {
+      printf("Unexpected frontend axi state: %d", state)
+    }
 
-    //axi.w.valid := wvalid
-    //axi.aw.valid := awvalid
-    //axi.w.bits.last := wlast
-    //axi.aw.bits.id := 111.U
-    //axi.aw.bits.addr := frontBusAccessAddr.U
-    //axi.aw.bits.len := 0.U // Curr cycle data?
-    //axi.aw.bits.size := 2.U // 2^2 = 4 bytes
-    //axi.aw.bits.burst := AXI4Parameters.BURST_INCR
-    //axi.aw.bits.lock := UInt(0)
-    //axi.aw.bits.cache := UInt(0)
-    //axi.aw.bits.prot := AXI4Parameters.PROT_PRIVILEDGED
-    //axi.aw.bits.qos := UInt(0)
-    //axi.w.bits.data := UInt(0xdeadbeefL)
-    //axi.w.bits.strb := UInt(0xf) // only lower 4 bits is allowed to be 1.
+    axi.w.valid := wvalid
+    axi.aw.valid := awvalid
+    axi.w.bits.last := wlast
+    axi.aw.bits.id := 111.U
+    axi.aw.bits.addr := frontBusAccessAddr.U
+    axi.aw.bits.len := 0.U // Curr cycle data?
+    axi.aw.bits.size := 2.U // 2^2 = 4 bytes
+    axi.aw.bits.burst := AXI4Parameters.BURST_INCR
+    axi.aw.bits.lock := UInt(0)
+    axi.aw.bits.cache := UInt(0)
+    axi.aw.bits.prot := AXI4Parameters.PROT_PRIVILEDGED
+    axi.aw.bits.qos := UInt(0)
+    axi.w.bits.data := UInt(0xdeadbeefL)
+    axi.w.bits.strb := UInt(0xf) // only lower 4 bits is allowed to be 1.
   }
 }

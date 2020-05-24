@@ -25,7 +25,6 @@ class NonProbeBridge()(implicit p: Parameters) extends LazyModule
   val node = TLAdapterNode(
     clientFn = (c) => {
       c.copy(clients = c.clients.map { cp =>
-        println(s"cp name ${cp.name}, ${cp.supportsGet}, ${cp.supportsProbe}")
         cp.copy(
           supportsProbe = TransferSizes.none
         )
@@ -126,14 +125,32 @@ class TLLogger(implicit p: Parameters) extends LazyModule {
   }
 }
 
+
 class LinkTopBase(implicit p: Parameters) extends LazyModule {
   val mbus = TLXbar()
+  val fxbar = TLXbar()
+  val ferr = LazyModule(new TLError(DevNullParams(Seq(AddressSet(0x90000000L, 0x10000000L - 1)), 64, 64, region = RegionType.TRACKED)))
+
+  val chiplinkParam = ChipLinkParams(
+    TLUH = List(ChiplinkParam.addr_uh),
+    TLC  = List(ChiplinkParam.addr_c),
+    syncTX = true
+  )
+
+  val chiplink = LazyModule(new ChipLink(chiplinkParam))
+  val sink = chiplink.ioNode.makeSink
+
+  chiplink.node := fxbar
+  ferr.node := fxbar
+
   override lazy val module = new LinkTopBaseImpl(this)
 }
 
 class LinkTopBaseImpl[+L <: LinkTopBase](_outer: L) extends LazyModuleImp(_outer) {
   val outer = _outer
+  val fpga_io = outer.sink.makeIO()
 }
+
 
 trait CanHaveMasterAXI4MemPortForLinkTop { this: LinkTopBase =>
   val module: CanHaveMasterAXI4MemPortModuleImpForLinkTop
@@ -179,6 +196,85 @@ trait CanHaveMasterAXI4MemPortModuleImpForLinkTop extends LazyModuleImp {
         val mem = LazyModule(new SimAXIMem(edge, size = p(ExtMem).get.master.size))
         Module(mem.module).io.axi4.head <> io
       }
+    }
+  }
+}
+
+
+/** Adds an AXI4 port to the system intended to be a slave on an MMIO device bus */
+trait CanHaveSlaveAXI4PortForLinkTop { this: ChiplinkTop =>
+  implicit val p: Parameters
+
+  private val slavePortParamsOpt = p(ExtIn)
+  private val portName = "slave_port_axi4"
+  private val fifoBits = 1
+
+  val l2FrontendAXI4Node = AXI4MasterNode(
+    slavePortParamsOpt.map(params =>
+      AXI4MasterPortParameters(
+        masters = Seq(AXI4MasterParameters(
+          name = portName.kebab,
+          id   = IdRange(0, 1 << params.idBits))))).toSeq)
+
+  slavePortParamsOpt.map { params =>
+    fxbar := TLFIFOFixer(TLFIFOFixer.all) := (TLWidthWidget(params.beatBytes)
+      := AXI4ToTL()
+      := AXI4UserYanker(Some(1 << (params.sourceBits - fifoBits - 1)))
+      := AXI4Fragmenter()
+      := AXI4IdIndexer(fifoBits)
+      := l2FrontendAXI4Node)
+  }
+}
+
+/** Actually generates the corresponding IO in the concrete Module */
+trait CanHaveSlaveAXI4PortModuleImpForLinkTop extends LazyModuleImp {
+  val outer: CanHaveSlaveAXI4PortForLinkTop
+  val l2_frontend_bus_axi4 = IO(Flipped(HeterogeneousBag.fromNode(outer.l2FrontendAXI4Node.out)))
+  (outer.l2FrontendAXI4Node.out zip l2_frontend_bus_axi4) foreach { case ((bundle, _), io) => bundle <> io }
+}
+
+
+/** Adds a AXI4 port to the system intended to master an MMIO device bus */
+trait CanHaveMasterAXI4MMIOPortForLinkTop { this: LinkTopBase =>
+  implicit val p: Parameters
+
+  private val mmioPortParamsOpt = p(ExtBus)
+  private val portName = "mmio_port_axi4"
+  private val device = new SimpleBus(portName.kebab, Nil)
+
+  val mmioAXI4Node = AXI4SlaveNode(
+    mmioPortParamsOpt.map(params =>
+      AXI4SlavePortParameters(
+        slaves = Seq(AXI4SlaveParameters(
+          address       = AddressSet.misaligned(params.base, params.size),
+          resources     = device.ranges,
+          executable    = params.executable,
+          supportsWrite = TransferSizes(1, params.maxXferBytes),
+          supportsRead  = TransferSizes(1, params.maxXferBytes))),
+        beatBytes = params.beatBytes)).toSeq)
+
+  mmioPortParamsOpt.map { params =>
+    mmioAXI4Node := (AXI4Buffer()
+      := AXI4UserYanker()
+      := AXI4Deinterleaver(64 /* blockBytes, literal OK? */)
+      := AXI4IdIndexer(params.idBits)
+      := TLToAXI4()) := mbus
+  }
+}
+
+
+/** Actually generates the corresponding IO in the concrete Module */
+trait CanHaveMasterAXI4MMIOPortModuleImpForLinkTop extends LazyModuleImp {
+  val outer: CanHaveMasterAXI4MMIOPortForLinkTop
+  val mmio_axi4 = IO(HeterogeneousBag.fromNode(outer.mmioAXI4Node.in))
+
+  (mmio_axi4 zip outer.mmioAXI4Node.in) foreach { case (io, (bundle, _)) => io <> bundle }
+
+  def connectSimAXIMMIO() {
+    (mmio_axi4 zip outer.mmioAXI4Node.in) foreach { case (io, (_, edge)) =>
+      // test harness size capped to 4KB (ignoring p(ExtMem).get.master.size)
+      val mmio_mem = LazyModule(new SimAXIMem(edge, size = 4096))
+      Module(mmio_mem.module).io.axi4.head <> io
     }
   }
 }
@@ -256,29 +352,18 @@ class DummyMaster()(implicit p: Parameters) extends LazyModule {
   */
 class ChiplinkTop(implicit p: Parameters) extends LinkTopBase
   with CanHaveMasterAXI4MemPortForLinkTop
+  with CanHaveMasterAXI4MMIOPortForLinkTop
+  with CanHaveSlaveAXI4PortForLinkTop
 {
   // Dummy manager network
   val err = LazyModule(new TLError(DevNullParams(Seq(AddressSet(0x90000000L, 0x10000000L - 1)), 64, 64, region = RegionType.TRACKED)))
-
-  // Dummy client
-  val client = LazyModule(new DummyMaster())
-
-  val chiplinkParam = ChipLinkParams(
-    TLUH = List(ChiplinkParam.addr_uh),
-    TLC  = List(ChiplinkParam.addr_c),
-    syncTX = true
-  )
-
-  val chiplink = LazyModule(new ChipLink(chiplinkParam))
-  val sink = chiplink.ioNode.makeSink
-
-  chiplink.node := client.node
 
   // Hint & Atomic augment
   mbus := TLAtomicAutomata(passthrough=false) := TLFIFOFixer(TLFIFOFixer.all) := TLHintHandler() := TLWidthWidget(4) := chiplink.node
   err.node := TLWidthWidget(8) := mbus
 
-  override lazy val module = new LinkTopBaseImpl(this) with CanHaveMasterAXI4MemPortModuleImpForLinkTop {
-    val fpga_io = sink.makeIO()
-  }
+  override lazy val module = new LinkTopBaseImpl(this)
+    with CanHaveMasterAXI4MemPortModuleImpForLinkTop
+	with CanHaveMasterAXI4MMIOPortModuleImpForLinkTop
+    with CanHaveSlaveAXI4PortModuleImpForLinkTop
 }
