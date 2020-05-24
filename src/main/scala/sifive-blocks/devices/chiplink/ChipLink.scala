@@ -8,6 +8,8 @@ import freechips.rocketchip.tilelink._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.util._
 
+case object AvoidChiplinkManagerRequirements extends Field[Boolean](false)
+
 class ChipLink(val params: ChipLinkParams)(implicit p: Parameters) extends LazyModule() {
 
   val device = new SimpleBus("chiplink", Seq("sifive,chiplink"))
@@ -105,7 +107,7 @@ class ChipLink(val params: ChipLinkParams)(implicit p: Parameters) extends LazyM
     require (edgeIn.manager.beatBytes == 4)
     edgeOut.manager.requireFifo()
 
-    edgeOut.manager.managers.foreach { m =>
+    edgeOut.manager.managers.foreach { m => if (p(AvoidChiplinkManagerRequirements)) {
       require (m.supportsGet.contains(params.fullXfer),
         s"ChipLink requires ${m.name} support ${params.fullXfer} Get, not ${m.supportsGet}")
       if (m.supportsPutFull) {
@@ -126,7 +128,7 @@ class ChipLink(val params: ChipLinkParams)(implicit p: Parameters) extends LazyM
         s"ChipLink requires ${m.name} support ${params.acqXfer} AcquireB, not ${m.supportsAcquireB}")
       require (!m.supportsAcquireB || !m.supportsPutFull || m.supportsAcquireT,
         s"ChipLink requires ${m.name} to support AcquireT if it supports Put and AcquireB")
-    }
+    }}
 
     // Anything that is optional, must be supported by the error device (for redirect)
     val errorDevs = edgeOut.manager.managers.filter(_.nodePath.last.lazyModule.className == "TLError")

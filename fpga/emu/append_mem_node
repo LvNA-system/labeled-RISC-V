@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+import fdt
+import os
+from sys import *
+
+if __name__ == '__main__':
+    try:
+        emu_dtb = argv[1]
+    except:
+        print("Usage: {} <some.dtb> (overwrite this file)".format(argv[0]))
+        exit(-1)
+
+    with open(emu_dtb, 'rb') as f:
+        try:
+          dt = fdt.parse_dtb(f.read())
+        except:
+            print(emu_dtb + "is not a valid dtb file")
+            exit(-1)
+
+    mem_name = 'memory@100000000'
+    memnode = fdt.Node(mem_name)
+    memnode.append(fdt.PropStrings('device_type', 'memory'))
+    # base hi, base lo, size hi, size lo.
+    memnode.append(fdt.PropWords('reg', 0x1, 0x0, 0x0, 0x00800000))
+
+    dt.add_item(memnode)
+
+    with open(emu_dtb, 'wb') as f:
+      f.write(dt.to_dtb())

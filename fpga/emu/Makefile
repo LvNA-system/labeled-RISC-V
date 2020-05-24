@@ -44,6 +44,11 @@ $(nohype_dtb): $(build_dir)/generated-src/freechips.rocketchip.system.$(CONFIG).
 	./gen_nohype_dtb emu.dtb $(build_dir) || echo "Please install python module 'pyfdt'"
 	rm emu.dtb
 
+smp_dtb: $(build_dir)/generated-src/freechips.rocketchip.system.$(CONFIG).dts
+	dtc $^ -O dtb -o $(build_dir)/c0.dtb
+	./append_mem_node $(build_dir)/c0.dtb || echo "Please install python module fdt by 'pip3 install fdt'"
+	./gen_dtb_bin.sh $(build_dir)
+
 $(nohype_dtb_hex_file): $(nohype_dtb)
 	./gen_dtb_bin.sh $(build_dir)
 

@@ -1,6 +1,7 @@
 package freechips.rocketchip.subsystem
 
 import chisel3._
+import chisel3.util._
 
 import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
@@ -16,6 +17,34 @@ object ChiplinkParam {
   val addr_uh = AddressSet(0x40000000L, 0x20000000L - 1)
   // Must have a cacheable address sapce.
   val addr_c = AddressSet(0x100000000L, 0x80000000L - 1)
+}
+
+
+class NonProbeBridge()(implicit p: Parameters) extends LazyModule
+{
+  val node = TLAdapterNode(
+    clientFn = (c) => {
+      c.copy(clients = c.clients.map { cp =>
+        println(s"cp name ${cp.name}, ${cp.supportsGet}, ${cp.supportsProbe}")
+        cp.copy(
+          supportsProbe = TransferSizes.none
+        )
+      })
+    }
+  )
+
+  override lazy val module = new LazyModuleImp(this) {
+    (node.out zip node.in) foreach { case ((io_out, edge_out), (io_in, edge_in)) =>
+      io_out <> io_in
+      io_in.b.valid := false.B
+      io_out.b.ready := false.B
+      io_out.c.valid := false.B
+      io_in.c.ready := false.B
+
+      assert(!io_out.b.valid, "Unexpected probe from frontbus to chiplink")
+      assert(!io_in.c.valid, "Unexpected release from chiplink to frontbus")
+    }
+  }
 }
 
 
@@ -61,7 +90,9 @@ trait HasChiplinkPort { this: BaseSubsystem =>
   val chiperr = LazyModule(new TLError(DevNullParams(Seq(AddressSet(0x91000000L, 0x1000000L - 1)), 64, 64, region = RegionType.TRACKED)))
   chiperr.node := TLWidthWidget(8) := chipbar
   chipbar := TLFIFOFixer(TLFIFOFixer.all) := /*TLFragmenter(8, 64) := */ TLWidthWidget(4) := TLHintHandler() := chiplink.node
-  //mbus.coupleFrom("chiplinkIn") { i => i := chipbar }
+  // [WHZ] TODO Test crossFrom / synchronousCrossing
+  val nonProbeBridge = LazyModule(new NonProbeBridge())
+  fbus.fromPort(Some("chipMaster")) { nonProbeBridge.node := chipbar }
 }
 
 
@@ -81,7 +112,7 @@ class TLLogger(implicit p: Parameters) extends LazyModule {
       val cnt = RegInit(1.U(64.W))
       val precnt = RegInit(0.U(64.W))
       when (in.a.valid && cnt =/= precnt) {
-        printf("A addr %x opcode %x param %x data %x\n", in.a.bits.address, in.a.bits.opcode, in.a.bits.param, in.a.bits.data)
+        printf("A addr %x opcode %x param %x data %x source %x\n", in.a.bits.address, in.a.bits.opcode, in.a.bits.param, in.a.bits.data, in.a.bits.source)
         precnt := cnt
       }
       when (in.a.fire()) {
@@ -152,6 +183,74 @@ trait CanHaveMasterAXI4MemPortModuleImpForLinkTop extends LazyModuleImp {
   }
 }
 
+
+class DummyMaster()(implicit p: Parameters) extends LazyModule {
+  val node = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters("dummyMaster")))))
+
+  override lazy val module = new LazyModuleImp(this) {
+    val (client_out, e) = node.out(0)
+    client_out.a.valid := false.B
+    client_out.c.valid := false.B
+    client_out.e.valid := false.B
+    client_out.a.bits := 0.U.asTypeOf(client_out.a.bits)
+    client_out.c.bits := 0.U.asTypeOf(client_out.c.bits)
+    client_out.e.bits := 0.U.asTypeOf(client_out.e.bits)
+    client_out.b.ready := false.B
+    client_out.d.ready := false.B
+
+    val s_init :: s_req :: s_wait_resp :: Nil = Enum(3)
+    val state = RegInit(s_init)
+    val (delay_cnt, overflow) = Counter(state === s_init, 300)
+    val beat_cnt = RegInit(0.U)
+
+    client_out.a.valid := state === s_req
+    client_out.d.ready := state === s_wait_resp
+
+    val tasks = List(
+      (e.Put(0.U, 0x100000000L.U, 1.U, 0x0000a001L.U, 0x3.U), 1.U),  // half data width partial
+      (e.Get(0.U, 0x100000000L.U, log2Ceil(8).U), 2.U),
+      (e.Put(0.U, 0x100000003L.U, 0.U, 0xbb0000ccL.U, 0x8.U), 1.U),  // unaligned partial
+    )
+
+    val cmds_check = VecInit(tasks.map(_._1._1))
+    val cmds_a = VecInit(tasks.map(_._1._2))
+    val expected_resps = VecInit(tasks.map(_._2))
+
+    val cmd_index = Counter(tasks.size)
+
+    client_out.a.bits := cmds_a(cmd_index.value)
+    val curr_check = cmds_check(cmd_index.value)
+    val curr_expect_resps = expected_resps(cmd_index.value)
+
+    when (state === s_init) {
+      when (overflow) {
+        printf("client to s_req, check = %x\n", curr_check)
+        state := s_req
+      }
+    }
+    when (state === s_req) {
+      when (client_out.a.fire()) {
+        printf("client to s_wait_resp, expect %d resp(s)\n", curr_expect_resps)
+        state := s_wait_resp
+        beat_cnt := curr_expect_resps
+      }
+    }
+    when (state === s_wait_resp) {
+      when (client_out.d.fire()) {
+        printf("client get resp opcode %x data %x\n", client_out.d.bits.opcode, client_out.d.bits.data)
+        beat_cnt := beat_cnt - 1.U
+        when (beat_cnt === 1.U) {
+          state := s_init
+          printf("client to s_init\n")
+          delay_cnt := 0.U
+          cmd_index.inc() // Select next cmd
+        }
+      }
+    }
+  }
+}
+
+
 /**
   * Dual top module against Rocketchip over rx/tx channel.
   */
@@ -159,13 +258,10 @@ class ChiplinkTop(implicit p: Parameters) extends LinkTopBase
   with CanHaveMasterAXI4MemPortForLinkTop
 {
   // Dummy manager network
-  //val xbar = TLXbar()
-  // val ram = TLRAM(ChiplinkParam.addr_uh, cacheable = false, executable = false, beatBytes = 8, devName = Some("chiplinkSlave"))
   val err = LazyModule(new TLError(DevNullParams(Seq(AddressSet(0x90000000L, 0x10000000L - 1)), 64, 64, region = RegionType.TRACKED)))
-  val lognode = LazyModule(new TLLogger())
 
   // Dummy client
-  val client = TLClientNode(Seq(TLClientPortParameters(Seq(TLClientParameters("dummyMaster")))))
+  val client = LazyModule(new DummyMaster())
 
   val chiplinkParam = ChipLinkParams(
     TLUH = List(ChiplinkParam.addr_uh),
@@ -176,23 +272,13 @@ class ChiplinkTop(implicit p: Parameters) extends LinkTopBase
   val chiplink = LazyModule(new ChipLink(chiplinkParam))
   val sink = chiplink.ioNode.makeSink
 
-  chiplink.node := client
+  chiplink.node := client.node
 
   // Hint & Atomic augment
-  mbus := lognode.node := TLAtomicAutomata(passthrough=false) := TLFIFOFixer(TLFIFOFixer.all) := TLHintHandler() := TLWidthWidget(4) := chiplink.node
+  mbus := TLAtomicAutomata(passthrough=false) := TLFIFOFixer(TLFIFOFixer.all) := TLHintHandler() := TLWidthWidget(4) := chiplink.node
   err.node := TLWidthWidget(8) := mbus
-  // ram := lognode.node := TLAtomicAutomata(passthrough=false) := TLFragmenter(8, 64) := TLWidthWidget(4) := xbar
 
   override lazy val module = new LinkTopBaseImpl(this) with CanHaveMasterAXI4MemPortModuleImpForLinkTop {
-    val (client_out, _) = client.out(0)
-    client_out.a.valid := false.B
-    client_out.c.valid := false.B
-    client_out.e.valid := false.B
-    client_out.a.bits := 0.U.asTypeOf(client_out.a.bits)
-    client_out.c.bits := 0.U.asTypeOf(client_out.c.bits)
-    client_out.e.bits := 0.U.asTypeOf(client_out.e.bits)
-    client_out.b.ready := false.B
-    client_out.d.ready := false.B
     val fpga_io = sink.makeIO()
   }
 }
