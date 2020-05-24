@@ -23,8 +23,14 @@ emu_gen_script = gen_bin.sh
 emu_bin_hex_file = $(build_dir)/bin.txt
 nohype_dtb = $(build_dir)/c0.dtb
 nohype_dtb_hex_file = $(build_dir)/c0.dtb.txt
-# max_cycles = 40000000
-max_cycles = 2209069
+
+ifndef max_cycles
+	max_cycles=40000000
+endif
+
+ifdef HAS_MAX_CYCLES
+	OPT_MAX_CYCLE=-m $(max_cycles)
+endif
 
 $(emu): $(original_emu)
 	ln -sf $< $@
@@ -52,7 +58,7 @@ DEBUG_ARGS = +jtag_rbb_enable=1 -r 4040
 endif
 
 run-emu: $(emu) $(emu_bin_hex_file) $(nohype_dtb_hex_file)
-	cd $(dir $(emu)) && LD_LIBRARY_PATH=$(RISCV)/lib time $< $(DEBUG_ARGS) $(SEED) +verbose -m $(max_cycles) . 3>&1 1>&2 2>&3 \
+	cd $(dir $(emu)) && LD_LIBRARY_PATH=$(RISCV)/lib time $< $(DEBUG_ARGS) $(SEED) +verbose $(OPT_MAX_CYCLE) . 3>&1 1>&2 2>&3 \
 		| spike-dasm > $(dir $(emu))/emu.log
 
 dtb-clean:
