@@ -159,7 +159,7 @@ xilinx.com:ip:xlslice:1.0\
 set bCheckModules 1
 if { $bCheckModules == 1 } {
    set list_check_mods "\ 
-LvNAFPGATop\
+DualTop\
 "
 
    set list_mods_missing ""
@@ -296,7 +296,7 @@ proc create_root_design { parentCell } {
  ] $uncoreclk
 
   # Create instance: LvNAFPGATop_0, and set properties
-  set block_name LvNAFPGATop
+  set block_name DualTop
   set block_cell_name LvNAFPGATop_0
   if { [catch {set LvNAFPGATop_0 [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
      catch {common::send_msg_id "BD_TCL-105" "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}

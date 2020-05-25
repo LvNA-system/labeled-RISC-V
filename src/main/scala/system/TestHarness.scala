@@ -95,9 +95,14 @@ class TestHarness()(implicit p: Parameters) extends Module {
   }
 
   val dualTop = Module(LazyModule(new DualTop).module)
+
+  dualTop.corerst := dualTop.reset
+  dualTop.coreclk := dualTop.clock
+
   dualTop.dontTouchPorts()
   Debug.connectDebug(dualTop.debug, clock, reset, io.success)
 }
+
 
 class TestHarness2()(implicit p: Parameters) extends Module {
   val io = new Bundle {
@@ -105,23 +110,24 @@ class TestHarness2()(implicit p: Parameters) extends Module {
   }
 
   val chip = Module(LazyModule(new ChiplinkTop).module)
-
-  // Weird compilation failure...
-  // val dut = Module(LazyModule(if (p(UseEmu)) new LvNAEmuTop else new LvNAFPGATop).module)
   val dut = if (p(UseEmu)) Module(LazyModule(new LvNAEmuTop).module) else Module(LazyModule(new LvNAFPGATop).module)
-  dut.reset := reset | dut.debug.ndreset
-  if (!p(UseBoom)) {
-    dut.corerst := dut.reset
-    dut.coreclk := dut.clock
-  }
+
+  dut.reset := reset.toBool() | dut.debug.ndreset
+  chip.reset := reset.toBool() | dut.debug.ndreset
+
+  dut.corerst := dut.reset
+  dut.coreclk := dut.clock
 
   dut.io_chip.b2c <> chip.fpga_io.c2b
   chip.fpga_io.b2c <> dut.io_chip.c2b
+
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
   chip.connectSimAXIMem()
   chip.connectSimAXIMMIO()
+
   chip.l2_frontend_bus_axi4.foreach( q => q := DontCare ) // Overridden in next line
+
   Debug.connectDebug(dut.debug, clock, reset, io.success)
 
   val enableFrontBusTraffic = false
