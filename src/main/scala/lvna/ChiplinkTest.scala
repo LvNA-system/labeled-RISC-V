@@ -9,12 +9,13 @@ import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.amba.axi4._
+import freechips.rocketchip.system._
 
 import sifive.blocks.devices.chiplink._
 
 
 object ChiplinkParam {
-  val addr_uh = AddressSet(0x40000000L, 0x20000000L - 1)
+  val addr_uh = AddressSet(0x40000000L, 0x40000000L - 1)
   // Must have a cacheable address sapce.
   val addr_c = AddressSet(0x100000000L, 0x80000000L - 1)
 }
@@ -366,4 +367,54 @@ class ChiplinkTop(implicit p: Parameters) extends LinkTopBase
     with CanHaveMasterAXI4MemPortModuleImpForLinkTop
 	with CanHaveMasterAXI4MMIOPortModuleImpForLinkTop
     with CanHaveSlaveAXI4PortModuleImpForLinkTop
+}
+
+
+class DualTop(implicit p: Parameters) extends LazyModule
+{
+  val chip_top = LazyModule(new ChiplinkTop)
+
+  val rocket_top = LazyModule(new LvNAFPGATop)
+
+
+  override lazy val module = new LazyModuleImp(this) with DontTouch
+  {
+    val rocket = rocket_top.module
+    val chip = chip_top.module
+    rocket.reset := reset.toBool() | rocket.debug.ndreset
+    chip.reset := reset.toBool() | rocket.debug.ndreset
+
+    rocket.io_chip.b2c <> chip.fpga_io.c2b
+    chip.fpga_io.b2c <> rocket.io_chip.c2b
+
+    val debug = IO(chiselTypeOf(rocket.debug))
+    debug <> rocket.debug
+    val coreclk = IO(chiselTypeOf(rocket.coreclk))
+    coreclk <> rocket.coreclk
+    val corerst = IO(chiselTypeOf(rocket.corerst))
+    corerst <> rocket.corerst
+    val ila = IO(chiselTypeOf(rocket.ila))
+    ila <> rocket.ila
+    val fpga_trace = IO(chiselTypeOf(rocket.fpga_trace))
+    fpga_trace <> rocket.fpga_trace
+    val fpga_trace_ex = IO(chiselTypeOf(rocket.fpga_trace_ex))
+    fpga_trace_ex <> rocket.fpga_trace_ex
+    val interrupts = IO(chiselTypeOf(rocket.interrupts))
+    interrupts <> rocket.interrupts
+    val reset_to_hang_en = IO(chiselTypeOf(rocket.reset_to_hang_en))
+    reset_to_hang_en <> rocket.reset_to_hang_en
+    val mem_part_en = IO(chiselTypeOf(rocket.mem_part_en))
+    mem_part_en <> rocket.mem_part_en
+    val distinct_hart_dsid_en = IO(chiselTypeOf(rocket.distinct_hart_dsid_en))
+    distinct_hart_dsid_en <> rocket.distinct_hart_dsid_en
+
+    val mem_axi4 = chip.mem_axi4.map(e => IO(chiselTypeOf(e)))
+    mem_axi4.foreach { outside => chip.mem_axi4.map { inside =>
+      outside <> inside
+    }}
+    val mmio_axi4 = IO(chiselTypeOf(chip.mmio_axi4))
+    mmio_axi4 <> chip.mmio_axi4
+    val l2_frontend_bus_axi4 = IO(chiselTypeOf(chip.l2_frontend_bus_axi4))
+    chip.l2_frontend_bus_axi4 <> l2_frontend_bus_axi4
+  }
 }

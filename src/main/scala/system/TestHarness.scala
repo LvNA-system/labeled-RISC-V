@@ -9,6 +9,7 @@ import freechips.rocketchip.devices.debug.Debug
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.subsystem._
+import freechips.rocketchip.system._
 
 class SimFront()(implicit p: Parameters) extends Module {
   val io = new Bundle {
@@ -89,6 +90,16 @@ class BoomTestHarness()(implicit p: Parameters) extends Module {
 }
 
 class TestHarness()(implicit p: Parameters) extends Module {
+  val io = new Bundle {
+    val success = Bool(OUTPUT)
+  }
+
+  val dualTop = Module(LazyModule(new DualTop).module)
+  dualTop.dontTouchPorts()
+  Debug.connectDebug(dualTop.debug, clock, reset, io.success)
+}
+
+class TestHarness2()(implicit p: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
   }
