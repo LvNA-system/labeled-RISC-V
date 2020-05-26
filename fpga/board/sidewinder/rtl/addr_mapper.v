@@ -1,6 +1,6 @@
 module addr_mapper (
-   `axi_slave_if(s_axi, 64, 1),
-   `axi_master_if(m_axi, 64, 1)
+   `axi_slave_if(s_axi, 64, 16),
+   `axi_master_if(m_axi, 64, 16)
 );
 
     assign  m_axi_awaddr = {4'd8, 1'b0, s_axi_awaddr[30:0]};
@@ -46,12 +46,11 @@ module addr_mapper (
 endmodule
 
 module dma_addr_mapper (
-   `axi_slave_if(s_axi, 64, 16),
-   `axi_master_if(m_axi, 64, 16)
+   `axi_slave_if(s_axi, 64, 32),
+   `axi_master_if(m_axi, 64, 32)
 );
-
-    assign  m_axi_awaddr = {4'd1, 1'b0, s_axi_awaddr[30:0]};
-    assign  m_axi_araddr = {4'd1, 1'b0, s_axi_araddr[30:0]};
+    assign  m_axi_awaddr = (s_axi_awaddr[31:28] == 4'h9) ? {1'b1, 4'h7, s_axi_awaddr[27:0]} : s_axi_awaddr;
+    assign  m_axi_araddr = (s_axi_araddr[31:28] == 4'h9) ? {1'b1, 4'h7, s_axi_araddr[27:0]} : s_axi_araddr;
     assign  m_axi_arburst = s_axi_arburst;
     assign  m_axi_arcache = s_axi_arcache;
     assign  m_axi_arid    = s_axi_arid   ;

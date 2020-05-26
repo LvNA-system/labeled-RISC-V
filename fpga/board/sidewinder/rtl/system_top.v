@@ -10,13 +10,13 @@ module system_top (
 //  output [7:0] led
 );
 
-  `axi_wire(AXI_MEM_MAPPED, 64, 1);
-  `axi_wire(AXI_MEM, 64, 1);
+  `axi_wire(AXI_MEM_MAPPED, 64, 16);
+  `axi_wire(AXI_MEM, 64, 16);
   `axi_wire(AXI_MMIO, 64, 8);
   `axi_wire(AXI_DMA, 64, 16);
 
   //`axi_wire(AXI_FBUS_FROM_ZYNQ, 64, 16);
-  //`axi_wire(AXI_FBUS_TO_ROCKET, 64, 16);
+  `axi_wire(AXI_FBUS_TO_ROCKET, 64, 16);
 
   wire jtag_TCK;
   wire jtag_TMS;
@@ -64,15 +64,15 @@ module system_top (
     `axi_connect_if(s_axi, AXI_MEM),
     `axi_connect_if(m_axi, AXI_MEM_MAPPED)
   );
-/*
+
   dma_addr_mapper dma_addr_mapper_i(
-    `axi_connect_if(s_axi, AXI_FBUS_FROM_ZYNQ),
+    `axi_connect_if(s_axi, AXI_DMA),
     `axi_connect_if(m_axi, AXI_FBUS_TO_ROCKET)
   );
-*/
+
   pardcore pardcore_i(
     `axi_connect_if(M_AXI_MEM, AXI_MEM),
-    `axi_connect_if(S_AXI_DMA, AXI_DMA),
+    `axi_connect_if(S_AXI_DMA, AXI_FBUS_TO_ROCKET),
     //`axi_connect_if(S_AXI_SBUS, AXI_FBUS_TO_ROCKET),
     `axi_connect_if(M_AXI_MMIO, AXI_MMIO),
 
