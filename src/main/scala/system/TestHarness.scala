@@ -144,26 +144,32 @@ class TestHarness2()(implicit p: Parameters) extends Module {
 
     val IDLE = 0
     val WADDR = 1
+    val STOP = 2
+
     val state = RegInit(IDLE.U)
     val awvalid = RegInit(false.B)
     val wvalid = RegInit(false.B)
     val wlast = RegInit(false.B)
-    val next_state = Wire(state.cloneType)
-    state := next_state
     val (value, timeout) = Counter(state === IDLE.U, 300)
     when(state === IDLE.U) {
-      next_state := Mux(timeout, WADDR.U, IDLE.U)
+      state := Mux(timeout, WADDR.U, IDLE.U)
     }.elsewhen(state === WADDR.U) {
       awvalid := true.B
       wvalid := true.B
       wlast := true.B
+      printf("Hello\n")
       when(axi.aw.fire()) {
         awvalid := false.B
         wvalid := false.B
         wlast := false.B
-        next_state := IDLE.U
+        printf("END\n")
+        state := STOP.U
       }.otherwise {
-        next_state := WADDR.U
+        state := WADDR.U
+      }
+    }.elsewhen(state === STOP.U) {
+      when (axi.b.fire()) {
+        printf("BRESP: id %x\n", axi.b.bits.id)
       }
     }.otherwise {
       printf("Unexpected frontend axi state: %d", state)
@@ -172,16 +178,16 @@ class TestHarness2()(implicit p: Parameters) extends Module {
     axi.w.valid := wvalid
     axi.aw.valid := awvalid
     axi.w.bits.last := wlast
-    axi.aw.bits.id := 111.U
+    axi.aw.bits.id := 0xac.U
     axi.aw.bits.addr := frontBusAccessAddr.U
     axi.aw.bits.len := 0.U // Curr cycle data?
-    axi.aw.bits.size := 2.U // 2^2 = 4 bytes
+    axi.aw.bits.size := 0.U // 2^2 = 4 bytes
     axi.aw.bits.burst := AXI4Parameters.BURST_INCR
     axi.aw.bits.lock := UInt(0)
     axi.aw.bits.cache := UInt(0)
     axi.aw.bits.prot := AXI4Parameters.PROT_PRIVILEDGED
     axi.aw.bits.qos := UInt(0)
     axi.w.bits.data := UInt(0xdeadbeefL)
-    axi.w.bits.strb := UInt(0xf) // only lower 4 bits is allowed to be 1.
+    axi.w.bits.strb := UInt(0x2) // only lower 4 bits is allowed to be 1.
   }
 }

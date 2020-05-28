@@ -48,6 +48,33 @@ class NonProbeBridge()(implicit p: Parameters) extends LazyModule
 }
 
 
+class NonAtomicBridge()(implicit p: Parameters) extends LazyModule
+{
+  val node = TLAdapterNode(
+    managerFn = (m) => {
+      m.copy(managers = m.managers.map { mp =>
+        mp.copy(
+          supportsArithmetic = TransferSizes.none,
+          supportsLogical = TransferSizes.none,
+          supportsHint = TransferSizes.none)
+      })
+    })
+
+  override lazy val module = new LazyModuleImp(this) {
+    (node.out zip node.in) foreach { case ((io_out, edge_out), (io_in, edge_in)) =>
+      io_out <> io_in
+      io_in.b.valid := false.B
+      io_out.b.ready := false.B
+      io_out.c.valid := false.B
+      io_in.c.ready := false.B
+
+      assert(!io_out.b.valid, "Unexpected probe from frontbus to chiplink")
+      assert(!io_in.c.valid, "Unexpected release from chiplink to frontbus")
+    }
+  }
+}
+
+
 trait HasChiplinkPort { this: BaseSubsystem =>
   val chiplinkParam = ChipLinkParams(
     TLUH = List(ChiplinkParam.addr_uh),
@@ -102,7 +129,7 @@ trait HasChiplinkPortImpl extends LazyModuleImp {
 }
 
 
-class TLLogger(implicit p: Parameters) extends LazyModule {
+class TLLogger(prefix: String)(implicit p: Parameters) extends LazyModule {
   val node = TLAdapterNode()
   override lazy val module = new LazyModuleImp(this) {
     (node.in zip node.out) foreach { case ((in, _), (out, _)) =>
@@ -112,20 +139,25 @@ class TLLogger(implicit p: Parameters) extends LazyModule {
       val cnt = RegInit(1.U(64.W))
       val precnt = RegInit(0.U(64.W))
       when (in.a.valid && cnt =/= precnt) {
-        printf("A addr %x opcode %x param %x data %x source %x\n", in.a.bits.address, in.a.bits.opcode, in.a.bits.param, in.a.bits.data, in.a.bits.source)
         precnt := cnt
       }
       when (in.a.fire()) {
-        printf("A fired\n")
+        printf(s"[$prefix] A addr %x opcode %x param %x data %x source %x mask %b\n", in.a.bits.address, in.a.bits.opcode, in.a.bits.param, in.a.bits.data, in.a.bits.source, in.a.bits.mask)
         cnt := cnt + 1.U
       }
       when (in.d.fire()) {
-        printf("D opcode %x data %x\n", in.d.bits.opcode, in.d.bits.data)
+        printf(s"[$prefix] D opcode %x data %x source %x\n", in.d.bits.opcode, in.d.bits.data, in.d.bits.source)
       }
     }
   }
 }
 
+object TLLogger {
+  def apply(prefix: String)(implicit p: Parameters) = {
+    val logger = LazyModule(new TLLogger(prefix))
+    logger.node
+  }
+}
 
 class LinkTopBase(implicit p: Parameters) extends LazyModule {
   val mbus = TLXbar()
