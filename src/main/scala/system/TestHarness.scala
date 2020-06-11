@@ -89,7 +89,7 @@ class BoomTestHarness()(implicit p: Parameters) extends Module {
   }
 }
 
-class TestHarness()(implicit p: Parameters) extends Module {
+class TestHarness2()(implicit p: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
   }
@@ -104,90 +104,18 @@ class TestHarness()(implicit p: Parameters) extends Module {
 }
 
 
-class TestHarness2()(implicit p: Parameters) extends Module {
+class TestHarness()(implicit p: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
   }
 
-  val chip = Module(LazyModule(new ChiplinkTop).module)
   val dut = if (p(UseEmu)) Module(LazyModule(new LvNAEmuTop).module) else Module(LazyModule(new LvNAFPGATop).module)
 
   dut.reset := reset.toBool() | dut.debug.ndreset
-  chip.reset := reset.toBool() | dut.debug.ndreset
 
   dut.corerst := dut.reset
   dut.coreclk := dut.clock
-
-  dut.io_chip.b2c <> chip.fpga_io.c2b
-  chip.fpga_io.b2c <> dut.io_chip.c2b
-
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
-  chip.connectSimAXIMem()
-  chip.connectSimAXIMMIO()
-
-  chip.l2_frontend_bus_axi4.foreach( q => q := DontCare ) // Overridden in next line
-
   Debug.connectDebug(dut.debug, clock, reset, io.success)
-
-  val enableFrontBusTraffic = false
-  val frontBusAccessAddr = 0x10000fc00L
-
-  if (!enableFrontBusTraffic) {
-    chip.l2_frontend_bus_axi4.foreach(_.tieoff)
-  }
-  else {
-    val axi = chip.l2_frontend_bus_axi4.head
-    axi.r.ready := Bool(true)
-    axi.b.ready := Bool(true)
-    axi.ar.valid := Bool(false)
-
-    val IDLE = 0
-    val WADDR = 1
-    val STOP = 2
-
-    val state = RegInit(IDLE.U)
-    val awvalid = RegInit(false.B)
-    val wvalid = RegInit(false.B)
-    val wlast = RegInit(false.B)
-    val (value, timeout) = Counter(state === IDLE.U, 300)
-    when(state === IDLE.U) {
-      state := Mux(timeout, WADDR.U, IDLE.U)
-    }.elsewhen(state === WADDR.U) {
-      awvalid := true.B
-      wvalid := true.B
-      wlast := true.B
-      printf("Hello\n")
-      when(axi.aw.fire()) {
-        awvalid := false.B
-        wvalid := false.B
-        wlast := false.B
-        printf("END\n")
-        state := STOP.U
-      }.otherwise {
-        state := WADDR.U
-      }
-    }.elsewhen(state === STOP.U) {
-      when (axi.b.fire()) {
-        printf("BRESP: id %x\n", axi.b.bits.id)
-      }
-    }.otherwise {
-      printf("Unexpected frontend axi state: %d", state)
-    }
-
-    axi.w.valid := wvalid
-    axi.aw.valid := awvalid
-    axi.w.bits.last := wlast
-    axi.aw.bits.id := 0xac.U
-    axi.aw.bits.addr := frontBusAccessAddr.U
-    axi.aw.bits.len := 0.U // Curr cycle data?
-    axi.aw.bits.size := 0.U // 2^2 = 4 bytes
-    axi.aw.bits.burst := AXI4Parameters.BURST_INCR
-    axi.aw.bits.lock := UInt(0)
-    axi.aw.bits.cache := UInt(0)
-    axi.aw.bits.prot := AXI4Parameters.PROT_PRIVILEDGED
-    axi.aw.bits.qos := UInt(0)
-    axi.w.bits.data := UInt(0xdeadbeefL)
-    axi.w.bits.strb := UInt(0x2) // only lower 4 bits is allowed to be 1.
-  }
 }

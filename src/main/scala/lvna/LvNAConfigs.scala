@@ -140,12 +140,12 @@ class LvNAFPGAConfigzedboard extends Config(
 
 class LvNAFPGAConfigzcu102 extends Config(
   new WithoutFPU
-  ++ new WithNonblockingL1(8)
-  ++ new WithNL2CacheCapacity(2048)
-  ++ new WithNBigCores(2)
-  ++ new WithRationalRocketTiles
+  ++ new WithoutTLMonitors
+  ++ new WithNL2CacheCapacity(1024 * 4) // in MB
+  ++ new WithNBigCores(8)
+  ++ new WithAsynchronousRocketTiles(8, 3)
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
-  ++ new WithExtMemSize(0x80000000L)  // 2GB
+  ++ new WithExtMemSize(0x100000000L)  // 2GB
   ++ new WithJtagDTM
   ++ new WithDebugSBA
   ++ new BaseFPGAConfig)

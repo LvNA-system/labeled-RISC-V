@@ -256,6 +256,7 @@ trait HaveMasterAPBMMIOPort { this: BaseSubsystem =>
     APBSlavePortParameters(
       slaves = Seq(APBSlaveParameters(
         address       = AddressSet.misaligned(params.base, params.size),
+        executable    = params.executable,
         resources     = device.ranges)),
       beatBytes = params.beatBytes)))
 
