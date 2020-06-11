@@ -7,6 +7,7 @@ import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.amba.axi4._
+import freechips.rocketchip.amba.apb._
 import freechips.rocketchip.util._
 
 /** Specifies the size and width of external memory ports */
@@ -25,6 +26,15 @@ case class MemoryPortParams(master: MasterPortParams, nMemoryChannels: Int)
 case object ExtMem extends Field[Option[MemoryPortParams]](None)
 case object ExtBus extends Field[Option[MasterPortParams]](None)
 case object ExtIn extends Field[Option[SlavePortParams]](None)
+
+/** APB port for QSPI booting */
+case object APBMMIO extends Field(MasterPortParams(
+  base = 0x10000000L,
+  size = 0x30000000L,
+  beatBytes = 4,
+  executable = true,
+  idBits = 8
+))
 
 ///// The following traits add ports to the sytem, in some cases converting to different interconnect standards
 
@@ -233,4 +243,31 @@ class SimAXIMem(edge: AXI4EdgeParameters, size: BigInt)(implicit p: Parameters) 
     val io = IO(new Bundle { val axi4 = HeterogeneousBag.fromNode(node.out).flip })
     (node.out zip io.axi4) foreach { case ((bundle, _), io) => bundle <> io }
   }
+}
+
+
+/** Adds a APB port to the system intended to master an MMIO device bus */
+trait HaveMasterAPBMMIOPort { this: BaseSubsystem =>
+  private val params = p(APBMMIO)
+  private val portName = "mmio_port_apb"
+  private val device = new SimpleBus(portName.kebab, Nil)
+
+  val mmioAPBNode = APBSlaveNode(Seq(
+    APBSlavePortParameters(
+      slaves = Seq(APBSlaveParameters(
+        address       = AddressSet.misaligned(params.base, params.size),
+        resources     = device.ranges)),
+      beatBytes = params.beatBytes)))
+
+  mmioAPBNode := sbus.toFixedWidthPort(Some(portName)) {
+    TLToAPB() := TLFragmenter(params.beatBytes, params.beatBytes * 16, alwaysMin = true)
+  }
+}
+
+/** Actually generates the corresponding IO in the concrete Module */
+trait HaveMasterAPBMMIOPortModuleImp extends LazyModuleImp {
+  val outer: HaveMasterAPBMMIOPort
+  val mmio_apb = IO(HeterogeneousBag.fromNode(outer.mmioAPBNode.in))
+
+  (mmio_apb zip outer.mmioAPBNode.in) foreach { case (io, (bundle, _)) => io <> bundle }
 }
