@@ -448,5 +448,8 @@ class DualTop(implicit p: Parameters) extends LazyModule
     mmio_axi4 <> chip.mmio_axi4
     val l2_frontend_bus_axi4 = IO(chiselTypeOf(chip.l2_frontend_bus_axi4))
     chip.l2_frontend_bus_axi4 <> l2_frontend_bus_axi4
+    
+    val mmio_apb = IO(chiselTypeOf(rocket.mmio_apb))
+    mmio_apb <> rocket.mmio_apb
   }
 }

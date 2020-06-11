@@ -89,7 +89,7 @@ class BoomTestHarness()(implicit p: Parameters) extends Module {
   }
 }
 
-class TestHarness2()(implicit p: Parameters) extends Module {
+class TestHarness()(implicit p: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
   }
@@ -104,7 +104,7 @@ class TestHarness2()(implicit p: Parameters) extends Module {
 }
 
 
-class TestHarness()(implicit p: Parameters) extends Module {
+class TestHarness2()(implicit p: Parameters) extends Module {
   val io = new Bundle {
     val success = Bool(OUTPUT)
   }
