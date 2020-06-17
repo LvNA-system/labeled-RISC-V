@@ -117,5 +117,6 @@ class TestHarness2()(implicit p: Parameters) extends Module {
   dut.coreclk := dut.clock
   dut.dontTouchPorts()
   dut.tieOffInterrupts()
+  dut.l2_frontend_bus_axi4 <> dut.axi4_mem.get
   Debug.connectDebug(dut.debug, clock, reset, io.success)
 }

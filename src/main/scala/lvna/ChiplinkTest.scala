@@ -21,60 +21,6 @@ object ChiplinkParam {
 }
 
 
-class NonProbeBridge()(implicit p: Parameters) extends LazyModule
-{
-  val node = TLAdapterNode(
-    clientFn = (c) => {
-      c.copy(clients = c.clients.map { cp =>
-        cp.copy(
-          supportsProbe = TransferSizes.none
-        )
-      })
-    }
-  )
-
-  override lazy val module = new LazyModuleImp(this) {
-    (node.out zip node.in) foreach { case ((io_out, edge_out), (io_in, edge_in)) =>
-      io_out <> io_in
-      io_in.b.valid := false.B
-      io_out.b.ready := false.B
-      io_out.c.valid := false.B
-      io_in.c.ready := false.B
-
-      assert(!io_out.b.valid, "Unexpected probe from frontbus to chiplink")
-      assert(!io_in.c.valid, "Unexpected release from chiplink to frontbus")
-    }
-  }
-}
-
-
-class NonAtomicBridge()(implicit p: Parameters) extends LazyModule
-{
-  val node = TLAdapterNode(
-    managerFn = (m) => {
-      m.copy(managers = m.managers.map { mp =>
-        mp.copy(
-          supportsArithmetic = TransferSizes.none,
-          supportsLogical = TransferSizes.none,
-          supportsHint = TransferSizes.none)
-      })
-    })
-
-  override lazy val module = new LazyModuleImp(this) {
-    (node.out zip node.in) foreach { case ((io_out, edge_out), (io_in, edge_in)) =>
-      io_out <> io_in
-      io_in.b.valid := false.B
-      io_out.b.ready := false.B
-      io_out.c.valid := false.B
-      io_in.c.ready := false.B
-
-      assert(!io_out.b.valid, "Unexpected probe from frontbus to chiplink")
-      assert(!io_in.c.valid, "Unexpected release from chiplink to frontbus")
-    }
-  }
-}
-
-
 trait HasChiplinkPort { this: BaseSubsystem =>
   val chiplinkParam = ChipLinkParams(
     TLUH = List(ChiplinkParam.addr_uh),
@@ -102,7 +48,7 @@ trait HasChiplinkPort { this: BaseSubsystem =>
 
   val l2cache: TLSimpleL2Cache = if (p(NL2CacheCapacity) != 0) TLSimpleL2CacheRef() else null
   private val l2node = if (p(NL2CacheCapacity) != 0) l2cache.node else TLSimpleL2Cache()
- 
+
   mbus.toDRAMController(Some("chiplink_c")) {
     mchipBar := filter_c := l2node
   }
@@ -116,16 +62,44 @@ trait HasChiplinkPort { this: BaseSubsystem =>
   val chipbar = TLXbar()
   val chiperr = LazyModule(new TLError(DevNullParams(Seq(AddressSet(0x91000000L, 0x1000000L - 1)), 64, 64, region = RegionType.TRACKED)))
   chiperr.node := TLWidthWidget(8) := chipbar
-  chipbar := TLFIFOFixer(TLFIFOFixer.all) := /*TLFragmenter(8, 64) := */ TLWidthWidget(4) := TLHintHandler() := chiplink.node
-  // [WHZ] TODO Test crossFrom / synchronousCrossing
-  val nonProbeBridge = LazyModule(new NonProbeBridge())
-  fbus.fromPort(Some("chipMaster")) { nonProbeBridge.node := chipbar }
+  chipbar := TLFIFOFixer(TLFIFOFixer.all) := TLHintHandler() := TLWidthWidget(4) := chiplink.node
+
+  val memAXI = p(ExtMem).map { case MemoryPortParams(memPortParams, nMemoryChannels) =>
+    val portName = "axi4"
+    val device = new MemoryDevice
+
+    val memAXI4Node = AXI4SlaveNode(Seq.tabulate(nMemoryChannels) { channel =>
+      val base = AddressSet.misaligned(memPortParams.base, memPortParams.size)
+      val filter = AddressSet(channel * mbus.blockBytes, ~((nMemoryChannels-1) * mbus.blockBytes))
+
+      AXI4SlavePortParameters(
+        slaves = Seq(AXI4SlaveParameters(
+          address       = base.flatMap(_.intersect(filter)),
+          resources     = device.reg,
+          regionType    = RegionType.UNCACHED, // cacheable
+          executable    = true,
+          supportsWrite = TransferSizes(1, 64),
+          supportsRead  = TransferSizes(1, 64),
+          interleavedId = Some(0))), // slave does not interleave read responses
+        beatBytes = memPortParams.beatBytes)
+    })
+
+    memAXI4Node := AXI4UserYanker() := AXI4IdIndexer(memPortParams.idBits) := TLToAXI4() := TLAtomicAutomata(passthrough=false) := chipbar
+
+    memAXI4Node
+  }
 }
 
 
 trait HasChiplinkPortImpl extends LazyModuleImp {
   val outer: HasChiplinkPort
   val io_chip = outer.linksink.makeIO()
+
+  val axi4_mem = outer.memAXI.map(x => IO(HeterogeneousBag.fromNode(x.in)))
+  (axi4_mem zip outer.memAXI) foreach { case (io, node) =>
+
+    (io zip node.in).foreach { case (io, (bundle, _)) => io <> bundle }
+  }
 }
 
 
@@ -448,8 +422,10 @@ class DualTop(implicit p: Parameters) extends LazyModule
     mmio_axi4 <> chip.mmio_axi4
     val l2_frontend_bus_axi4 = IO(chiselTypeOf(chip.l2_frontend_bus_axi4))
     chip.l2_frontend_bus_axi4 <> l2_frontend_bus_axi4
-    
+
     val mmio_apb = IO(chiselTypeOf(rocket.mmio_apb))
     mmio_apb <> rocket.mmio_apb
+
+    rocket.l2_frontend_bus_axi4 <> rocket.axi4_mem.get
   }
 }

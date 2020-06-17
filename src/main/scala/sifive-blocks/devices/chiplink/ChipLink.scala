@@ -8,7 +8,7 @@ import freechips.rocketchip.tilelink._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.util._
 
-case object AvoidChiplinkManagerRequirements extends Field[Boolean](false)
+case object AvoidChiplinkManagerRequirements extends Field[Boolean](true)
 
 class ChipLink(val params: ChipLinkParams)(implicit p: Parameters) extends LazyModule() {
 
