@@ -429,7 +429,7 @@ with HasControlPlaneParameters
           metadata.dirty := Mux(read_hit, db_rdata_reg(update_way),
             Mux(read_miss, false.B, true.B))
           metadata.tag := tag
-          metadata.dsid := dsid
+          metadata.dsid := Mux(hit, set_dsids_reg(i), dsid)  // not update when hit a shared block.
         } .otherwise {
           metadata.valid := vb_rdata_reg(i)
           metadata.dirty := db_rdata_reg(i)
