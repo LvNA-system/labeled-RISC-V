@@ -64,29 +64,24 @@ trait HasChiplinkPort { this: BaseSubsystem =>
   chiperr.node := TLWidthWidget(8) := chipbar
   chipbar := TLFIFOFixer(TLFIFOFixer.all) := TLHintHandler() := TLWidthWidget(4) := chiplink.node
 
-  val memAXI = p(ExtMem).map { case MemoryPortParams(memPortParams, nMemoryChannels) =>
-    val portName = "axi4"
-    val device = new MemoryDevice
+  private val memPortParamsOpt = p(ExtMem)
+  private val portName = "mem_tl"
+  private val device = new SimpleBus(portName.kebab, Nil)
 
-    val memAXI4Node = AXI4SlaveNode(Seq.tabulate(nMemoryChannels) { channel =>
-      val base = AddressSet.misaligned(memPortParams.base, memPortParams.size)
-      val filter = AddressSet(channel * mbus.blockBytes, ~((nMemoryChannels-1) * mbus.blockBytes))
+  val memTLNode = TLManagerNode(
+    memPortParamsOpt.map{ case MemoryPortParams(params, _) =>
+      TLManagerPortParameters(
+        managers = Seq(TLManagerParameters(
+          address            = AddressSet.misaligned(params.base, params.size),
+          resources          = device.ranges,
+          executable         = params.executable,
+          supportsGet        = TransferSizes(1, sbus.blockBytes),
+          supportsPutFull    = TransferSizes(1, sbus.blockBytes),
+          supportsPutPartial = TransferSizes(1, sbus.blockBytes))),
+        beatBytes = params.beatBytes)}.toSeq)
 
-      AXI4SlavePortParameters(
-        slaves = Seq(AXI4SlaveParameters(
-          address       = base.flatMap(_.intersect(filter)),
-          resources     = device.reg,
-          regionType    = RegionType.UNCACHED, // cacheable
-          executable    = true,
-          supportsWrite = TransferSizes(1, 64),
-          supportsRead  = TransferSizes(1, 64),
-          interleavedId = Some(0))), // slave does not interleave read responses
-        beatBytes = memPortParams.beatBytes)
-    })
-
-    memAXI4Node := AXI4UserYanker() := AXI4IdIndexer(memPortParams.idBits) := TLToAXI4() := TLAtomicAutomata(passthrough=false) := chipbar
-
-    memAXI4Node
+  memPortParamsOpt.map { case MemoryPortParams(params, channels) =>
+    memTLNode := TLBuffer() := TLSourceShrinker(1 << params.idBits) := TLFIFOFixer(TLFIFOFixer.all) := TLAtomicAutomata(passthrough=false) := chipbar
   }
 }
 
@@ -95,11 +90,8 @@ trait HasChiplinkPortImpl extends LazyModuleImp {
   val outer: HasChiplinkPort
   val io_chip = outer.linksink.makeIO()
 
-  val axi4_mem = outer.memAXI.map(x => IO(HeterogeneousBag.fromNode(x.in)))
-  (axi4_mem zip outer.memAXI) foreach { case (io, node) =>
-
-    (io zip node.in).foreach { case (io, (bundle, _)) => io <> bundle }
-  }
+  val mem_tl = IO(HeterogeneousBag.fromNode(outer.memTLNode.in))
+  (mem_tl zip outer.memTLNode.in) foreach { case (io, (bundle, _)) => io <> bundle }
 }
 
 
@@ -216,12 +208,13 @@ trait CanHaveSlaveAXI4PortForLinkTop { this: ChiplinkTop =>
   private val portName = "slave_port_axi4"
   private val fifoBits = 1
 
+  val idBits = 17
   val l2FrontendAXI4Node = AXI4MasterNode(
     slavePortParamsOpt.map(params =>
       AXI4MasterPortParameters(
         masters = Seq(AXI4MasterParameters(
           name = portName.kebab,
-          id   = IdRange(0, 1 << params.idBits))))).toSeq)
+          id   = IdRange(0, 1 << idBits))))).toSeq)
 
   slavePortParamsOpt.map { params =>
     fxbar := TLFIFOFixer(TLFIFOFixer.all) := (TLWidthWidget(params.beatBytes)
@@ -426,6 +419,6 @@ class DualTop(implicit p: Parameters) extends LazyModule
     val mmio_apb = IO(chiselTypeOf(rocket.mmio_apb))
     mmio_apb <> rocket.mmio_apb
 
-    rocket.l2_frontend_bus_axi4 <> rocket.axi4_mem.get
+    rocket.l2_frontend_bus_tl <> rocket.mem_tl
   }
 }
