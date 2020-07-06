@@ -3,6 +3,7 @@ package lvna
 import Chisel._
 import boom.system.{HasBoomTiles, HasBoomTilesModuleImp}
 import chisel3.core.{IO, Input, Output, WireInit}
+import chisel3.util.experimental.BoringUtils
 import freechips.rocketchip.config.{Field, Parameters}
 import freechips.rocketchip.diplomacy.{AddressSet, LazyModule, LazyModuleImp, SimpleDevice}
 import freechips.rocketchip.subsystem._
@@ -90,6 +91,9 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val PC                  = UInt(OUTPUT, p(XLen))
 
   val assertDebugInt      = Bool(INPUT)
+
+  val rtc = UInt(OUTPUT, 32)
+  val rtcWen = Bool(INPUT)
 }
 
 /* From ControlPlane's View */
@@ -245,6 +249,15 @@ with HasTokenBucketParameters
     val mem_base_lo_tmp = RegInit(0.U(32.W))
     val mem_mask_lo_tmp = RegInit((~0.U(32.W)).asUInt)
 
+    /**
+     * Configurable RTC.
+     * This value describes how many interval cycles
+     * a tick rises.
+     */
+    val rtc = RegInit(9.U(32.W))
+    io.cp.rtc := rtc
+    BoringUtils.addSource(rtc, "lvnaRTC")
+
     when (io.cp.memBaseLoWen) {
       mem_base_lo_tmp := io.cp.updateData
     }
@@ -279,6 +292,10 @@ with HasTokenBucketParameters
 
     when (io.cp.waymaskWen) {
       waymasks(currDsid) := io.cp.updateData
+    }
+
+    when (io.cp.rtcWen) {
+      rtc := io.cp.updateData
     }
 
 
@@ -320,6 +337,7 @@ with HasTokenBucketParameters
       offset(CP_HART_ID)     -> Seq(RegField(32, progHartIds(hartSel))),
       offset(CP_TIMER_LO)    -> Seq(RegField(32, timestamp_buffered(31, 0), ())),
       offset(CP_TIMER_HI)    -> Seq(RegField(32, timestamp_buffered(63, 32), ())),
+      offset(CP_RTC)         -> Seq(RegField(32, rtc)),
     )
 
 
