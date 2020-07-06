@@ -57,7 +57,7 @@ class ExampleRocketSystem(implicit p: Parameters) extends RocketSubsystem
     with HasAsyncExtInterrupts
     with HasChiplinkPort
     with CanHaveSlaveTLPort
-    with HasPeripheryBootROM {
+    with HasPeripherySpiFlash {
   override lazy val module = new ExampleRocketSystemModuleImp(this)
 
   // The sbus masters the cbus; here we convert TL-UH -> TL-UL
@@ -85,7 +85,7 @@ class ExampleRocketSystemModuleImp[+L <: ExampleRocketSystem](_outer: L) extends
     with HasExtInterruptsModuleImp
     with HasChiplinkPortImpl
     with CanHaveSlaveTLPortModuleImp
-    with HasPeripheryBootROMModuleImp
+    with HasPeripherySpiFlashModuleImp
     with DontTouch
 
 ///** Example Top with periphery devices and ports, and a Rocket subsystem */

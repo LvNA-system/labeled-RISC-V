@@ -88,3 +88,15 @@ trait HasPeripheryBootROMModuleImp extends LazyModuleImp
   val reset_to_hang_en = IO(Bool().asInput)
   global_reset_vector := Mux(reset_to_hang_en, outer.params.hang.U, outer.params.address.U)
 }
+
+
+trait HasPeripherySpiFlash { this: BaseSubsystem =>
+}
+
+trait HasPeripherySpiFlashModuleImp extends LazyModuleImp
+    with HasResetVectorWire {
+  val outer: HasPeripherySpiFlash
+  val reset_to_hang_en = IO(Bool().asInput)
+
+  global_reset_vector := Mux(RegNext(reset_to_hang_en), "h1000_0040".U, "h1000_0000".U)
+}
