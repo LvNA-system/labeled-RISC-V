@@ -17,7 +17,7 @@ import sifive.blocks.devices.chiplink._
 object ChiplinkParam {
   val addr_uh = AddressSet(0x40000000L, 0x40000000L - 1)
   // Must have a cacheable address sapce.
-  val addr_c = AddressSet(0x100000000L, 0x100000000L - 1)
+  val addr_c = AddressSet(0x100000000L, 0x700000000L - 1)
 }
 
 
