@@ -392,12 +392,6 @@ class DualTop(implicit p: Parameters) extends LazyModule
     coreclk <> rocket.coreclk
     val corerst = IO(chiselTypeOf(rocket.corerst))
     corerst <> rocket.corerst
-    val ila = IO(chiselTypeOf(rocket.ila))
-    ila <> rocket.ila
-    val fpga_trace = IO(chiselTypeOf(rocket.fpga_trace))
-    fpga_trace <> rocket.fpga_trace
-    val fpga_trace_ex = IO(chiselTypeOf(rocket.fpga_trace_ex))
-    fpga_trace_ex <> rocket.fpga_trace_ex
     val interrupts = IO(chiselTypeOf(rocket.interrupts))
     interrupts <> rocket.interrupts
     val reset_to_hang_en = IO(chiselTypeOf(rocket.reset_to_hang_en))

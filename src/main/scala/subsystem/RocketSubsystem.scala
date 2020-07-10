@@ -89,11 +89,12 @@ class RocketSubsystemModuleImp[+L <: RocketSubsystem](_outer: L) extends BaseSub
   }
 
   // head: single core only
-  val ila = IO(new BoomCSRILABundle())
-  ila := _outer.tiles.head.module.ila
+  val fpga_debug = false
+  val ila = if (fpga_debug) Option(IO(new BoomCSRILABundle())) else None
+  ila.foreach{_ := _outer.tiles.head.module.ila}
 
-  val fpga_trace = IO(new FPGATraceBaseBundle(1))
-  val fpga_trace_ex = IO(new FPGATraceExtraBundle())
-  fpga_trace := _outer.tiles.head.module.fpga_trace
-  fpga_trace_ex := _outer.tiles.head.module.fpga_trace_ex
+  val fpga_trace = if (fpga_debug) Option(IO(new FPGATraceBaseBundle(1))) else None
+  val fpga_trace_ex = if (fpga_debug) Option(IO(new FPGATraceExtraBundle())) else None
+  fpga_trace.foreach{_ := _outer.tiles.head.module.fpga_trace}
+  fpga_trace_ex.foreach{_ := _outer.tiles.head.module.fpga_trace_ex}
 }
