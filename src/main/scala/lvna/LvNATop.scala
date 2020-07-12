@@ -35,6 +35,7 @@ class LvNAEmuTopModule[+L <: LvNAEmuTop](_outer: L) extends ExampleRocketSystemM
 class LvNAFPGATop(implicit p: Parameters) extends ExampleRocketSystem
     with HasControlPlane
     with HasChiplinkPort
+    with BindL2WayMask
 {
   override lazy val module = new LvNAFPGATopModule(this)
 }
@@ -42,6 +43,7 @@ class LvNAFPGATop(implicit p: Parameters) extends ExampleRocketSystem
 class LvNAFPGATopModule[+L <: LvNAFPGATop](_outer: L) extends ExampleRocketSystemModuleImp(_outer)
     with HasControlPlaneModuleImpl
     with HasChiplinkPortImpl
+    with BindL2WayMaskModuleImp
 
 //class LvNAFPGATopAHB(implicit p: Parameters) extends ExampleRocketSystemAHB
 //
