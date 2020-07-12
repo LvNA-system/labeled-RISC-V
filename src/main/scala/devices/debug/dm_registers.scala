@@ -386,6 +386,16 @@ object DMI_RegAddrs {
 
   def CP_TIMER_HI = 0x57
 
+  def CP_L2_REQ_MISS = 0x58
+
+  def CP_L2_REQ_TOTAL = 0x59
+
+  def CP_L2_STAT_RESET = 0x5a
+
+  def CP_L2_REQ_EN = 0x5b
+
+  def CP_L2_CAPACITY_DUMP = 0x5c
+
   def CP_RTC = 0x60
 
   def CORE_PC_HI    = 0x70
@@ -409,7 +419,6 @@ object DMI_RegAddrs {
   def CORE_CSR_PENDING_INT_LO = 0x79
 
   def CORE_CSR_PENDING_INT_HI = 0x7a
-
 
   def CP_HART_ID = 0x7b
 }

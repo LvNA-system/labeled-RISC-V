@@ -87,7 +87,6 @@ with HasControlPlaneParameters
       val indexBits = log2Ceil(nSets)
       val blockOffsetBits = log2Ceil(blockBytes)
       val tagBits = addrWidth - indexBits - blockOffsetBits
-      val offsetLSB = 0
       val offsetMSB = blockOffsetBits - 1
       val indexLSB = offsetMSB + 1
       val indexMSB = indexLSB + indexBits - 1
@@ -153,7 +152,6 @@ with HasControlPlaneParameters
 
       val in_opcode = in.a.bits.opcode
       val in_dsid = in.a.bits.dsid
-      val in_instret = in.a.bits.instret
       val in_addr = in.a.bits.address
       val in_id   = in.a.bits.source
       val in_len_shift = in.a.bits.size >= innerBeatBits.U
@@ -167,16 +165,13 @@ with HasControlPlaneParameters
       val in_recv_handshake = in.a.ready
 
       val in_send_ok = in.d.fire()
-      val in_send_id = in.d.bits.source
-      val in_send_opcode = in.d.bits.opcode
 
       val addr = Reg(UInt(addrWidth.W))
       val id = Reg(UInt(innerIdWidth.W))
       val opcode = Reg(UInt(3.W))
       val dsid = RegInit(((1 << dsidWidth) - 1).U(dsidWidth.W))
-      val instret = Reg(UInt(64.W))
       val size_reg = Reg(UInt(width=in.a.bits.params.sizeBits))
-      
+
       val ren = RegInit(N)
       val wen = RegInit(N)
 
@@ -204,7 +199,6 @@ with HasControlPlaneParameters
           id := in_id
           opcode := in_opcode
           dsid := in_dsid
-          instret := in_instret
           size_reg := in.a.bits.size
 
           // gather_curr_beat_reg := start_beat
@@ -220,7 +214,6 @@ with HasControlPlaneParameters
           id := in_id
           opcode := in_opcode
           dsid := in_dsid
-          instret := in_instret
           size_reg := in.a.bits.size
 
           // gather_curr_beat_reg := start_beat
@@ -265,7 +258,6 @@ with HasControlPlaneParameters
 
       in_recv_handshake := raddr_recv_ready || waddr_recv_ready || wdata_recv_ready
       val raddr_fire = raddr_recv_ready && in_recv_fire
-      val waddr_fire = waddr_recv_ready && in_recv_fire
       val wdata_fire = wdata_recv_ready && in_recv_fire
 
       // s_send_bresp:
@@ -288,6 +280,12 @@ with HasControlPlaneParameters
         size = nSets,
         data = Vec(nWays, new MetadataEntry(tagBits, dsidWidth))
       )
+
+      class MissStat() extends Bundle {
+        val miss = UInt(32.W)
+        val total = UInt(32.W)
+      }
+      val miss_stat_array = Reg(Vec(1 << dsidWidth, new MissStat()))
 
       val idx = addr(indexMSB, indexLSB)
 
@@ -341,16 +339,22 @@ with HasControlPlaneParameters
       val repl_way = Mux((curr_state_reg & curr_mask).orR, PriorityEncoder(curr_state_reg & curr_mask),
         Mux(curr_mask.orR, PriorityEncoder(curr_mask), UInt(0)))
       val repl_dsid = set_dsids_reg(repl_way)
-      val maxWays: BigInt = p(NL2CacheCapacity) * 1024 / blockBytes
-      val dsid_occupacy = RegInit(Vec.fill(1 << dsidWidth)(0.U(maxWays.bitLength.W)))
+
+      val nr_way_max = p(NL2CacheCapacity) * 1024 / blockBytes
+      val occupacy_width = log2Ceil(nr_way_max + 1)
+      val dsid_occupacy = RegInit(Vec(Seq.fill(1 << dsidWidth){ 0.U(occupacy_width.W) }))
+      val dsid_occupacy_dump = Reg(Vec(1 << dsidWidth, UInt(occupacy_width.W)))
+      when (cp.cache_capacity_dump) {
+        (dsid_occupacy_dump zip dsid_occupacy) foreach { case (d, o) => d := o }
+      }
+
       val requester_occupacy = dsid_occupacy(dsid)
       val victim_occupacy = dsid_occupacy(repl_dsid)
       when (state === s_tag_read) {
         log("req_dsid %d occ %d repl_dsid %d occ %d way %d", dsid, requester_occupacy, repl_dsid, victim_occupacy, repl_way)
       }
 
-      cp.capacity := dsid_occupacy(cp.capacity_dsid)
-
+      cp.capacity := dsid_occupacy_dump(cp.capacity_dsid)
 
       // valid and dirty
       val need_writeback = vb_rdata_reg(repl_way) && db_rdata_reg(repl_way)
@@ -364,7 +368,44 @@ with HasControlPlaneParameters
 
       val need_data_read = read_hit || write_hit || read_miss_writeback || write_miss_writeback
 
+      val miss_stat_origin = 
+        RegEnable(miss_stat_array(dsid), 0.U.asTypeOf(new MissStat()), state === s_tag_read_resp)
+
+      val miss_stat_update = Wire(new MissStat())
+      miss_stat_update.miss := miss_stat_origin.miss + Mux(hit, 0.U, 1.U)
+      miss_stat_update.total := miss_stat_origin.total + 1.U
+      
+      val miss_stat_query = RegEnable(miss_stat_array(cp.capacity_dsid),
+                                      0.U.asTypeOf(new MissStat()),
+                                      cp.req_miss_en)
+
+      cp.req_miss := miss_stat_query.miss
+      cp.req_total := miss_stat_query.total
+      when (RegNext(cp.req_miss_en)) {
+        log("query miss stat dsid %d miss %d total %d", cp.capacity_dsid, miss_stat_query.miss, miss_stat_query.total)
+      }
+
+      val reset_miss_stat = cp.stat_reset || reset
+      val miss_stat_iter = Reg(UInt(dsidWidth.W))
+      when (reset_miss_stat) {
+        miss_stat_iter := miss_stat_iter + 1.U
+      }.otherwise{
+        miss_stat_iter := 0.U
+      }
+      val miss_stat_init = Wire(new MissStat())
+      miss_stat_init.miss := 0.U
+      miss_stat_init.total := 0.U
+      val miss_stat_idx = Mux(reset_miss_stat, miss_stat_iter, dsid)
+      val miss_stat_data = Mux(reset_miss_stat, miss_stat_init, miss_stat_update)
+      when (state === s_tag_read || reset_miss_stat) {
+        when (reset_miss_stat) {
+          log("iter %d, miss_stat_data %x", miss_stat_idx, miss_stat_data.asUInt)
+        }
+        miss_stat_array(miss_stat_idx) := miss_stat_data
+      }
+
       when (state === s_tag_read) {
+        log("miss_stat_origin dsid %d miss %d total %d", dsid, miss_stat_origin.miss, miss_stat_origin.total)
         log("hit: %d idx: %x curr_state_reg: %x waymask: %x hit_way: %x repl_way: %x", hit, idx, curr_state_reg, curr_mask, hit_way, repl_way)
         when (ren) {
           log_part("read addr: %x idx: %d tag: %x hit: %d ", addr, idx, tag, hit)
@@ -455,9 +496,13 @@ with HasControlPlaneParameters
           val victim_valid = vb_rdata_reg(repl_way)
           dsid_occupacy.zipWithIndex foreach { case (dsid_occ, i) =>
               when (i.U === dsid && (!victim_valid || i.U =/= repl_dsid)) {
-                dsid_occ := requester_occupacy + 1.U
+                when (requester_occupacy < nr_way_max.U) {
+                  dsid_occ := requester_occupacy + 1.U
+                }
               }.elsewhen(i.U =/= dsid && i.U === repl_dsid && victim_valid) {
-                dsid_occ := victim_occupacy - 1.U
+                when (victim_occupacy > 0.U) {
+                  dsid_occ := victim_occupacy - 1.U
+                }
               }
           }
           when (victim_valid) {
@@ -562,11 +607,9 @@ with HasControlPlaneParameters
       // outer tilelink interface
       // external memory bus width is 32/64/128bits
       // so each memport read/write is mapped into a whole tilelink bus width read/write
-      val axi4_size = log2Up(outerBeatBytes).U
       val mem_addr = Cat(addr(tagMSB, indexLSB), 0.asUInt(blockOffsetBits.W))
 
       val out_raddr_fire = out.a.fire()
-      val out_waddr_fire = out.a.fire()
       val out_wdata_fire = out.a.fire()
       val out_wreq_fire = out.d.fire()
       val out_rdata_fire = out.d.fire()
@@ -624,7 +667,6 @@ with HasControlPlaneParameters
 
       out.a.bits.opcode  := out_opcode
       out.a.bits.dsid    := dsid
-      out.a.bits.instret := instret
       out.a.bits.param   := UInt(0)
       out.a.bits.size    := outerBurstLen.U
       out.a.bits.source  := 0.asUInt(outerIdWidth.W)

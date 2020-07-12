@@ -1083,6 +1083,12 @@ class TLDebugModuleInner(device: Device, getNComponents: () => Int, beatBytes: I
       (CP_WAYMASK     << 2) -> Seq(RWNotify(p(NL2CacheWays), io.cp.waymask,         io.cp.updateData, WireInit(false.B), io.cp.waymaskWen,   None)),
       (CP_HART_ID     << 2) -> Seq(RWNotify(log2Ceil(nTiles),io.cp.progHartId,      io.cp.updateData, WireInit(false.B), io.cp.progHartIdWen, None)),
 
+      (CP_L2_STAT_RESET<<2) -> Seq(RWNotify(1,               WireInit(false.B),     io.cp.updateData, WireInit(false.B), io.cp.l2_stat_reset_wen)),
+      (CP_L2_REQ_EN   << 2) -> Seq(RWNotify(1,               WireInit(0.U),         WireInit(0.U),    io.cp.l2_miss_en,  WireInit(false.B))),
+      (CP_L2_REQ_MISS << 2) -> Seq(RegField.r(32,            io.cp.l2_req_miss)),
+      (CP_L2_REQ_TOTAL<< 2) -> Seq(RegField.r(32,            io.cp.l2_req_total)),
+      (CP_L2_CAPACITY_DUMP << 2) -> Seq(RWNotify(1,          WireInit(false.B),     io.cp.updateData, io.cp.cacheCapacityDumpWen, WireInit(false.B), None)),
+
       (CP_LIMIT           << 2) -> Seq(RWNotify(16,     io.cp.limit,              io.cp.updateData, WireInit(false.B), io.cp.limitWen,          None)),
       (CP_LIMIT_INDEX     << 2) -> Seq(RWNotify(4,      io.cp.limitIndex,         io.cp.updateData, WireInit(false.B), io.cp.limitIndexWen,     None)),
       (CP_LOW_THRESHOLD   << 2) -> Seq(RWNotify(8,      io.cp.lowThreshold,       io.cp.updateData, WireInit(false.B), io.cp.lowThresholdWen,   None)),

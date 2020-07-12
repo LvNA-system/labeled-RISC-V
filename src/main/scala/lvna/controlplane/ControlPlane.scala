@@ -68,6 +68,12 @@ class ControlPlaneIO(implicit val p: Parameters) extends Bundle with HasControlP
   val progHartId   = UInt(OUTPUT, log2Safe(nTiles))
   val progHartIdWen = Bool(INPUT)
 
+  val l2_miss_en   = Bool(INPUT)
+  val l2_req_miss  = UInt(OUTPUT, 32)
+  val l2_req_total = UInt(OUTPUT, 32)
+  val l2_stat_reset_wen = Bool(INPUT)
+  val cacheCapacityDumpWen = Bool(INPUT)
+
   val limitIndex        = UInt(OUTPUT, 4)
   val limitIndexWen     = Bool(INPUT)
   val limit             = UInt(OUTPUT, 16)
@@ -102,6 +108,12 @@ class CPToL2CacheIO(implicit val p: Parameters) extends Bundle with HasControlPl
   val dsid = Input(UInt(dsidWidth.W))  // DSID from requests L2 cache received
   val capacity = Input(UInt(cacheCapacityWidth.W))  // Count on way numbers
   val capacity_dsid = Output(UInt(dsidWidth.W))  // Capacity query dsid
+
+  val req_miss = Input(UInt(32.W))
+  val req_miss_en = Output(Bool())
+  val req_total = Input(UInt(32.W))
+  val stat_reset = Output(Bool())
+  val cache_capacity_dump = Output(Bool())
 }
 
 class BucketState(implicit val p: Parameters) extends Bundle with HasControlPlaneParameters with HasTokenBucketParameters {
@@ -238,6 +250,27 @@ with HasTokenBucketParameters
     io.memBases := memBases
     io.memMasks := memMasks
 
+    val sbus_cap_dump_en = WireInit(false.B)
+    io.l2.cache_capacity_dump := RegNext(io.cp.cacheCapacityDumpWen || sbus_cap_dump_en)
+
+    /**
+     * L2 MISS
+     */
+    val sbus_l2_miss_en = WireInit(false.B)
+    val l2_stat_reset = RegInit(false.B)
+    val miss_en = sbus_l2_miss_en || io.cp.l2_miss_en
+    io.l2.req_miss_en := miss_en
+    io.cp.l2_req_miss := io.l2.req_miss
+    io.cp.l2_req_total := io.l2.req_total
+    io.l2.stat_reset := l2_stat_reset
+
+    when (io.cp.l2_stat_reset_wen) {
+      l2_stat_reset := io.cp.updateData
+    }
+
+
+
+
     when (io.cp.hartSelWen) {
       hartSel := io.cp.updateData
     }
@@ -333,11 +366,16 @@ with HasTokenBucketParameters
       offset(CP_TRAFFIC)     -> Seq(RWNotify(32, bucketState(currDsid).traffic, Wire(UInt()), traffic_read, Wire(Bool()))),
       offset(CP_WAYMASK)     -> Seq(RegField(32, waymasks(currDsid))),
       offset(CP_L2_CAPACITY) -> Seq(RegField(32, io.l2.capacity, ())),
+      offset(CP_L2_REQ_EN)   -> Seq(RWNotify(1, WireInit(false.B), WireInit(false.B), sbus_l2_miss_en, Wire(Bool()))),
+      offset(CP_L2_REQ_MISS) -> Seq(RegField.r(32, io.l2.req_miss)),
+      offset(CP_L2_REQ_TOTAL)-> Seq(RegField.r(32, io.l2.req_total)),
+      offset(CP_L2_STAT_RESET)->Seq(RWNotify(1, WireInit(false.B), l2_stat_reset, Wire(Bool()), WireInit(false.B))),
       offset(CP_DSID_SEL)    -> Seq(RegField(32, currDsid)),
       offset(CP_HART_ID)     -> Seq(RegField(32, progHartIds(hartSel))),
       offset(CP_TIMER_LO)    -> Seq(RegField(32, timestamp_buffered(31, 0), ())),
       offset(CP_TIMER_HI)    -> Seq(RegField(32, timestamp_buffered(63, 32), ())),
       offset(CP_RTC)         -> Seq(RegField(32, rtc)),
+      offset(CP_L2_CAPACITY_DUMP) -> Seq(RWNotify(1, 0.U, Wire(UInt()), sbus_cap_dump_en, Wire(Bool())))
     )
 
 
@@ -617,15 +655,15 @@ trait HasControlPlaneBoomModuleImpl extends HasBoomTilesModuleImp {
 }
 
 trait BindL2WayMask extends HasRocketTiles {
-  this: BaseSubsystem with HasControlPlane with CanHaveMasterAXI4MemPort =>
+  this: BaseSubsystem with HasControlPlane with HasChiplinkPort =>
   val _cp = controlPlane
-  //val _l2 = l2cache
+  val _l2 = l2cache
 }
 
 trait BindL2WayMaskModuleImp extends HasRocketTilesModuleImp {
   val outer: BindL2WayMask
 
-  //if (p(NL2CacheCapacity) != 0) {
-  //  outer._l2.module.cp <> outer._cp.module.io.l2
-  //}
+  if (p(NL2CacheCapacity) != 0) {
+    outer._l2.module.cp <> outer._cp.module.io.l2
+  }
 }
