@@ -141,6 +141,7 @@ class LvNAFPGAConfigzedboard extends Config(
 class LvNAFPGAConfigzcu102 extends Config(
   new WithoutFPU
   ++ new WithoutTLMonitors
+  ++ WithNExtTopInterrupts(7)
   ++ new WithNL2CacheCapacity(1024 * 4) // in MB
   ++ new WithNBigCores(8)
   ++ new WithRationalRocketTiles
