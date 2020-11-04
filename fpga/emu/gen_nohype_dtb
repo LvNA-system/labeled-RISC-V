@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from pyfdt.pyfdt import *
 from sys import *
 import os
@@ -12,7 +12,7 @@ def remove_cpus(fdt, nTiles):
 
 def split_memory(fdt, nTiles):
     mem = fdt.resolve_path('/memory@100000000/reg')
-    mem.words[-1] = mem.words[-1] / nTiles
+    mem.words[-1] = mem.words[-1] // nTiles
 
 def remove_serial(fdt, nTiles, hartid):
     soc = fdt.resolve_path('/soc')
@@ -23,7 +23,7 @@ def remove_serial(fdt, nTiles, hartid):
 def remove_interrupt(fdt, nTiles):
     for dev in int_dev:
         prop = fdt.resolve_path('/soc/' + dev + '/interrupts-extended')
-        prop.words = prop.words[:len(prop.words)/nTiles]
+        prop.words = prop.words[:len(prop.words) // nTiles]
 
 def insert_nohype_index(fdt, hartid):
     for dev in int_dev:
