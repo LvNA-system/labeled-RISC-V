@@ -1,0 +1,37 @@
+From d3211ce94e3c3e477991f1dd1a38e1399fbf50fc Mon Sep 17 00:00:00 2001
+From: chuanqizhang <legend.z@qq.com>
+Date: Wed, 14 Apr 2021 12:08:12 +0800
+Subject: [PATCH] patch for new version of zcu102
+
+---
+ fpga/board/zcu102/bd/prm.tcl | 2 +-
+ fpga/board/zcu102/mk.tcl     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fpga/board/zcu102/bd/prm.tcl b/fpga/board/zcu102/bd/prm.tcl
+index b8c336a5..d562fe53 100644
+--- a/fpga/board/zcu102/bd/prm.tcl
++++ b/fpga/board/zcu102/bd/prm.tcl
+@@ -924,7 +924,7 @@ proc create_root_design { parentCell } {
+    CONFIG.PSU_DDR_RAM_HIGHADDR {0xFFFFFFFF} \
+    CONFIG.PSU_DDR_RAM_HIGHADDR_OFFSET {0x800000000} \
+    CONFIG.PSU_DDR_RAM_LOWADDR_OFFSET {0x80000000} \
+-   CONFIG.PSU_DYNAMIC_DDR_CONFIG_EN {0} \
++   CONFIG.PSU_DYNAMIC_DDR_CONFIG_EN {1} \
+    CONFIG.PSU_MIO_0_DIRECTION {inout} \
+    CONFIG.PSU_MIO_0_INPUT_TYPE {schmitt} \
+    CONFIG.PSU_MIO_10_DIRECTION {inout} \
+diff --git a/fpga/board/zcu102/mk.tcl b/fpga/board/zcu102/mk.tcl
+index 5edfde8f..22af30d4 100644
+--- a/fpga/board/zcu102/mk.tcl
++++ b/fpga/board/zcu102/mk.tcl
+@@ -1,5 +1,5 @@
+ set device xczu9eg-ffvb1156-2-e
+-set board xilinx.com:zcu102:part0:3.1
++set board xilinx.com:zcu102:part0:3.3
+ 
+ set script_dir  [file dirname [info script]]
+ 
+-- 
+2.20.1
+

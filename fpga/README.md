@@ -81,7 +81,8 @@ It may cost about one hour (it depends on the performance of your host) to boot 
 
 ### Build a Vivado project
 
-* Install Vivado 2017.4, and source the setting of Vivado and SDK
+* note: if you are using new version of zcu102 (Please refer to the description of [this link](https://www.xilinx.com/support/answers/71961.html)), you need to apply the patch from [board/zcu102/patch/0001-patch-for-new-version-of-zcu102.patch](board/zcu102/patch/0001-patch-for-new-version-of-zcu102.patch)
+* Install Vivado 2019.1, and source the setting of Vivado and SDK
 * Run the following command to build a Vivado project
 ```
 make project PRJ=myproject BOARD=zcu102
