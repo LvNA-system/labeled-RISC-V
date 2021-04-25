@@ -117,9 +117,8 @@ class LvNABoomFPGAConfigzcu102 extends Config(
 
 class LvNAConfigemu extends Config(
   new WithoutFPU
-  ++ new WithNonblockingL1(8)
-  ++ new WithNL2CacheCapacity(256)
-  ++ new WithNBigCores(2)
+  ++ new WithNL2CacheCapacity(128)
+  ++ new WithNSmallCores(1)
   ++ new WithEmu
   ++ new WithRationalRocketTiles
   ++ new WithExtMemSize(0x8000000L) // 32MB
@@ -152,10 +151,9 @@ class LvNAFPGAConfigzcu102 extends Config(
   ++ new BaseFPGAConfig)
 
 class LvNAFPGAConfigsidewinder extends Config(
-  new WithNonblockingL1(8)
-  ++ new WithNL2CacheCapacity(2048)
+  new WithNL2CacheCapacity(128)
   ++ new WithNExtTopInterrupts(5)
-  ++ new WithNBigCores(4)
+  ++ new WithNSmallCores(1)
   ++ new WithRationalRocketTiles
   ++ new WithTimebase(BigInt(10000000)) // 10 MHz
   ++ new WithExtMemSize(0x80000000L)
@@ -174,4 +172,18 @@ class LvNAFPGAConfigrv32 extends Config(
   ++ new WithExtMemSize(0x80000000L)
   ++ new WithJtagDTM
   ++ new WithDebugSBA
+  ++ new BaseFPGAConfig)
+
+class LvNAFPGAConfigNanShan extends Config(
+  new WithNL2CacheCapacity(128)
+  ++ new WithNExtTopInterrupts(150)
+  ++ new WithNBigCores(1)
+  ++ new WithRationalRocketTiles
+  ++ new WithTimebase(BigInt(10000000)) // 10 MHz
+  ++ new WithExtMemSize(0x100000000L)
+  ++ new WithJtagDTM
+  ++ new WithDebugSBA
+  ++ new WithNSSoCMemPort
+  ++ new WithNSSoCMMIOPort
+  ++ new WithNSSoCSlavePort
   ++ new BaseFPGAConfig)

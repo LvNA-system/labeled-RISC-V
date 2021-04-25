@@ -1,5 +1,5 @@
 // #define DRAM_BASE 0x80000000
-#define DRAM_BASE 0x100000000
+#define DRAM_BASE    0x10000000
 
 .section .text.start, "ax", @progbits
 .globl _start

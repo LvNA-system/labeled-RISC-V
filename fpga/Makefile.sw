@@ -26,13 +26,13 @@ RISCV_COPY_FLAGS = --set-section-flags .bss=alloc,contents --set-section-flags .
 #--------------------------------------------------------------------
 
 BBL_REPO_PATH = $(SW_PATH)/riscv-pk
-BBL_BUILD_COMMIT = 852a0cfcb4ca5d8939cf1f4f4edc898ba6c9fa50
+BBL_BUILD_COMMIT = 0298a46e8ea1af043fa0c1227d48775dab2d1199
 
 BBL_BUILD_PATH = $(BBL_REPO_PATH)/build
 BBL_ELF_BUILD = $(BBL_BUILD_PATH)/bbl
 
-BBL_PAYLOAD = $(LINUX_ELF)
-BBL_CONFIG = --host=riscv64-unknown-elf --with-payload=$(BBL_PAYLOAD) --with-arch=rv64imac --enable-logo
+BBL_PAYLOAD = $(build_dir)/../hello
+BBL_CONFIG = --host=riscv64-unknown-elf --with-arch=rv64imac --enable-logo --enable-boot-machine
 
 BBL_ELF = $(build_dir)/bbl.elf
 BBL_BIN = $(build_dir)/linux.bin
@@ -42,7 +42,7 @@ BBL_BIN = $(build_dir)/linux.bin
 #--------------------------------------------------------------------
 
 LINUX_REPO_PATH = $(SW_PATH)/riscv-linux
-LINUX_BUILD_COMMIT = 8e82b151eb00e268428ccd3f751485972d8c140d
+LINUX_BUILD_COMMIT = a4570dd88648f259a2d63dfea219a2e52151bd56
 
 LINUX_ELF_BUILD = $(LINUX_REPO_PATH)/vmlinux
 LINUX_ELF = $(build_dir)/vmlinux
